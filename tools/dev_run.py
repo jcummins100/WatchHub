@@ -100,6 +100,11 @@ class _Dialog:
         print("  YESNO: %s\n%s" % (title, msg))
         return True
 
+    def input(self, heading, *a, **k):
+        q = os.environ.get("SH_input", "ted lasso")
+        print("  INPUT: %s -> %s" % (heading, q))
+        return q
+
     def select(self, title, options, **k):
         print("  SELECT: %s -> %s" % (title, options))
         return 0
@@ -136,7 +141,9 @@ xbmcplugin.setResolvedUrl = lambda h, ok, li: None
 xbmcvfs = types.ModuleType("xbmcvfs")
 xbmcvfs.translatePath = lambda p: p
 # Pretend a few apps are installed so the "not installed" paths get exercised too.
-xbmcvfs.listdir = lambda p: (["tv.pluto.android/", "com.google.android.youtube.tv/", "org.xbmc.kodi/"], [])
+# SH_apps="pkg1,pkg2,..." mirrors a real device's app list instead.
+_apps = [a.strip() + "/" for a in os.environ.get("SH_apps", "").split(",") if a.strip()]
+xbmcvfs.listdir = lambda p: (_apps or ["tv.pluto.android/", "com.google.android.youtube.tv/", "org.xbmc.kodi/"], [])
 
 for name, mod in (("xbmc", xbmc), ("xbmcaddon", xbmcaddon), ("xbmcgui", xbmcgui), ("xbmcplugin", xbmcplugin), ("xbmcvfs", xbmcvfs)):
     sys.modules[name] = mod
@@ -149,6 +156,12 @@ import addon  # noqa: E402
 
 addon.main()
 strip = lambda s: re.sub(r"\[/?(COLOR[^\]]*|B)\]", "", s)  # noqa: E731
+if os.environ.get("SH_JSON"):
+    # machine-readable listing for tools/watchhub_test.py
+    import json
+    print("@@JSON " + json.dumps([{"url": url, "label": strip(li.label), "folder": folder, "props": li.props, "art": li.art,
+                                   "context": [c[0] for c in li.ctx]} for url, li, folder in _items]))
+    sys.exit(0)
 print("%d items" % len(_items))
 for url, li, folder in _items:
     print(" %s %-70s %s" % ("+" if folder else "-", strip(li.label)[:70], url.replace("plugin://plugin.video.sportshub/?", "")))

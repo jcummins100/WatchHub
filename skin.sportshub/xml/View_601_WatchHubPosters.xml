@@ -96,6 +96,7 @@
 			</control>
 			<!-- grid -->
 			<control type="panel" id="601">
+				<visible>String.IsEqual(Container.PluginName,plugin.video.sportshub) + Container.Content(movies)</visible>
 				<left>84</left>
 				<top>300</top>
 				<width>1700</width>

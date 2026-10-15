@@ -80,7 +80,10 @@ def _play_sportsdb(params):
         if pkg and pkg not in [o[1] for o in options]:
             options.append((friendly, pkg, c))
     if options and kodi.is_android():
-        if len(options) == 1:
+        # apps on this device first; if exactly one is installed, just open it
+        installed = [o for o in options if health.app_installed(o[1]) is True]  # "can't tell" isn't installed
+        options = installed + [o for o in options if o not in installed]
+        if len(options) == 1 or len(installed) == 1:
             choice = 0
         else:
             choice = xbmcgui.Dialog().select("Watch on...", ["%s (%s)" % (o[0], o[2]) for o in options])

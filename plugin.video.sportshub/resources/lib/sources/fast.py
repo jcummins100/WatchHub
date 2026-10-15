@@ -49,7 +49,15 @@ SERVICES = {
 
 
 def enabled_services():
-    return [sid for sid, s in SERVICES.items() if kodi.setting_bool(s["setting"], sid != "samsung")]
+    """Services switched on in settings whose app is on this device (or can't be checked).
+
+    A channel whose app is definitely missing would only lead to the Play Store, so it's left out
+    of every row, list and "Watch on" choice rather than shown.
+    """
+    from resources.lib import health
+
+    return [sid for sid, s in SERVICES.items() if kodi.setting_bool(s["setting"], sid != "samsung")
+            and (not s["package"] or health.app_installed(s["package"]) is not False)]
 
 
 def _cache_ttl():
@@ -252,9 +260,11 @@ def dedupe(items):
     groups = {}
     order = []
     for p in items:
-        key = _norm(p["channel"])
-        if not key:
-            key = p["channel_id"]
+        # same channel name AND same programme on now: a regional variant airing something else stays separate
+        # same channel name, same programme, same quarter hour: the same broadcast on two services
+        key = (_norm(p["channel"]), _norm(p.get("title")), int(p.get("start") or 0) // 900)
+        if not key[0]:
+            key = (p["channel_id"], "", 0)
         if key not in groups:
             groups[key] = []
             order.append(key)

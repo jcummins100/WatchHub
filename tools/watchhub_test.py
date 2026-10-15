@@ -1,0 +1,990 @@
+#!/usr/bin/env python3
+"""WatchHub full test run: every row, card type, service filter, menu, action and setting.
+
+It RECORDS what happens; it never fixes anything. Output goes to test-results/<timestamp>/:
+report.md (results table + issues/recommendations), results.json, and a screenshot per step.
+
+    python3 tools/watchhub_test.py --ip 10.100.1.200            # everything
+    python3 tools/watchhub_test.py --ip 10.100.1.200 --only A    # off-device logic only
+    python3 tools/watchhub_test.py --ip 10.100.1.200 --only B    # on-device UI only
+
+Part A (off-device) runs the add-on on this computer through tools/dev_run.py, with the device's own
+app list and API keys, so every action/menu/filter/setting combination can be exercised quickly.
+Part B (on-device) drives the Shield over adb and reads Kodi's state over JSON-RPC (Kodi's web
+server is switched on for the run with a one-off password and switched off again at the end).
+
+Never run: anything that changes the user's Trakt data (mark watched, watchlist, sign out) or that
+needs a human (Trakt sign-in code, power off). Those are recorded as SKIP with the reason.
+"""
+import argparse
+import base64
+import json
+import os
+import re
+import secrets
+import shutil
+import subprocess
+import sys
+import time
+import urllib.request
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+KODI_PKG = "org.xbmc.kodi"
+KODI_HOME = "/sdcard/Android/data/%s/files/.kodi" % KODI_PKG
+SETTINGS = KODI_HOME + "/userdata/addon_data/plugin.video.sportshub/settings.xml"
+GUISETTINGS = KODI_HOME + "/userdata/guisettings.xml"
+LOG = KODI_HOME + "/temp/kodi.log"
+FILTER_FILE = KODI_HOME + "/userdata/addon_data/plugin.video.sportshub/home_filter.json"
+
+# Home rows, top to bottom, as Home.xml lays them out (id, name)
+ALL_ROWS = [(9050, "Services"), (9960, "Up Next"), (9100, "Live Sports Now"), (9200, "Today's Games"),
+            (9950, "New This Week"), (9800, "Trending"), (9700, "Free Live TV"), (9300, "Sports Starting Soon"), (9600, "More")]
+PROVIDER_ROWS = [(9051, "Services"), (9961, "Up Next on <svc>"), (9951, "New This Week on <svc>"), (9801, "Trending on <svc>")]
+# actions the crawler must never run (they change user data, need a human, or switch the skin)
+NEVER = {"trakt_watched", "trakt_watchlist", "trakt_signout", "trakt_signin", "settings", "skin", "enable_addon", "refresh", "provider"}
+
+
+# ====================================================================== report
+class Report:
+    def __init__(self, out):
+        self.out, self.rows, self.notes, self.t0 = out, [], [], time.time()
+        os.makedirs(out, exist_ok=True)
+
+    def add(self, area, case, result, detail="", shot=""):
+        """result: PASS / FAIL / ISSUE (works, but something is wrong or odd) / INFO / SKIP"""
+        self.rows.append({"id": "%s-%03d" % (area.split()[0][:3].upper(), len(self.rows) + 1), "area": area, "case": case,
+                          "result": result, "detail": detail, "shot": shot})
+        print("[%-5s] %s | %s | %s" % (result, area, case, detail[:150]), flush=True)
+        self.save()
+
+    def note(self, kind, text):
+        """kind: Issue / Recommendation / Observation"""
+        self.notes.append({"kind": kind, "text": text})
+        print("  NOTE %s: %s" % (kind, text), flush=True)
+        self.save()
+
+    def save(self):
+        with open(os.path.join(self.out, "results.json"), "w") as fh:
+            json.dump({"rows": self.rows, "notes": self.notes}, fh, indent=1)
+        counts = {}
+        for r in self.rows:
+            counts[r["result"]] = counts.get(r["result"], 0) + 1
+        md = ["# WatchHub test run", "", "Run %s, %d min. Results: %s" % (
+            time.strftime("%Y-%m-%d %H:%M", time.localtime(self.t0)), (time.time() - self.t0) // 60,
+            ", ".join("%s %d" % kv for kv in sorted(counts.items()))), ""]
+        if self.notes:
+            md += ["## Issues and recommendations (recorded, not fixed)", "", "| # | Kind | Note |", "| --- | --- | --- |"]
+            md += ["| %d | %s | %s |" % (i + 1, n["kind"], n["text"].replace("|", "/")) for i, n in enumerate(self.notes)]
+            md += [""]
+        md += ["## All results", "", "| ID | Area | Case | Result | Detail | Shot |", "| --- | --- | --- | --- | --- | --- |"]
+        for r in self.rows:
+            md.append("| %s | %s | %s | %s | %s | %s |" % (r["id"], r["area"], r["case"].replace("|", "/"), r["result"],
+                                                          r["detail"].replace("|", "/").replace("\n", " ")[:400],
+                                                          "[png](%s)" % r["shot"] if r["shot"] else ""))
+        with open(os.path.join(self.out, "report.md"), "w") as fh:
+            fh.write("\n".join(md) + "\n")
+
+
+# ====================================================================== part A: off-device
+class Offline:
+    def __init__(self, rep, env):
+        self.rep, self.env = rep, env
+
+    def run(self, query, **overrides):
+        env = dict(os.environ, SH_JSON="1", SH_skin="skin.sportshub", **self.env)
+        env.update({"SH_" + k: v for k, v in overrides.items()})
+        t = time.time()
+        p = subprocess.run([sys.executable, os.path.join(ROOT, "tools/dev_run.py"), query], capture_output=True, text=True, env=env, timeout=180)
+        took = time.time() - t
+        items = None
+        for line in p.stdout.splitlines():
+            if line.startswith("@@JSON "):
+                items = json.loads(line[7:])
+        builtins = [l.split("BUILTIN:", 1)[1].strip() for l in p.stdout.splitlines() if "BUILTIN:" in l]
+        dialogs = [l.strip() for l in p.stdout.splitlines() if l.strip().startswith(("NOTIFY:", "YESNO:", "DIALOG", "SELECT:"))]
+        err = p.stderr[p.stderr.find("Traceback"):] if "Traceback" in p.stderr else ""
+        return {"items": items if items is not None else [], "builtins": builtins, "dialogs": dialogs, "err": err, "took": took,
+                "log": [l for l in p.stderr.splitlines() if "LOG:" in l]}
+
+    def suite(self):
+        A = "A Logic"
+        # A1: every home row, as the skin asks for it
+        for name, q in [("Services row", "action=providers&skin=1"), ("Up Next (signed out offline)", "action=trakt&row=upnext&skin=1"),
+                        ("Live Sports Now", "action=live&skin=1"), ("Today's Games", "action=games&league=all&skin=1"),
+                        ("New This Week", "action=ondemand&row=3&skin=1"), ("Trending", "action=ondemand&row=0&skin=1"),
+                        ("Free Live TV", "action=tvgroups&skin=1"), ("Starting Soon", "action=soon&skin=1"),
+                        ("By sport (More)", "action=sports&skin=1"), ("Your apps (More)", "action=apps&skin=1")]:
+            r = self.run(q)
+            n = len(r["items"])
+            res = "FAIL" if r["err"] else ("ISSUE" if n == 0 else "PASS")
+            self.rep.add(A, "Home row: %s" % name, res, "%d items in %.1fs%s" % (n, r["took"], (" | " + r["err"][-300:]) if r["err"] else ""))
+            if r["took"] > 15:
+                self.rep.note("Issue", "Home row '%s' took %.0fs to build off-device (cold cache) - slow first load on the Shield." % (name, r["took"]))
+            missing_art = [i["label"] for i in r["items"] if not (i["art"].get("thumb") or i["art"].get("poster") or i["props"].get("color"))]
+            if missing_art:
+                self.rep.add(A, "Art present: %s" % name, "ISSUE", "%d cards without artwork: %s" % (len(missing_art), ", ".join(missing_art[:6])))
+            empty_label = [i for i in r["items"] if not i["label"].strip()]
+            if empty_label:
+                self.rep.add(A, "Labels present: %s" % name, "ISSUE", "%d cards with an empty label" % len(empty_label))
+
+        # A2: crawl the WatchHub menu (list mode) from the root
+        seen, queue, listings, plays = set(), [("action=root", "Menu", 0)], 0, {}
+        while queue and listings < 250:
+            q, path, depth = queue.pop(0)
+            if q in seen:
+                continue
+            seen.add(q)
+            r = self.run(q)
+            listings += 1
+            n = len(r["items"])
+            res = "FAIL" if r["err"] else ("ISSUE" if n == 0 else "PASS")
+            if res != "PASS" or depth <= 1:
+                self.rep.add(A, "Menu: %s" % path, res, "%d items, %.1fs%s" % (n, r["took"], (" | " + r["err"][-300:]) if r["err"] else ""))
+            for it in r["items"]:
+                sub = it["url"].split("?", 1)[1] if "?" in it["url"] else ""
+                act = re.search(r"action=([a-z_]+)", sub)
+                act = act.group(1) if act else ""
+                if act in NEVER or not sub:
+                    continue
+                if it["folder"] and depth < 3:
+                    queue.append((sub, "%s > %s" % (path, it["label"][:40]), depth + 1))
+                elif not it["folder"]:
+                    key = act + ":" + (re.search(r"src=([a-z]+)", sub).group(1) if "src=" in sub else "")
+                    plays.setdefault(key, []).append((sub, "%s > %s" % (path, it["label"][:40])))
+        r = self.run("action=search&q=ted lasso")
+        self.rep.add(A, "Search results for 'ted lasso'", "FAIL" if r["err"] or not r["items"] else "PASS",
+                     "%d results: %s" % (len(r["items"]), ", ".join(i["label"] for i in r["items"][:4])))
+        self.rep.add(A, "Menu crawl coverage", "INFO", "%d listings opened, %d distinct click types found: %s" % (listings, len(plays), ", ".join(sorted(plays))))
+
+        # A3: every kind of click, 3 samples each: what would actually launch?
+        for key, samples in sorted(plays.items()):
+            for sub, path in samples[:3]:
+                if key.startswith(("search", "ondemand_search", "info")):
+                    continue  # needs a keyboard / opens the info dialog: covered on-device
+                r = self.run(sub)
+                launch = r["builtins"][-1] if r["builtins"] else ""
+                if r["err"]:
+                    self.rep.add(A, "Click %s: %s" % (key, path), "FAIL", r["err"][-300:])
+                elif "market://" in launch:
+                    self.rep.add(A, "Click %s: %s" % (key, path), "INFO", "App not installed -> offers Play Store")
+                elif "StartAndroidActivity" in launch:
+                    deep = re.findall(r'"([^"]*)"', launch)
+                    data = deep[3] if len(deep) > 3 else ""
+                    self.rep.add(A, "Click %s: %s" % (key, path), "PASS", ("Deep link: %s %s" % (deep[0], data[:90])) if data else "Opens app only: %s" % deep[0])
+                elif r["dialogs"]:
+                    self.rep.add(A, "Click %s: %s" % (key, path), "INFO", " / ".join(r["dialogs"])[:200])
+                elif launch:
+                    self.rep.add(A, "Click %s: %s" % (key, path), "PASS", launch[:150])
+                else:
+                    self.rep.add(A, "Click %s: %s" % (key, path), "ISSUE", "Nothing happens (no launch, no dialog)")
+
+        # A4: every service filter: rows only contain that service
+        prov = self.run("action=providers&skin=1")["items"]
+        codes = [re.search(r"code=([a-z]+)", i["url"]).group(1) for i in prov if "code=" in i["url"]]
+        self.rep.add(A, "Services row lists", "INFO", ", ".join(i["label"] for i in prov))
+        for code in codes:
+            name = [i["label"] for i in prov if "code=%s" % code in i["url"]][0]
+            sel = self.run("action=providers&skin=1&svc=%s" % code)["items"]
+            marked = [i["label"] for i in sel if i["props"].get("selected") == "1"]
+            self.rep.add(A, "Filter %s: Services row (one tile per service, picked one reads 'Open %s')" % (name, name),
+                         "PASS" if marked == ["Open %s" % name] and len(sel) == len(prov) else "FAIL", "selected=%s, %d tiles (All view %d)" % (marked, len(sel), len(prov)))
+            up = self.run("action=trakt&row=upnext&skin=1&svc=%s" % code)
+            self.rep.add(A, "Filter %s: Up Next row (signed out offline)" % name, "FAIL" if up["err"] else "INFO", ", ".join(i["label"] for i in up["items"])[:120] or "empty")
+            for row, rname in ((3, "New This Week"), (0, "Trending")):
+                r = self.run("action=ondemand&row=%d&skin=1&svc=%s" % (row, code))
+                other = sorted({i["props"].get("service") for i in r["items"] if i["props"].get("service") and
+                                i["props"].get("service").replace(" channel)", ")") != name})
+                n = len(r["items"])
+                res = "FAIL" if r["err"] or other else ("FAIL" if n == 0 else "PASS")  # an empty row must explain itself now
+                tile = [i["label"].replace("[CR]", " ") for i in r["items"] if i["props"].get("kind") == "tile"]
+                self.rep.add(A, "Filter %s: %s" % (name, rname), res, "%d items%s%s%s" % (
+                    n, (", other services leaked in: %s" % other) if other else "", (" | tile: %s" % tile[0]) if tile else "",
+                    (" | " + r["err"][-200:]) if r["err"] else ""))
+
+        # A5: settings matrix (each compared with the defaults)
+        base = {q: self.run(q) for q in ("action=live&skin=1", "action=soon&skin=1", "action=providers&skin=1", "action=root", "action=ondemand")}
+
+        def labels(r):
+            return [i["label"] for i in r["items"]]
+
+        def check(case, q, expect, **ov):
+            r = self.run(q, **ov)
+            ok, why = expect(r, base.get(q))
+            self.rep.add(A, "Setting %s" % case, "FAIL" if r["err"] else ("PASS" if ok else "FAIL"), why if not r["err"] else r["err"][-300:])
+
+        def src_gone(tag):
+            return lambda r, b: (not any(tag in json.dumps(i).lower() for i in r["items"]),
+                                 "%d live items (default %d); %s items left: %d" % (len(r["items"]), len(b["items"]), tag,
+                                                                                  sum(tag in json.dumps(i).lower() for i in r["items"])))
+        check("src_pluto=false hides Pluto channels", "action=live&skin=1", src_gone("pluto"), src_pluto="false")
+        check("src_plex=false hides Plex channels", "action=live&skin=1", src_gone("plex"), src_plex="false")
+        check("src_roku=false hides Roku channels", "action=live&skin=1", src_gone("roku"), src_roku="false")
+        check("src_samsung=true adds Samsung TV Plus", "action=live&skin=1",
+              lambda r, b: (any("samsung" in json.dumps(i).lower() for i in r["items"]), "%d live items vs %d default" % (len(r["items"]), len(b["items"]))),
+              src_samsung="true")
+        check("games_only=true trims live sports", "action=live&skin=1",
+              lambda r, b: (len(r["items"]) <= len(b["items"]), "%d items vs %d default" % (len(r["items"]), len(b["items"]))), games_only="true")
+        check("soon_minutes=30 narrows Starting Soon", "action=soon&skin=1",
+              lambda r, b: (len(r["items"]) <= len(b["items"]), "%d items vs %d at 120 min" % (len(r["items"]), len(b["items"]))), soon_minutes="30")
+        check("amazon_channels empty drops Prime channels", "action=providers&skin=1",
+              lambda r, b: (not any("(Prime)" in l for l in labels(r)), ", ".join(labels(r))), amazon_channels="")
+        check("amazon_channels adds Starz", "action=providers&skin=1",
+              lambda r, b: (any("Starz" in l for l in labels(r)), ", ".join(labels(r))), amazon_channels="aho,app,saz")
+        check("src_youtube=false removes YouTube from menu", "action=root",
+              lambda r, b: (not any("YouTube" in l for l in labels(r)), ", ".join(labels(r))), src_youtube="false")
+        check("src_scores=false: Today's Games shows only 'Live scores are off'", "action=games&league=all&skin=1",
+              lambda r, b: (labels(r) == ["Live scores are off"], ", ".join(labels(r)[:3]) or "empty"), src_scores="false")
+        check("tmdb_key empty hides Coming Soon menus", "action=ondemand",
+              lambda r, b: (not any("Coming soon" in l for l in labels(r)), ", ".join(labels(r))[:200]), tmdb_key="")
+        check("region=gb changes catalog", "action=ondemand&row=0&skin=1",
+              lambda r, b: (len(r["items"]) > 0, "%d items for GB" % len(r["items"])), region="gb")
+        check("view_mode=list (menu still builds)", "action=root",
+              lambda r, b: (len(r["items"]) > 0, "%d items" % len(r["items"])), view_mode="list")
+        check("trakt_client_id empty: Up Next row empty (no sign-in card)", "action=trakt&row=upnext&skin=1",
+              lambda r, b: (len(r["items"]) == 0, ", ".join(labels(r)) or "empty"), trakt_client_id="")
+        check("Roku app missing: no Roku channels or 'Watch on The Roku Channel'", "action=live&skin=1",
+              lambda r, b: (not any("roku" in json.dumps(i).lower() for i in r["items"]),
+                            "%d live items, %d mention Roku" % (len(r["items"]), sum("roku" in json.dumps(i).lower() for i in r["items"]))))
+        games = self.run("action=games&league=all&skin=1")["items"]
+        with_ctx = [g for g in games if any(c.startswith("Watch on") for c in g["context"])]
+        needs = [g for g in games if "needs" in g["props"].get("network", "")]
+        self.rep.add(A, "Game cards offer 'Watch on <app>' and flag missing apps", "PASS" if with_ctx else "FAIL",
+                     "%d/%d games have Watch-on choices, %d flagged 'needs ... app' (e.g. %s)" % (
+                         len(with_ctx), len(games), len(needs), needs[0]["props"]["network"] if needs else "-"))
+        check("service_priority plex first", "action=live&skin=1",
+              lambda r, b: (len(r["items"]) > 0, "first 3 now: %s" % ", ".join(labels(r)[:3])), service_priority="plex,pluto,roku,samsung")
+
+
+# ====================================================================== part B: on-device
+class Device:
+    def __init__(self, ip, adb, out):
+        self.ip, self.adb_bin, self.out, self.serial = ip, adb, out, "%s:5555" % ip
+        self.rpc_auth, self.n = None, 0
+
+    def adb(self, *args, timeout=60, binary=False):
+        p = subprocess.run([self.adb_bin, "-s", self.serial] + list(args), capture_output=True, timeout=timeout)
+        return p.stdout if binary else p.stdout.decode("utf-8", "replace")
+
+    def sh(self, cmd, timeout=60):
+        return self.adb("shell", cmd, timeout=timeout)
+
+    def fg(self):
+        m = re.search(r"mCurrentFocus=Window\{\S+ \S+ ([^/ }]+)", self.sh("dumpsys window | grep mCurrentFocus"))
+        return m.group(1) if m else ""
+
+    def shot(self, name):
+        self.n += 1
+        fn = "%03d-%s.png" % (self.n, re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")[:60])
+        with open(os.path.join(self.out, fn), "wb") as fh:
+            fh.write(self.adb("exec-out", "screencap -p", binary=True))
+        return fn
+
+    def log_lines(self):
+        return int((self.sh("wc -l < %s" % LOG).strip() or "0"))
+
+    def log_since(self, mark):
+        return self.sh("tail -n +%d %s" % (mark + 1, LOG)).splitlines()
+
+    # ---- JSON-RPC
+    def rpc(self, method, params=None, timeout=10):
+        body = json.dumps({"jsonrpc": "2.0", "id": 1, "method": method, "params": params or {}}).encode()
+        req = urllib.request.Request("http://%s:8080/jsonrpc" % self.ip, data=body, headers={
+            "Content-Type": "application/json", "Authorization": "Basic " + base64.b64encode(self.rpc_auth.encode()).decode()})
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            return json.loads(resp.read().decode()).get("result")
+
+    def info(self, *labels):
+        try:
+            return self.rpc("XBMC.GetInfoLabels", {"labels": list(labels)}) or {}
+        except Exception:
+            return {}
+
+    def is_(self, *bools):
+        try:
+            return self.rpc("XBMC.GetInfoBooleans", {"booleans": list(bools)}) or {}
+        except Exception:
+            return {}
+
+    def key(self, name, times=1):
+        for _ in range(times):
+            try:
+                self.rpc("Input." + name)
+            except Exception:
+                self.sh("input keyevent KEYCODE_%s" % {"Up": "DPAD_UP", "Down": "DPAD_DOWN", "Left": "DPAD_LEFT", "Right": "DPAD_RIGHT",
+                                                       "Select": "DPAD_CENTER", "Back": "BACK", "ContextMenu": "MENU", "Home": "HOME"}[name])
+            time.sleep(0.35)
+
+    def focus(self):
+        try:
+            return int(self.info("System.CurrentControlId").get("System.CurrentControlId") or 0)
+        except ValueError:
+            return 0
+
+    def wait(self, cond, secs=20, step=0.5):
+        end = time.time() + secs
+        while time.time() < end:
+            v = cond()
+            if v:
+                return v
+            time.sleep(step)
+        return None
+
+    def kodi_front(self):
+        if self.fg() != KODI_PKG:
+            self.sh("monkey -p %s -c android.intent.category.LAUNCHER 1" % KODI_PKG)
+            self.wait(lambda: self.fg() == KODI_PKG, 20)
+            time.sleep(1.5)
+        # Android may have killed Kodi while the other app ran: then this was a cold start - wait for it
+        pid = self.sh("pidof %s" % KODI_PKG).strip()
+        cold = pid != getattr(self, "kodi_pid", pid) or not self.info("System.CurrentControlId").get("System.CurrentControlId")
+        self.kodi_pid = pid
+        if cold:
+            self.restarts = getattr(self, "restarts", 0) + 1
+            self.wait(lambda: any(int(v or 0) > 0 for v in self.info("Container(9050).NumItems", "Container(9051).NumItems").values()), 90, 1)
+            if self.sh("cat %s 2>/dev/null" % FILTER_FILE).count('"code": "') and '"code": ""' not in self.sh("cat %s" % FILTER_FILE):
+                # a saved filter is put back by the service a moment after the home screen appears
+                self.wait(lambda: self.info("Window(Home).Property(sh_provider)").get("Window(Home).Property(sh_provider)"), 40, 1)
+            self.wait(lambda: self.info("System.CurrentControlId").get("System.CurrentControlId"), 90, 1)
+            self.wait(lambda: not any(self.is_(*["Container(%d).IsUpdating" % i for i, _ in ALL_ROWS[:-1]]).values()), 60, 1)
+
+    def home(self):
+        """Close dialogs/windows until the WatchHub home is showing."""
+        self.kodi_front()
+        for _ in range(6):
+            if self.is_("Window.IsActive(home)").get("Window.IsActive(home)") and not self.is_("System.HasActiveModalDialog").get("System.HasActiveModalDialog"):
+                return True
+            self.key("Back")
+            time.sleep(0.8)
+        return bool(self.is_("Window.IsActive(home)").get("Window.IsActive(home)"))
+
+    def goto_row(self, target, order):
+        ids = [i for i, _ in order]
+        for _ in range(25):
+            cur = self.focus()
+            if cur == target:
+                return True
+            if cur in ids:
+                self.key("Down" if ids.index(cur) < ids.index(target) else "Up")
+            else:  # header buttons, or nothing: step down into the rows
+                self.key("Down")
+        return self.focus() == target
+
+    def goto_item(self, cid, n):
+        """1-based position n in container cid."""
+        for _ in range(60):
+            pos = int(self.info("Container(%d).CurrentItem" % cid).get("Container(%d).CurrentItem" % cid) or 0)
+            if pos == n:
+                return True
+            self.key("Right" if pos < n else "Left")
+        return False
+
+    def goto_code(self, cid, code):
+        """Move to the Services tile for `code` ("" = All services); labels change ("Open Hulu") but codes don't."""
+        n = int(self.info("Container(%d).NumItems" % cid).get("Container(%d).NumItems" % cid) or 0)
+        for k in range(n):
+            if self.info("Container(%d).ListItemAbsolute(%d).Property(code)" % (cid, k)).get("Container(%d).ListItemAbsolute(%d).Property(code)" % (cid, k)) == code:
+                return self.goto_item(cid, k + 1)
+        return False
+
+    def goto_label(self, cid, label):
+        """Move to the item whose label is `label` (positions shift when the Services row inserts its Open card)."""
+        n = int(self.info("Container(%d).NumItems" % cid).get("Container(%d).NumItems" % cid) or 0)
+        for k in range(n):
+            if self.info("Container(%d).ListItemAbsolute(%d).Label" % (cid, k)).get("Container(%d).ListItemAbsolute(%d).Label" % (cid, k)) == label:
+                return self.goto_item(cid, k + 1)
+        return False
+
+    def restart_kodi(self, rpc=True):
+        self.sh("am force-stop %s" % KODI_PKG)
+        time.sleep(2)
+        t = time.time()
+        self.sh("input keyevent KEYCODE_WAKEUP")
+        self.sh("monkey -p %s -c android.intent.category.LAUNCHER 1" % KODI_PKG)
+        if not rpc:  # JSON-RPC switched off: just give the home screen time to build
+            self.wait(lambda: self.fg() == KODI_PKG, 30, 1)
+            time.sleep(30)
+            return time.time() - t
+        ok = self.wait(lambda: self.info("System.CurrentControlId").get("System.CurrentControlId") not in (None, ""), 90, 1)
+        # rows finished loading
+        self.wait(lambda: not any(self.is_(*["Container(%d).IsUpdating" % i for i, _ in ALL_ROWS[:-1]]).values()), 60, 1)
+        return time.time() - t if ok else None
+
+
+class OnDevice:
+    def __init__(self, rep, dev, keep_rpc):
+        self.rep, self.d, self.keep_rpc = rep, dev, keep_rpc
+        self.changed_settings = {}
+
+    # ---- settings.xml edits that restore ONLY the keys we touched (the file also holds live Trakt tokens)
+    def _pull(self, remote):
+        local = os.path.join(self.d.out, "_tmp_" + os.path.basename(remote))
+        self.d.adb("pull", remote, local)
+        with open(local, encoding="utf-8") as fh:
+            return fh.read(), local
+
+    def _push(self, remote, text, local):
+        with open(local, "w", encoding="utf-8") as fh:
+            fh.write(text)
+        self.d.adb("push", local, remote)
+
+    @staticmethod
+    def _set(xml, sid, value):
+        pat = re.compile(r'<setting id="%s"[^>]*?(/>|>[^<]*</setting>)' % re.escape(sid))
+        new = '<setting id="%s">%s</setting>' % (sid, value) if value != "" else '<setting id="%s" />' % sid
+        if pat.search(xml):
+            return pat.sub(new, xml, 1)
+        return xml.replace("</settings>", "    %s\n</settings>" % new)
+
+    @staticmethod
+    def _get(xml, sid):
+        m = re.search(r'<setting id="%s"[^>]*?(?:/>|>([^<]*)</setting>)' % re.escape(sid), xml)
+        return (m.group(1) or "") if m else None
+
+    def set_addon_settings(self, **kv):
+        """Kodi must be stopped. Remembers original values for restore."""
+        xml, local = self._pull(SETTINGS)
+        for k, v in kv.items():
+            if k not in self.changed_settings:
+                self.changed_settings[k] = self._get(xml, k)
+            xml = self._set(xml, k, v)
+        self._push(SETTINGS, xml, local)
+
+    def restore_addon_settings(self):
+        if not self.changed_settings:
+            return
+        self.d.sh("am force-stop %s" % KODI_PKG)
+        time.sleep(2)
+        xml, local = self._pull(SETTINGS)
+        for k, v in self.changed_settings.items():
+            xml = self._set(xml, k, v if v is not None else "")
+        self._push(SETTINGS, xml, local)
+        self.changed_settings = {}
+
+    def set_gui(self, **kv):
+        xml, local = self._pull(GUISETTINGS)
+        for k, v in kv.items():
+            pat = re.compile(r'<setting id="%s"[^>]*?(?:/>|>[^<]*</setting>)' % re.escape(k))
+            new = '<setting id="%s">%s</setting>' % (k, v)
+            xml = pat.sub(new, xml, 1) if pat.search(xml) else xml.replace("</settings>", "    %s\n</settings>" % new)
+        self._push(GUISETTINGS, xml, local)
+
+    # ---- one click, and what came of it
+    def click(self, area, case, expect=None, back=True, settle=2.5):
+        d = self.d
+        mark = d.log_lines()
+        d.key("Select")
+        launched = d.wait(lambda: (lambda f: f if f and f != KODI_PKG else None)(d.fg()), 6, 0.5)
+        time.sleep(settle if launched else 1.5)
+        shot = d.shot(case)
+        lines = d.log_since(mark)
+        tb = [l for l in lines if "Traceback" in l or "EXCEPTION" in l or "Error Contents" in l]
+        state = d.info("System.CurrentWindow", "Window(Home).Property(sh_provider)")
+        dialogs = [k for k, v in d.is_("Window.IsActive(yesnodialog)", "Window.IsActive(contextmenu)", "Window.IsActive(busydialog)",
+                                       "Window.IsActive(selectdialog)", "Window.IsActive(okdialog)", "Window.IsActive(addonsettings)",
+                                       "Window.IsActive(virtualkeyboard)", "Window.IsActive(TitleInfo.xml)", "Window.IsActive(videos)",
+                                       "Window.IsActive(shutdownmenu)", "Window.IsActive(skinsettings)").items() if v]
+        outcome = ("launched %s" % launched) if launched else ("window: %s %s" % (state.get("System.CurrentWindow"), ",".join(x[16:-1] for x in dialogs)))
+        result = "FAIL" if tb else "PASS"
+        if expect and not tb:
+            ok = expect(launched, state, dialogs)
+            result = "PASS" if ok else "FAIL"
+        self.rep.add(area, case, result, outcome + ((" | " + tb[0][-200:]) if tb else ""), shot)
+        if back:
+            if launched:
+                d.sh("am force-stop %s" % launched)
+            d.home()
+        return launched, state, dialogs
+
+    def suite(self):
+        d, rep = self.d, self.rep
+        B = "B Device"
+        # ---------------- setup: versions, apps, JSON-RPC for the run
+        ver = d.sh("grep -o 'version=\"[0-9.]*\"' %s/addons/plugin.video.sportshub/addon.xml | sed -n 2p" % KODI_HOME).strip()
+        rep.add(B, "Installed WatchHub version", "INFO", ver)
+        apps = sorted(l.split(":", 1)[1] for l in d.sh("pm list packages -3").split() if ":" in l)
+        rep.add(B, "Third-party apps on device", "INFO", ", ".join(apps))
+        d.rpc_auth = "kodi:" + secrets.token_urlsafe(12)
+        d.sh("am force-stop %s" % KODI_PKG)
+        time.sleep(2)
+        d.sh("rm -f %s" % FILTER_FILE)  # every run starts on All services
+        self.set_gui(**{"services.webserver": "true", "services.webserverport": "8080", "services.webserverauthentication": "true",
+                        "services.webserverusername": "kodi", "services.webserverpassword": d.rpc_auth.split(":", 1)[1]})
+        took = d.restart_kodi()
+        try:
+            d.rpc("JSONRPC.Ping")
+            rep.add(B, "Kodi started + JSON-RPC test channel up", "PASS", "home ready in %.0fs" % (took or -1))
+        except Exception as exc:
+            rep.add(B, "Kodi started + JSON-RPC test channel up", "FAIL", "JSON-RPC unreachable: %s (falling back to adb keys only)" % exc)
+        try:
+            self._ui_tests(B)
+        finally:
+            self.restore_addon_settings()
+            d.sh("am force-stop %s" % KODI_PKG)
+            d.sh("rm -f %s" % FILTER_FILE)
+            if not self.keep_rpc:
+                d.sh("am force-stop %s" % KODI_PKG)
+                time.sleep(2)
+                self.set_gui(**{"services.webserver": "false", "services.webserverpassword": ""})
+            d.restart_kodi(rpc=self.keep_rpc)
+            rep.add(B, "Cleanup: settings restored, JSON-RPC off, Kodi restarted", "INFO", "")
+
+    def _ui_tests(self, B):
+        d, rep = self.d, self.rep
+        if os.environ.get("WH_ONLY_FILTERS"):
+            return self._filters(B)
+        gaps = bool(os.environ.get("WH_GAPS"))
+        if gaps:
+            return self._gaps(B)
+        if os.environ.get("WH_SERVICES"):
+            d.kodi_pid = d.sh("pidof %s" % KODI_PKG).strip()
+            self._filters(B)
+            return self._free_tv_and_power(B)
+        # ---------------- startup
+        st = d.info("System.CurrentControlId", "System.CurrentWindow", "Window(Home).Property(sh_provider)", "Skin.CurrentTheme", "System.BuildVersion")
+        rep.add(B, "Startup lands on WatchHub home, Up Next focused", "PASS" if st.get("System.CurrentControlId") == "9960" else "ISSUE",
+                json.dumps(st), d.shot("startup"))
+
+        # ---------------- All view: every row reachable in order, counts, hero
+        d.home()
+        d.goto_row(9050, ALL_ROWS)
+        prev = None
+        for cid, name in ALL_ROWS:
+            ok = d.goto_row(cid, ALL_ROWS)
+            info = d.info("Container(%d).NumItems" % cid, "Container(%d).ListItem.Label" % cid, "Control.GetLabel(%d)" % cid)
+            hero = d.info("$VAR[SH_HeroTitle]", "$VAR[SH_HeroKicker]", "$VAR[SH_HeroMeta]")
+            n = int(info.get("Container(%d).NumItems" % cid) or 0)
+            res = "PASS" if ok and (n > 0 or cid == 9600) else ("ISSUE" if ok else "FAIL")
+            rep.add(B, "All view row: %s" % name, res, "reached=%s items=%s first='%s' hero='%s / %s'" % (
+                ok, n, info.get("Container(%d).ListItem.Label" % cid, ""), hero.get("$VAR[SH_HeroKicker]", ""), hero.get("$VAR[SH_HeroTitle]", "")),
+                d.shot("row-%s" % name))
+            prev = cid
+        # Down from the last row, Up from Services
+        d.goto_row(9600, ALL_ROWS)
+        d.key("Down")
+        rep.add(B, "Down on last row (More) stays put", "PASS" if d.focus() == 9600 else "ISSUE", "focus=%s" % d.focus())
+        d.goto_row(9050, ALL_ROWS)
+        d.key("Up")
+        rep.add(B, "Up from Services reaches header buttons", "PASS" if d.focus() not in [i for i, _ in ALL_ROWS] else "ISSUE",
+                "focus=%s" % d.focus(), d.shot("header-focus"))
+        # sideways through a row to the end and back
+        d.goto_row(9100, ALL_ROWS)
+        n = int(d.info("Container(9100).NumItems").get("Container(9100).NumItems") or 0)
+        d.goto_item(9100, n)
+        d.key("Right")
+        end_ok = int(d.info("Container(9100).CurrentItem").get("Container(9100).CurrentItem") or 0) == n
+        rep.add(B, "Right at end of a row stops (no wrap)", "PASS" if end_ok else "ISSUE", "%d items" % n, d.shot("row-end"))
+        last = d.info("Container(9100).ListItem.Label", "Container(9100).ListItem.Property(kind)")
+        if last.get("Container(9100).ListItem.Label") == "More..." and not last.get("Container(9100).ListItem.Property(kind)"):
+            self.click(B, "Row end: 'See all' card opens the full Live Sports list", lambda l, s_, dl: "Window.IsActive(videos)" in dl)
+            d.goto_row(9100, ALL_ROWS)
+        d.goto_item(9100, 1)
+
+        # ---------------- every card type: click and see what happens
+        def row_clicks(cid, name, count, expect=None):
+            d.home()
+            if not d.goto_row(cid, ALL_ROWS):
+                rep.add(B, "Click %s" % name, "FAIL", "row not reachable (empty?)")
+                return
+            total = int(d.info("Container(%d).NumItems" % cid).get("Container(%d).NumItems" % cid) or 0)
+            if not total:
+                rep.add(B, "Click %s" % name, "ISSUE", "row reached but has no items (or Kodi not answering)", d.shot("empty-%s" % name))
+            for k in range(1, min(count, total) + 1):
+                d.goto_row(cid, ALL_ROWS)
+                d.goto_item(cid, k)
+                lab = d.info("Container(%d).ListItem.Label" % cid, "Container(%d).ListItem.Property(meta)" % cid)
+                self.click(B, "Click %s #%d: %s" % (name, k, lab.get("Container(%d).ListItem.Label" % cid, "")[:50]), expect,
+                           settle=14 if cid in (9100, 9300) else 2.5)  # live channels: wait past the app's splash
+
+        self.row_clicks = row_clicks
+        launched_ok = lambda l, s, dl: bool(l)
+        row_clicks(9960, "Up Next", 2, lambda l, s, dl: "Window.IsActive(TitleInfo.xml)" in dl or bool(l))
+        row_clicks(9100, "Live Sports Now", 6, launched_ok)
+        row_clicks(9200, "Today's Games", 6)
+        row_clicks(9950, "New This Week", 2, lambda l, s, dl: "Window.IsActive(TitleInfo.xml)" in dl)
+        row_clicks(9800, "Trending", 2, lambda l, s, dl: "Window.IsActive(TitleInfo.xml)" in dl)
+        row_clicks(9300, "Sports Starting Soon", 4, launched_ok)
+        row_clicks(9700, "Free Live TV genre", 3, lambda l, s, dl: "Window.IsActive(videos)" in dl)
+        # inside a Free Live TV genre: click two channels
+        d.home(); d.goto_row(9700, ALL_ROWS); d.goto_item(9700, 1); d.key("Select"); time.sleep(4)
+        if d.is_("Window.IsActive(videos)").get("Window.IsActive(videos)"):
+            for k in (1, 2):
+                d.key("Down") if k > 1 else None
+                lab = d.info("ListItem.Label").get("ListItem.Label", "")
+                launched, _, _ = self.click(B, "Free Live TV > channel: %s" % lab[:50], launched_ok, back=False)
+                if launched:
+                    d.sh("am force-stop %s" % launched)
+                    d.kodi_front()
+        d.home()
+
+        # ---------------- More row: every tile
+        d.goto_row(9600, ALL_ROWS)
+        n = int(d.info("Container(9600).NumItems").get("Container(9600).NumItems") or 0)
+        for k in range(1, n + 1):
+            d.home(); d.goto_row(9600, ALL_ROWS); d.goto_item(9600, k)
+            lab = d.info("Container(9600).ListItem.Label").get("Container(9600).ListItem.Label", "")
+            if "Classic" in lab:
+                launched, state, dl = self.click(B, "More: %s asks before switching" % lab, lambda l, s_, dl: "Window.IsActive(yesnodialog)" in dl, back=False)
+                if d.is_("Window.IsActive(yesnodialog)").get("Window.IsActive(yesnodialog)"):
+                    d.key("Back")  # = No
+                    time.sleep(2)
+                skin = (d.rpc("Settings.GetSettingValue", {"setting": "lookandfeel.skin"}) or {}).get("value")
+                rep.add(B, "More: Classic look - answering No keeps WatchHub", "PASS" if skin == "skin.sportshub" else "FAIL", skin or "?")
+                if skin != "skin.sportshub":
+                    d.rpc("Settings.SetSettingValue", {"setting": "lookandfeel.skin", "value": "skin.sportshub"})
+                    time.sleep(8)
+                    if d.is_("Window.IsActive(yesnodialog)").get("Window.IsActive(yesnodialog)"):
+                        d.key("Left"); d.key("Select")
+                d.home()
+                continue
+            self.click(B, "More: %s" % lab)
+
+        # ---------------- info page: every button except the Trakt-changing ones
+        for cid, name in ((9800, "Trending"), (9960, "Up Next")):
+            d.home(); d.goto_row(cid, ALL_ROWS); d.goto_item(cid, 1)
+            title = d.info("Container(%d).ListItem.Property(title)" % cid).get("Container(%d).ListItem.Property(title)" % cid, "")
+            d.key("Select")
+            if not d.wait(lambda: d.is_("Window.IsActive(TitleInfo.xml)").get("Window.IsActive(TitleInfo.xml)"), 15):
+                rep.add(B, "Info page (%s): %s" % (name, title), "FAIL", "did not open", d.shot("info-missing"))
+                continue
+            time.sleep(2)
+            vis = {b: d.is_("Control.IsVisible(%d)" % b).get("Control.IsVisible(%d)" % b) for b in (101, 102, 103, 104, 105, 106, 199)}
+            props = d.info("Window.Property(title)", "Window.Property(meta)", "Window.Property(watched)", "Window.Property(also)", "Window.Property(playlabel)")
+            rep.add(B, "Info page (%s): %s" % (name, title), "PASS", "buttons visible: %s | %s" % (
+                ", ".join({101: "Play", 102: "Trailer", 103: "Episodes", 104: "+Watchlist", 105: "Mark watched", 106: "Watch on", 199: "Close"}[b] for b, v in vis.items() if v),
+                json.dumps(props)[:250]), d.shot("info-%s" % name))
+            for bid, bname in ((103, "Episodes"), (106, "Watch on..."), (102, "Trailer"), (101, "Play")):
+                if not vis.get(bid):
+                    continue
+                if not d.is_("Window.IsActive(TitleInfo.xml)").get("Window.IsActive(TitleInfo.xml)"):
+                    d.home(); d.goto_row(cid, ALL_ROWS); d.goto_item(cid, 1); d.key("Select")
+                    d.wait(lambda: d.is_("Window.IsActive(TitleInfo.xml)").get("Window.IsActive(TitleInfo.xml)"), 15)
+                    time.sleep(1.5)
+                for _ in range(10):
+                    if d.focus() == bid:
+                        break
+                    d.key("Left" if d.focus() > bid and d.focus() < 199 else "Right")
+                if d.focus() != bid:
+                    rep.add(B, "Info %s: button %s" % (name, bname), "ISSUE", "could not focus it (focus=%s)" % d.focus())
+                    continue
+                self.click(B, "Info %s: %s" % (name, bname), back=bid in (101, 102))
+                if bid in (103, 106):
+                    rep.add(B, "Info %s: after %s" % (name, bname), "INFO", "episodes list items=%s" % d.info("Container(200).NumItems").get("Container(200).NumItems"), d.shot("info-after-%s" % bname))
+                    d.key("Back")
+            rep.add(B, "Info %s: + Watchlist / Mark watched" % name, "SKIP", "would change your Trakt data")
+            d.home()
+
+        # ---------------- long-press menu on a poster and on a live channel
+        for cid, name in ((9800, "Trending poster"), (9100, "Live channel"), (9200, "Game card")):
+            d.home(); d.goto_row(cid, ALL_ROWS); d.goto_item(cid, 1)
+            d.key("ContextMenu")
+            time.sleep(1.5)
+            open_ = d.is_("Window.IsActive(contextmenu)").get("Window.IsActive(contextmenu)")
+            entries = []
+            if open_:
+                n = int(d.info("Container(996).NumItems").get("Container(996).NumItems") or 0)
+                for k in range(n):
+                    entries.append(d.info("Container(996).ListItemAbsolute(%d).Label" % k).get("Container(996).ListItemAbsolute(%d).Label" % k, ""))
+            rep.add(B, "Long-press menu: %s" % name, "PASS" if open_ else "ISSUE", "; ".join(entries) or "no menu", d.shot("ctx-%s" % name))
+            d.key("Back")
+        rep.add(B, "Long-press: Trakt mark watched / add to watchlist", "SKIP", "would change your Trakt data")
+
+        # ---------------- header buttons (801 Search, 802 Settings, 804 Power; Right wraps around)
+        for bname, bid in (("Search", 801), ("Settings", 802), ("Power", 804)):
+            d.home(); d.goto_row(9050, ALL_ROWS); d.key("Up")
+            for _ in range(4):
+                if d.focus() == bid:
+                    break
+                d.key("Right")
+            if d.focus() != bid:
+                rep.add(B, "Header: %s" % bname, "FAIL", "could not focus button %d (focus=%s)" % (bid, d.focus()))
+                continue
+            if bname == "Power":
+                self.click(B, "Header: Power (menu only, nothing chosen)", lambda l, s_, dl: "Window.IsActive(shutdownmenu)" in dl, back=False)
+                d.key("Back")
+                continue
+            if bname == "Settings":
+                self.click(B, "Header: Settings opens WatchHub settings", lambda l, s_, dl: "Window.IsActive(addonsettings)" in dl, back=False)
+                for k in range(5):
+                    rep.add(B, "WatchHub settings category %d" % (k + 1), "INFO", d.info("Container(3).ListItem.Label").get("Container(3).ListItem.Label", ""), d.shot("settings-cat-%d" % (k + 1)))
+                    d.key("Down")
+            if bname == "Search":
+                self.click(B, "Header: Search opens WatchHub search (keyboard)", lambda l, s_, dl: "Window.IsActive(virtualkeyboard)" in dl, back=False)
+                if d.is_("Window.IsActive(virtualkeyboard)").get("Window.IsActive(virtualkeyboard)"):
+                    d.rpc("Input.SendText", {"text": "ted lasso", "done": True})
+                    d.wait(lambda: int(d.info("Container.NumItems").get("Container.NumItems") or 0) > 0, 20)
+                    time.sleep(2)
+                    res = d.info("System.CurrentWindow", "Container.NumItems", "Container.FolderPath", "Container.ListItemAbsolute(0).Label")
+                    ok = int(res.get("Container.NumItems") or 0) > 0 and "plugin.video.sportshub" in res.get("Container.FolderPath", "")
+                    rep.add(B, "Search 'ted lasso' shows WatchHub results", "PASS" if ok else "FAIL", json.dumps(res), d.shot("search-results"))
+            d.home()
+
+        self._filters(B)
+        self._after_filters(B)
+
+    def _free_tv_and_power(self, B):
+        d, rep = self.d, self.rep
+        d.home(); d.goto_row(9700, ALL_ROWS); d.goto_item(9700, 1)
+        self.click(B, "Free Live TV genre #1", lambda l, s, dl: "Window.IsActive(videos)" in dl, back=False)
+        for k in (1, 2, 3):
+            if not d.is_("Window.IsActive(videos)").get("Window.IsActive(videos)"):
+                d.home(); d.goto_row(9700, ALL_ROWS); d.goto_item(9700, 1); d.key("Select"); time.sleep(4)
+            d.key("Down", k)
+            lab = d.info("ListItem.Label").get("ListItem.Label", "")
+            launched, _, _ = self.click(B, "Free Live TV > genre 1 > channel: %s" % lab[:50], lambda l, s, dl: bool(l), back=False)
+            if launched:
+                d.sh("am force-stop %s" % launched)
+            d.kodi_front()
+        d.home(); d.goto_row(9050, ALL_ROWS); d.key("Up")
+        for _ in range(4):
+            if d.focus() == 803 or d.info("Control.GetLabel(%d)" % d.focus()):
+                pass
+            d.key("Right")
+        rep.add(B, "Header: rightmost button focused", "INFO", "focus=%s" % d.focus(), d.shot("header-rightmost"))
+        launched, state, dl = self.click(B, "Header: Power (menu only, nothing chosen)", back=False)
+        d.key("Back")
+        d.home()
+        rep.add(B, "Kodi cold starts after returning from an app (this run)", "INFO", "%d" % getattr(d, "restarts", 0))
+
+    def _gaps(self, B):
+        """Re-run of the row clicks a first run lost to Kodi being killed, then every service filter."""
+        d, rep = self.d, self.rep
+
+        def row_clicks(cid, name, count, expect=None):
+            d.home()
+            if not d.goto_row(cid, ALL_ROWS):
+                rep.add(B, "Click %s" % name, "FAIL", "row not reachable (empty?)")
+                return
+            total = int(d.info("Container(%d).NumItems" % cid).get("Container(%d).NumItems" % cid) or 0)
+            if not total:
+                rep.add(B, "Click %s" % name, "ISSUE", "row reached but has no items (or Kodi not answering)", d.shot("empty-%s" % name))
+            for k in range(1, min(count, total) + 1):
+                d.home()
+                d.goto_row(cid, ALL_ROWS)
+                d.goto_item(cid, k)
+                lab = d.info("Container(%d).ListItem.Label" % cid).get("Container(%d).ListItem.Label" % cid, "")
+                self.click(B, "Click %s #%d: %s" % (name, k, lab[:50]), expect)
+        info_ok = lambda l, s, dl: "Window.IsActive(TitleInfo.xml)" in dl
+        row_clicks(9200, "Today's Games", 6)
+        row_clicks(9950, "New This Week", 3, info_ok)
+        row_clicks(9800, "Trending", 3, info_ok)
+        row_clicks(9300, "Sports Starting Soon", 4, lambda l, s, dl: bool(l))
+        row_clicks(9700, "Free Live TV genre", 3, lambda l, s, dl: "Window.IsActive(videos)" in dl)
+        d.home(); d.goto_row(9700, ALL_ROWS); d.goto_item(9700, 1); d.key("Select"); time.sleep(4)
+        if d.is_("Window.IsActive(videos)").get("Window.IsActive(videos)"):
+            for k in (1, 2, 3):
+                if k > 1:
+                    d.key("Down")
+                lab = d.info("ListItem.Label").get("ListItem.Label", "")
+                launched, _, _ = self.click(B, "Free Live TV > Entertainment > channel: %s" % lab[:50], lambda l, s, dl: bool(l), back=False)
+                if launched:
+                    d.sh("am force-stop %s" % launched)
+                d.kodi_front()
+                if not d.is_("Window.IsActive(videos)").get("Window.IsActive(videos)"):
+                    d.home(); d.goto_row(9700, ALL_ROWS); d.goto_item(9700, 1); d.key("Select"); time.sleep(4)
+                    d.key("Down", k)
+        rep.add(B, "Kodi cold starts after returning from an app (this run)", "INFO", "%d" % getattr(d, "restarts", 0))
+        self._filters(B)
+        rep.add(B, "Kodi cold starts after returning from an app (incl. filters)", "INFO", "%d" % getattr(d, "restarts", 0))
+
+    def _filters(self, B):
+        d, rep = self.d, self.rep
+        # ---------------- Services filter: every service, its Open card, back to All
+        d.home(); d.goto_row(9050, ALL_ROWS)
+        n = int(d.info("Container(9050).NumItems").get("Container(9050).NumItems") or 0)
+        names = [d.info("Container(9050).ListItemAbsolute(%d).Label" % k).get("Container(9050).ListItemAbsolute(%d).Label" % k, "") for k in range(n)]
+        codes = [d.info("Container(9050).ListItemAbsolute(%d).Property(code)" % k).get("Container(9050).ListItemAbsolute(%d).Property(code)" % k, "") for k in range(n)]
+        rep.add(B, "Services row entries", "INFO", ", ".join(names))
+        only = [x.strip() for x in os.environ.get("WH_SERVICES", "").split(",") if x.strip()]
+        for k, svc in enumerate(names):
+            if k == 0 or (only and svc not in only):
+                continue
+            d.home()
+            row = 9050 if not d.info("Window(Home).Property(sh_provider)").get("Window(Home).Property(sh_provider)") else 9051
+            d.goto_row(row, ALL_ROWS if row == 9050 else PROVIDER_ROWS)
+            code = codes[k]
+            if not d.goto_code(row, code):
+                rep.add(B, "Filter %s: find it in the Services row" % svc, "FAIL", "not found")
+                continue
+            d.key("Select")
+            ok = d.wait(lambda: d.info("Window(Home).Property(sh_provider_name)").get("Window(Home).Property(sh_provider_name)"), 8)
+            time.sleep(2)
+            d.wait(lambda: not any(d.is_(*["Container(%d).IsUpdating" % i for i, _ in PROVIDER_ROWS]).values()), 40, 1)
+            st = d.info("System.CurrentControlId", "Window(Home).Property(sh_provider)", "Window(Home).Property(sh_provider_name)",
+                        *["Container(%d).NumItems" % i for i, _ in PROVIDER_ROWS], "Container(9051).ListItem.Label")
+            counts = ", ".join("%s=%s" % (nm.replace("<svc>", svc), st.get("Container(%d).NumItems" % i)) for i, nm in PROVIDER_ROWS[1:])
+            focus_ok = st.get("System.CurrentControlId") == "9051" and st.get("Container(9051).ListItem.Label") == "Open %s" % svc
+            rep.add(B, "Filter %s: switch to provider view" % svc, "PASS" if ok and focus_ok else "FAIL",
+                    "header=%s focus=%s on '%s' | %s" % (st.get("Window(Home).Property(sh_provider_name)"), st.get("System.CurrentControlId"),
+                                                         st.get("Container(9051).ListItem.Label"), counts), d.shot("filter-%s" % svc))
+            empties = [nm.replace("<svc>", svc) for i, nm in PROVIDER_ROWS[1:] if st.get("Container(%d).NumItems" % i) in ("0", "", None)]
+            if empties:
+                rep.note("Observation", "Provider view for %s has empty rows (show 'Nothing right now'): %s." % (svc, ", ".join(empties)))
+            # the rows under the filter: every visible card's service
+            def leaks(i):
+                cnt = int(d.info("Container(%d).NumItems" % i).get("Container(%d).NumItems" % i) or 0)
+                svcs = {d.info("Container(%d).ListItemAbsolute(%d).Property(service)" % (i, j)).get("Container(%d).ListItemAbsolute(%d).Property(service)" % (i, j), "") for j in range(min(cnt, 12))}
+                return sorted(s for s in svcs if s and s.replace(" channel)", ")") != svc)
+            first = {i: leaks(i) for i, _ in PROVIDER_ROWS[2:]}
+            time.sleep(8)
+            for i, nm in PROVIDER_ROWS[2:]:
+                later = leaks(i)
+                row = nm.replace("<svc>", svc)
+                if later:
+                    rep.add(B, "Filter %s: %s only %s" % (svc, row, svc), "FAIL", "still shows other services after 8s: %s" % later, d.shot("leak-%s-%s" % (svc, i)))
+                elif first[i]:
+                    rep.add(B, "Filter %s: %s only %s" % (svc, row, svc), "ISSUE", "showed the previous filter's titles at first (%s), correct 8s later" % first[i])
+                else:
+                    rep.add(B, "Filter %s: %s only %s" % (svc, row, svc), "PASS", "")
+            # the picked tile now reads "Open <svc>": pressing it again opens the app
+            d.goto_code(9051, code)
+            restarts_before = getattr(d, "restarts", 0)
+            lab = d.info("Container(9051).ListItem.Label").get("Container(9051).ListItem.Label", "")
+            launched, _, _ = self.click(B, "Filter %s: '%s' card" % (svc, lab), lambda l, s, dl: bool(l), back=False)
+            if launched:
+                d.sh("am force-stop %s" % launched)
+                d.kodi_front()
+                d.wait(lambda: d.info("Window(Home).Property(sh_provider)").get("Window(Home).Property(sh_provider)"), 40, 1)
+                st2 = d.info("Window(Home).Property(sh_provider)", "System.CurrentControlId", "Container(9051).ListItem.Label")
+                rep.add(B, "Filter %s: still on after returning from the app%s" % (svc, " (Kodi was restarted)" if getattr(d, "restarts", 0) > restarts_before else ""),
+                        "PASS" if st2.get("Window(Home).Property(sh_provider)") == code and st2.get("System.CurrentControlId") == "9051"
+                        and st2.get("Container(9051).ListItem.Label") == "Open %s" % svc else "FAIL", json.dumps(st2))  # filter AND focus
+        # back to All
+        d.home(); d.goto_row(9051, PROVIDER_ROWS); d.goto_item(9051, 1)
+        d.key("Select"); time.sleep(2.5)
+        st = d.info("Window(Home).Property(sh_provider)", "System.CurrentControlId", "Container(9050).ListItem.Label")
+        rep.add(B, "Pick 'All services' returns to All view", "PASS" if not st.get("Window(Home).Property(sh_provider)") and st.get("System.CurrentControlId") == "9050" else "FAIL",
+                json.dumps(st), d.shot("back-to-all"))
+
+    def _after_filters(self, B):
+        d, rep = self.d, self.rep
+        # Back key on home, in both views
+        d.home(); d.goto_row(9960, ALL_ROWS); d.key("Back"); time.sleep(1.5)
+        rep.add(B, "Back key on home (All view)", "INFO", json.dumps(d.info("System.CurrentWindow", "System.CurrentControlId")), d.shot("back-on-home"))
+        d.home(); d.goto_row(9050, ALL_ROWS); d.goto_item(9050, 2); d.key("Select"); time.sleep(3)
+        d.goto_row(9961, PROVIDER_ROWS); d.key("Back"); time.sleep(1.5)
+        st = d.info("System.CurrentWindow", "Window(Home).Property(sh_provider)")
+        st.update(d.info("System.CurrentControlId"))
+        rep.add(B, "Back in provider view returns to All services", "PASS" if not st.get("Window(Home).Property(sh_provider)") and st.get("System.CurrentControlId") == "9050" else "FAIL",
+                json.dumps(st), d.shot("back-in-provider"))
+        # rapid picks: three services in a row, then check the final state is consistent
+        d.home(); d.goto_row(9050, ALL_ROWS)
+        for c in ("nfx", "hlu", "pct"):
+            row = 9051 if d.info("Window(Home).Property(sh_provider)").get("Window(Home).Property(sh_provider)") else 9050
+            d.goto_code(row, c); d.key("Select"); time.sleep(0.6)
+        d.wait(lambda: d.info("Window(Home).Property(sh_provider)").get("Window(Home).Property(sh_provider)") == "pct", 10)
+        time.sleep(3)
+        st = d.info("Window(Home).Property(sh_provider)", "System.CurrentControlId", "Container(9051).ListItem.Label")
+        rep.add(B, "Rapid picks Netflix -> Hulu -> Peacock end on Peacock", "PASS" if st.get("Window(Home).Property(sh_provider)") == "pct"
+                and st.get("System.CurrentControlId") == "9051" and st.get("Container(9051).ListItem.Label") == "Open Peacock" else "FAIL", json.dumps(st), d.shot("rapid-picks"))
+        # Back from the header while a service is picked
+        d.goto_row(9051, PROVIDER_ROWS); d.key("Up"); d.key("Back"); time.sleep(2)
+        st = d.info("Window(Home).Property(sh_provider)", "System.CurrentControlId")
+        rep.add(B, "Back while in the header (provider view)", "INFO", json.dumps(st), d.shot("header-back-provider"))
+        d.home(); d.goto_row(9051, PROVIDER_ROWS); d.goto_code(9051, ""); d.key("Select"); time.sleep(3)
+        # Search -> open a title -> Back keeps the results
+        d.home(); d.goto_row(9050, ALL_ROWS); d.key("Up")
+        for _ in range(4):
+            if d.focus() == 801:
+                break
+            d.key("Right")
+        d.key("Select")
+        if d.wait(lambda: d.is_("Window.IsActive(virtualkeyboard)").get("Window.IsActive(virtualkeyboard)"), 10):
+            d.rpc("Input.SendText", {"text": "ted lasso", "done": True})
+            d.wait(lambda: int(d.info("Container.NumItems").get("Container.NumItems") or 0) > 0, 20)
+            time.sleep(2)
+            d.key("Select")
+            opened = d.wait(lambda: d.is_("Window.IsActive(TitleInfo.xml)").get("Window.IsActive(TitleInfo.xml)"), 15)
+            d.key("Back"); time.sleep(2)
+            res = d.info("Container.FolderPath", "Container.NumItems", "System.CurrentWindow")
+            rep.add(B, "Search -> title -> Back keeps the results", "PASS" if opened and "sportshub" in res.get("Container.FolderPath", "") and int(res.get("Container.NumItems") or 0) > 0 else "FAIL",
+                    json.dumps(res), d.shot("search-back"))
+        d.home()
+        # damaged state file: Kodi must still start, on All services
+        d.sh("am force-stop %s" % KODI_PKG); time.sleep(2)
+        d.sh("echo '[1,2' > %s" % FILTER_FILE)
+        d.restart_kodi()
+        st = d.info("Window(Home).Property(sh_provider)", "System.CurrentControlId")
+        tb = d.sh("grep -c Traceback %s" % LOG).strip()
+        rep.add(B, "Damaged filter file: starts on All, no errors", "PASS" if not st.get("Window(Home).Property(sh_provider)") and tb == "0" else "FAIL",
+                "%s, tracebacks=%s" % (json.dumps(st), tb), d.shot("damaged-state"))
+        d.sh("rm -f %s" % FILTER_FILE)
+        # restart with a filter on: it should come back, focused on that service
+        d.home(); d.goto_row(9050, ALL_ROWS); d.goto_code(9050, "hlu"); d.key("Select")
+        d.wait(lambda: d.info("Window(Home).Property(sh_provider)").get("Window(Home).Property(sh_provider)") == "hlu", 10)
+        took = d.restart_kodi()
+        d.wait(lambda: d.info("Window(Home).Property(sh_provider)").get("Window(Home).Property(sh_provider)"), 40, 1)
+        time.sleep(3)
+        st = d.info("Window(Home).Property(sh_provider)", "System.CurrentControlId", "Container(9051).ListItem.Label")
+        rep.add(B, "Kodi restart keeps the Hulu filter, focus on Hulu", "PASS" if st.get("Window(Home).Property(sh_provider)") == "hlu" and st.get("System.CurrentControlId") == "9051"
+                and st.get("Container(9051).ListItem.Label") == "Open Hulu" else "FAIL", "%s, ready in %.0fs" % (json.dumps(st), took or -1), d.shot("restart-keeps-filter"))
+        d.home(); d.goto_row(9051, PROVIDER_ROWS); d.goto_item(9051, 1); d.key("Select"); time.sleep(3)
+
+        # ---------------- settings on the device (Kodi restarted for each)
+        def with_settings(case, check, **kv):
+            d.sh("am force-stop %s" % KODI_PKG)
+            time.sleep(2)
+            self.set_addon_settings(**kv)
+            took = d.restart_kodi()
+            ok, detail = check()
+            rep.add(B, "Device setting: %s" % case, "PASS" if ok else "FAIL", "%s (ready in %.0fs)" % (detail, took or -1), d.shot("setting-%s" % case))
+            self.restore_addon_settings()
+            d.restart_kodi()
+
+        def svc_labels():
+            n = int(d.info("Container(9050).NumItems").get("Container(9050).NumItems") or 0)
+            return [d.info("Container(9050).ListItemAbsolute(%d).Label" % k).get("Container(9050).ListItemAbsolute(%d).Label" % k, "") for k in range(n)]
+
+        base_live = d.info("Container(9100).NumItems").get("Container(9100).NumItems")
+        with_settings("src_pluto=false", lambda: (True, "Live Sports Now items %s -> %s" % (base_live, d.info("Container(9100).NumItems").get("Container(9100).NumItems"))), src_pluto="false")
+        with_settings("amazon_channels empty", lambda: (not any("(Prime)" in l for l in svc_labels()), ", ".join(svc_labels())), amazon_channels="")
+        with_settings("games_only=true", lambda: (True, "Live %s / Soon %s items" % (d.info("Container(9100).NumItems").get("Container(9100).NumItems"),
+                                                                                      d.info("Container(9300).NumItems").get("Container(9300).NumItems"))), games_only="true")
+        with_settings("src_scores=false", lambda: (d.info("Container(9200).ListItem.Label").get("Container(9200).ListItem.Label") == "Live scores are off",
+                                                    "Today's Games first card: %s" % d.info("Container(9200).ListItem.Label").get("Container(9200).ListItem.Label")), src_scores="false")
+        with_settings("open_on_start=false", lambda: (True, json.dumps(d.info("System.CurrentWindow", "System.CurrentControlId"))), open_on_start="false")
+
+        # ---------------- health
+        mem = re.search(r"TOTAL[ :]+(\d+)", d.sh("dumpsys meminfo %s | grep -m1 TOTAL" % KODI_PKG))
+        df = d.sh("df -h /data | tail -1").split()
+        cache = d.sh("du -sk %s/userdata/addon_data/plugin.video.sportshub/cache %s/userdata/Thumbnails 2>/dev/null" % (KODI_HOME, KODI_HOME)).split()
+        rep.add(B, "Kodi memory / storage / caches", "INFO", "Kodi RAM %s MB, /data free %s, WatchHub cache %s KB, thumbnails %s KB" % (
+            int(mem.group(1)) // 1024 if mem else "?", df[3] if len(df) > 3 else "?", cache[0] if cache else "?", cache[2] if len(cache) > 2 else "?"))
+        full = d.sh("cat %s" % LOG)
+        tbs = full.count("Traceback")
+        errs = [l for l in full.splitlines() if " error <general>" in l and "GL_" not in l]
+        rep.add(B, "Kodi log: tracebacks / errors this session", "PASS" if not tbs else "FAIL", "%d tracebacks, %d error lines. %s" % (tbs, len(errs), " || ".join(e[-160:] for e in errs[:5])))
+        slow = [l for l in full.splitlines() if "fetch failed" in l]
+        if slow:
+            rep.note("Observation", "%d failed fetches in the Kodi log this session (first: %s)" % (len(slow), slow[0][-160:]))
+
+
+# ====================================================================== main
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--ip", required=True)
+    ap.add_argument("--adb", default=os.environ.get("ADB") or shutil.which("adb") or "adb")
+    ap.add_argument("--only", choices=["A", "B"])
+    ap.add_argument("--out", default=os.path.join(ROOT, "test-results", time.strftime("%Y%m%d-%H%M")))
+    ap.add_argument("--keep-rpc", action="store_true", help="leave Kodi's web server/JSON-RPC on afterwards")
+    args = ap.parse_args()
+    rep = Report(args.out)
+    dev = Device(args.ip, args.adb, args.out)
+    subprocess.run([args.adb, "connect", dev.serial], capture_output=True)
+
+    # the device's app list and API keys make the off-device run match the Shield
+    env = {"SH_apps": ",".join(l.split(":", 1)[1] for l in dev.sh("pm list packages").split() if ":" in l)}
+    s = dev.sh("cat %s" % SETTINGS)
+    for k in ("tmdb_key", "trakt_client_id", "amazon_channels", "region"):
+        m = re.search(r'<setting id="%s"[^>]*>([^<]+)</setting>' % k, s)
+        if m:
+            env["SH_" + k] = m.group(1)
+    if args.only != "B":
+        Offline(rep, env).suite()
+    if args.only != "A":
+        OnDevice(rep, dev, args.keep_rpc).suite()
+    rep.save()
+    print("\nReport: %s" % os.path.join(args.out, "report.md"))
+
+
+if __name__ == "__main__":
+    main()

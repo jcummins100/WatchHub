@@ -74,7 +74,7 @@
 				<param name="header" value="TODAY'S GAMES"/>
 				<param name="content_path" value="plugin://plugin.video.sportshub/?action=games&amp;league=all&amp;skin=1&amp;r=$INFO[Window(Home).Property(sh_refresh)]"/>
 				<param name="onclick" value="RunPlugin($INFO[ListItem.FileNameAndPath])"/>
-				<param name="layout" value="SH_CardGame"/>
+				<param name="layout" value="SH_CardGameAny"/>
 				<param name="item_width" value="416"/>
 			</include>
 			<include content="SH_Rail">
@@ -149,6 +149,7 @@
 				<param name="header" value="SERVICES"/>
 				<param name="content_path" value="plugin://plugin.video.sportshub/?action=providers&amp;svc=$INFO[Window(Home).Property(sh_provider)]&amp;skin=1&amp;r=$INFO[Window(Home).Property(sh_refresh)]"/>
 				<param name="onclick" value="RunPlugin($INFO[ListItem.FileNameAndPath])"/>
+				<param name="onback" value="RunPlugin(plugin://plugin.video.sportshub/?action=provider&amp;code=)"/>
 				<param name="layout" value="SH_CardApp"/>
 				<param name="item_width" value="416"/>
 			</include>
@@ -160,6 +161,7 @@
 				<param name="header" value="UP NEXT ON $INFO[Window(Home).Property(sh_provider_name)]"/>
 				<param name="content_path" value="plugin://plugin.video.sportshub/?action=trakt&amp;row=upnext&amp;svc=$INFO[Window(Home).Property(sh_provider)]&amp;skin=1&amp;r=$INFO[Window(Home).Property(sh_refresh)]"/>
 				<param name="onclick" value="RunPlugin($INFO[ListItem.FileNameAndPath])"/>
+				<param name="onback" value="RunPlugin(plugin://plugin.video.sportshub/?action=provider&amp;code=)"/>
 				<param name="layout" value="SH_CardPosterAny"/>
 				<param name="item_width" value="232"/>
 			</include>
@@ -171,7 +173,8 @@
 				<param name="header" value="NEW THIS WEEK ON $INFO[Window(Home).Property(sh_provider_name)]"/>
 				<param name="content_path" value="plugin://plugin.video.sportshub/?action=ondemand&amp;row=3&amp;svc=$INFO[Window(Home).Property(sh_provider)]&amp;skin=1&amp;r=$INFO[Window(Home).Property(sh_refresh)]"/>
 				<param name="onclick" value="RunPlugin($INFO[ListItem.FileNameAndPath])"/>
-				<param name="layout" value="SH_CardPosterRow"/>
+				<param name="onback" value="RunPlugin(plugin://plugin.video.sportshub/?action=provider&amp;code=)"/>
+				<param name="layout" value="SH_CardPosterAny"/>
 				<param name="item_width" value="232"/>
 			</include>
 			<include content="SH_Rail">
@@ -182,7 +185,8 @@
 				<param name="header" value="TRENDING ON $INFO[Window(Home).Property(sh_provider_name)]"/>
 				<param name="content_path" value="plugin://plugin.video.sportshub/?action=ondemand&amp;row=0&amp;svc=$INFO[Window(Home).Property(sh_provider)]&amp;skin=1&amp;r=$INFO[Window(Home).Property(sh_refresh)]"/>
 				<param name="onclick" value="RunPlugin($INFO[ListItem.FileNameAndPath])"/>
-				<param name="layout" value="SH_CardPosterRow"/>
+				<param name="onback" value="RunPlugin(plugin://plugin.video.sportshub/?action=provider&amp;code=)"/>
+				<param name="layout" value="SH_CardPosterAny"/>
 				<param name="item_width" value="232"/>
 			</include>
 		</control>
@@ -303,14 +307,14 @@
 				<include content="IconButton">
 					<param name="control_id" value="801"/>
 					<param name="height" value="80"/>
-					<param name="onclick" value="ActivateWindow(1107)"/>
+					<param name="onclick" value="ActivateWindow(Videos,plugin://plugin.video.sportshub/?action=search,return)"/>
 					<param name="icon" value="icons/search.png"/>
 					<param name="label" value="$LOCALIZE[137]"/>
 				</include>
 				<include content="IconButton">
 					<param name="control_id" value="802"/>
 					<param name="height" value="80"/>
-					<param name="onclick" value="ActivateWindow(settings)"/>
+					<param name="onclick" value="Addon.OpenSettings(plugin.video.sportshub)"/>
 					<param name="icon" value="icons/settings.png"/>
 					<param name="label" value="$LOCALIZE[21417]"/>
 				</include>

@@ -34,10 +34,10 @@ SERVICES = [
     ("yfr", "YouTube", "com.google.android.youtube.tv"),
 ]
 AMAZON_CHANNELS = [
-    ("aho", "HBO Max (Prime channel)"), ("aep", "MGM+ (Prime channel)"), ("app", "Paramount+ (Prime channel)"),
-    ("saz", "Starz (Prime channel)"), ("azp", "AMC+ (Prime channel)"), ("adp", "Discovery+ (Prime channel)"),
-    ("avl", "Apple TV (Prime channel)"), ("acn", "Cinemax (Prime channel)"), ("abb", "BritBox (Prime channel)"),
-    ("pep", "Peacock (Prime channel)"),
+    ("aho", "HBO Max (Prime)"), ("aep", "MGM+ (Prime)"), ("app", "Paramount+ (Prime)"),
+    ("saz", "Starz (Prime)"), ("azp", "AMC+ (Prime)"), ("adp", "Discovery+ (Prime)"),
+    ("avl", "Apple TV (Prime)"), ("acn", "Cinemax (Prime)"), ("abb", "BritBox (Prime)"),
+    ("pep", "Peacock (Prime)"),
 ]
 SERVICES += [(c, n, "com.amazon.amazonvideo.livingroom") for c, n in AMAZON_CHANNELS]
 BY_CODE = {c: (n, p) for c, n, p in SERVICES}
@@ -69,7 +69,8 @@ def installed_codes():
     from resources.lib import health
 
     apps = health.installed_apps()
-    amazon = [x.strip() for x in kodi.setting("amazon_channels", "aho,app").split(",") if x.strip()]
+    # settings.xml supplies the default (aho,app); an empty value means the user cleared it - no channels
+    amazon = [x.strip() for x in kodi.setting("amazon_channels").split(",") if x.strip()]
     amazon_codes = {c for c, _ in AMAZON_CHANNELS}
     codes = []
     for c, _, p in SERVICES:
@@ -284,7 +285,7 @@ def row_items(index, svc=""):
 
 
 def short_name(code):
-    """'HBO Max (Prime channel)' -> 'HBO Max (Prime)': fits a card."""
+    """Display name for a service code (Prime channels already carry the short "(Prime)" form)."""
     return BY_CODE[code][0].replace(" channel)", ")")
 
 

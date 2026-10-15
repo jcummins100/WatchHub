@@ -40,21 +40,47 @@ def main():
         if skin != "skin.sportshub":
             xbmc.executebuiltin("ActivateWindow(Videos,plugin://%s/,return)" % ADDON_ID)
 
-    from resources.lib import health, kodi
+    from resources.lib import health, homefilter, kodi
 
     cmd_file = os.path.join(kodi.ensure_profile_dir(), "cmd")
+
+    if xbmc.getSkinDir() == "skin.sportshub":
+        # Lists open on their first real item, not a "< Back" (parent folder) tile: Back on the remote does that.
+        if (kodi.jsonrpc("Settings.GetSettingValue", {"setting": "filelists.showparentdiritems"}) or {}).get("value"):
+            kodi.jsonrpc("Settings.SetSettingValue", {"setting": "filelists.showparentdiritems", "value": False})
+            kodi.log("turned off Kodi's parent-folder items for the WatchHub skin")
+
+    # Put back the service filter the user had picked (Kodi may have been killed while an app ran).
+    if xbmc.getSkinDir() == "skin.sportshub":
+        code = homefilter.saved()
+        if code:
+            # properties first, so Home builds the provider view from the start; then fix focus once it's up
+            code = homefilter.apply(code)
+            kodi.log("home filter restored: %s" % (code or "All"))
+            for _ in range(60):
+                if xbmc.getCondVisibility("Window.IsActive(home)") or monitor.waitForAbort(0.5):
+                    break
+            if code:
+                homefilter.focus(code, timeout_s=30)
 
     # Refresh a little before the cache expires so the UI never has to wait on the network.
     home = xbmcgui.Window(10000)
     home.setProperty("sh_service_alive", "1")
     next_refresh = 0
+    reload_pending = 0  # time the fresh data became ready, 0 = nothing waiting
     while not monitor.abortRequested():
         now = time.time()
+        # Reloading the rows resets each row to its first card, so don't do it under someone who is
+        # browsing: wait until Home isn't showing or the remote has been idle for 90 s - but never hold
+        # back more than 15 minutes, or scores and "on now" listings go stale.
+        if reload_pending and (not xbmc.getCondVisibility("Window.IsActive(home)") or xbmc.getCondVisibility("System.IdleTime(90)")
+                               or now - reload_pending > 15 * 60):
+            home.setProperty("sh_refresh", str(int(time.time())))
+            reload_pending = 0
         if now >= next_refresh:
             try:
                 health.warm_caches()
-                # bump the home screen's refresh token so every row reloads its (now fresh) contents
-                xbmcgui.Window(10000).setProperty("sh_refresh", str(int(time.time())))
+                reload_pending = reload_pending or time.time()
                 pruned = health.prune_cache()
                 if pruned:
                     kodi.log("pruned %d stale cache files" % pruned)

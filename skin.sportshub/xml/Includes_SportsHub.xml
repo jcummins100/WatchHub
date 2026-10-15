@@ -111,6 +111,7 @@
 		<param name="next1">9600</param>
 		<param name="next2">9600</param>
 		<param name="next3">9600</param>
+		<param name="onback">noop</param>
 		<definition>
 			<control type="group">
 				<top>$PARAM[row_top]</top>
@@ -154,11 +155,21 @@
 					<ondown condition="!Control.IsVisible($PARAM[next1]) + Control.IsVisible($PARAM[next2])">$PARAM[next2]</ondown>
 					<ondown condition="!Control.IsVisible($PARAM[next1]) + !Control.IsVisible($PARAM[next2])">$PARAM[next3]</ondown>
 					<visible>Integer.IsGreater(Container($PARAM[list_id]).NumItems,0) | Container($PARAM[list_id]).IsUpdating</visible>
-					<onclick>$PARAM[onclick]</onclick>
+					<!-- Kodi appends its own "More..." item (no card kind) when a row hits its limit: open the full list -->
+					<onclick condition="!String.IsEmpty(ListItem.Property(kind))">$PARAM[onclick]</onclick>
+					<onclick condition="String.IsEmpty(ListItem.Property(kind))">ActivateWindow(Videos,$INFO[ListItem.FolderPath],return)</onclick>
+					<onback>$PARAM[onback]</onback>
 					<scrolltime tween="cubic" easing="out">300</scrolltime>
 					<preloaditems>2</preloaditems>
 					<itemlayout width="$PARAM[item_width]" height="312">
-						<include content="$PARAM[layout]">
+						<control type="group">
+							<visible>!String.IsEmpty(ListItem.Property(kind))</visible>
+							<include content="$PARAM[layout]">
+								<param name="focused" value="false"/>
+							</include>
+						</control>
+						<include content="SH_CardSeeAll">
+							<param name="width" value="$PARAM[item_width]"/>
 							<param name="focused" value="false"/>
 						</include>
 					</itemlayout>
@@ -167,7 +178,14 @@
 							<depth>DepthContentPopout</depth>
 							<animation effect="zoom" start="100" end="106" time="160" tween="sine" easing="out" center="216,128">Focus</animation>
 							<animation effect="zoom" start="106" end="100" time="160" tween="sine" easing="out" center="216,128">UnFocus</animation>
-							<include content="$PARAM[layout]">
+							<control type="group">
+								<visible>!String.IsEmpty(ListItem.Property(kind))</visible>
+								<include content="$PARAM[layout]">
+									<param name="focused" value="true"/>
+								</include>
+							</control>
+							<include content="SH_CardSeeAll">
+								<param name="width" value="$PARAM[item_width]"/>
 								<param name="focused" value="true"/>
 							</include>
 						</control>
@@ -191,18 +209,8 @@
 					<height>216</height>
 					<texture border="16" colordiffuse="FF1C2435">sportshub/card.png</texture>
 				</control>
-				<control type="image">
-					<width>384</width>
-					<height>216</height>
-					<aspectratio>scale</aspectratio>
-					<texture background="true" diffuse="sportshub/card_mask.png">$INFO[ListItem.Art(landscape)]</texture>
-				</control>
-				<control type="image">
-					<width>384</width>
-					<height>216</height>
-					<texture border="16" colordiffuse="90000000">sportshub/card.png</texture>
-					<visible>!String.IsEmpty(ListItem.Art(landscape))</visible>
-				</control>
+				<!-- logo only: Pluto's background art is often the same logo blurred, which read as doubled names
+				     (the art still shows in the hero backdrop) -->
 				<control type="image">
 					<left>42</left>
 					<top>40</top>
@@ -287,6 +295,61 @@
 	</include>
 
 	<!-- ====================== card: game (two team logos + score) ====================== -->
+	<!-- Kodi's own "More..." item at the end of a full row, drawn as a "See all" card -->
+	<include name="SH_CardSeeAll">
+		<definition>
+			<control type="group">
+				<visible>String.IsEmpty(ListItem.Property(kind))</visible>
+				<left>16</left>
+				<top>16</top>
+				<width>$PARAM[width]</width>
+				<height>216</height>
+				<control type="image">
+					<left>0</left>
+					<right>32</right>
+					<height>216</height>
+					<texture border="16" colordiffuse="FF2C3E66">sportshub/card.png</texture>
+				</control>
+				<control type="label">
+					<left>0</left>
+					<right>32</right>
+					<height>216</height>
+					<align>center</align>
+					<aligny>center</aligny>
+					<font>font27</font>
+					<label>[B]See all  ›[/B]</label>
+					<textcolor>FFFFFFFF</textcolor>
+				</control>
+				<control type="image">
+					<left>-6</left>
+					<top>-6</top>
+					<right>20</right>
+					<height>228</height>
+					<texture border="16">sportshub/card_focus.png</texture>
+					<visible>$PARAM[focused]</visible>
+				</control>
+			</control>
+		</definition>
+	</include>
+
+	<!-- games row: matchup cards, or a plain tile for messages ("Live scores are off") -->
+	<include name="SH_CardGameAny">
+		<definition>
+			<control type="group">
+				<visible>!String.IsEqual(ListItem.Property(kind),tile)</visible>
+				<include content="SH_CardGame">
+					<param name="focused" value="$PARAM[focused]"/>
+				</include>
+			</control>
+			<control type="group">
+				<visible>String.IsEqual(ListItem.Property(kind),tile)</visible>
+				<include content="SH_CardSport">
+					<param name="focused" value="$PARAM[focused]"/>
+				</include>
+			</control>
+		</definition>
+	</include>
+
 	<include name="SH_CardGame">
 		<definition>
 			<control type="group">

@@ -6,7 +6,7 @@ import xbmc
 import xbmcgui
 
 from resources.lib import apps, cache, health, kodi, launcher, sports
-from resources.lib import infodialog
+from resources.lib import homefilter, infodialog
 from resources.lib.sources import espn, fast, ondemand, pvr, sportsdb, tmdb, trakt, youtube
 
 ICON_LIVE = "DefaultTVShows.png"
@@ -343,12 +343,26 @@ def _add_game(g, show_league=True):
         "meta": " \u2022 ".join(x for x in (g["league"], g["channel"], g["detail"] if g["state"] != "pre" else "") if x),
         "league_logo": g.get("league_logo") or "",
     }
+    # which streaming apps carry this game's networks, and are any of them on this device?
+    ctx, need = [], ""
+    seen_pkgs = set()
+    for net in [c.strip() for c in (g["channel"] or "").split(",") if c.strip()]:
+        pkg, friendly = apps.for_network(net)
+        if not pkg or pkg in seen_pkgs:
+            continue
+        seen_pkgs.add(pkg)
+        ctx.append(("Watch on %s (%s)" % (friendly, net), "RunPlugin(%s)" % kodi.build_url(action="play", src="app", id=pkg, name=friendly)))
+        if not need:
+            need = friendly
+    if seen_pkgs and not any(health.app_installed(p) is not False for p in seen_pkgs):
+        props["network"] = "%s • needs %s app" % (props["network"], need)
+        props["meta"] = "%s • needs the %s app" % (props["meta"], need)
     if PLAIN:
         label = g["short"] or g["title"]
     if g["playable"]:
-        kodi.add_item(label, kodi.build_url(action="play", **g["play"]), False, art=art, info=info, props=props)
+        kodi.add_item(label, kodi.build_url(action="play", **g["play"]), False, art=art, info=info, props=props, context=ctx)
     else:
-        kodi.add_item(label, kodi.build_url(action="games"), False, art=art, info=info, props=props)
+        kodi.add_item(label, kodi.build_url(action="games"), False, art=art, info=info, props=props, context=ctx)
     return now
 
 
@@ -370,9 +384,16 @@ def games_menu():
 
 def games_list(league):
     kodi.set_content("videos")
+    if not kodi.setting_bool("src_scores", True):
+        # the home row can't vanish (fixed slots), so it says why it's empty and how to change that
+        kodi.add_item("Live scores are off", kodi.build_url(action="settings"), False,
+                      props={"kind": "tile", "color": "FF3B3F4A", "title": "Live scores are off", "meta": "Turn them on in WatchHub settings > Sources"})
+        kodi.end_directory()
+        return
     items = espn.games(None if league == "all" else [league])
     if not items:
-        kodi.add_item("No games scheduled", kodi.build_url(action="games"), False)
+        kodi.add_item("No games scheduled", kodi.build_url(action="games"), False,
+                      props={"kind": "tile", "color": "FF3B3F4A", "title": "No games scheduled", "meta": "Nothing on today in the leagues WatchHub follows"})
     for g in items:
         _add_game(g, show_league=(league == "all"))
     kodi.end_directory()
@@ -468,10 +489,25 @@ def ondemand_menu():
     kodi.end_directory()
 
 
+def _empty_service_tile(svc, what):
+    """A provider-view row with nothing in it says so and offers the app, instead of 'Nothing right now'."""
+    name = ondemand.short_name(svc)
+    kodi.add_item("%s[CR]on %s" % (what, name), kodi.build_url(action="play", src="app", id=ondemand.BY_CODE[svc][1], name=name), False,
+                  props={"kind": "tile", "color": "FF3B3F4A", "title": "%s on %s" % (what, name), "meta": "Open %s to browse it yourself" % name})
+
+
 def ondemand_list(row, svc=""):
     kodi.set_content("videos")
-    for t in ondemand.row_items(row, svc):
+    items = ondemand.row_items(row, svc)
+    for t in items:
         _add_title(t)
+    if not items:
+        # a filtered row, or a menu row for one service ("New on Pluto TV"): say so and offer the app
+        rows = ondemand.rows()
+        codes = rows[row][2]["codes"] if 0 <= row < len(rows) else []
+        one = svc or (codes[0] if len(codes) == 1 else "")
+        if one in ondemand.BY_CODE:
+            _empty_service_tile(one, "Nothing new this week" if rows[row][1] == "new" else "Nothing trending")
     kodi.end_directory(view="posters")
 
 
@@ -483,37 +519,28 @@ def providers(svc=""):
     for code, name, pkg, thumb in items:
         selected = code == svc
         if selected and code:
-            meta = "Showing only %s" % name
+            # the picked service's own tile becomes its "open" button: one tile per service, nothing shifts
+            label, kicker, meta = "Open %s" % name, "SHOWING", "Showing only %s - press OK again to open the app" % name
         elif selected:
-            meta = "Showing everything - pick a service to narrow the rows"
+            label, kicker, meta = name, "SHOWING", "Showing everything - pick a service to narrow the rows"
         else:
-            meta = "Show only %s" % name if code else "Show everything again"
-        kodi.add_item(name, kodi.build_url(action="provider", code=code), False, art={"thumb": thumb, "icon": "DefaultAddonProgram.png"},
-                      info={"title": name}, props={"kind": "app", "meta": meta, "kicker": "SHOWING" if selected else "SERVICES", "selected": "1" if selected else ""})
-        if selected and code:
-            # the app itself, right next to its filter (comes after it, so the filters' positions don't shift)
-            kodi.add_item("Open %s" % name, kodi.build_url(action="play", src="app", id=pkg, name=name), False,
-                          art={"thumb": thumb, "icon": "DefaultAddonProgram.png"}, info={"title": "Open %s" % name},
-                          props={"kind": "app", "meta": "Launch the %s app" % name, "kicker": "OPEN APP"})
+            label, kicker, meta = name, "SERVICES", "Show only %s" % name if code else "Show everything again"
+        kodi.add_item(label, kodi.build_url(action="provider", code=code), False, art={"thumb": thumb, "icon": "DefaultAddonProgram.png"},
+                      info={"title": label}, props={"kind": "app", "meta": meta, "kicker": kicker, "selected": "1" if selected else "", "code": code})
     kodi.end_directory()
 
 
 def pick_provider(code):
     """Services row click: narrow the home rows to one service (or back to All); the selected one again opens its app.
 
-    (There is also an explicit "Open <service>" card next to the selected one - this is just the shortcut.)
+    (The selected tile is labelled "Open <service>", so the second press is spelled out on screen.)
     """
-    home = xbmcgui.Window(10000)
-    if code and code == home.getProperty("sh_provider"):
+    if code and code == homefilter.current():
         launcher.play({"src": "app", "id": ondemand.BY_CODE[code][1], "name": ondemand.short_name(code)})
         return
-    codes = [""] + ondemand.installed_codes()
-    home.setProperty("sh_provider_name", ondemand.short_name(code).upper() if code else "")
-    home.setProperty("sh_provider", code)
-    # the All rows (9000) and the provider rows (9001) swap visibility: wait a frame, then put focus
-    # back on the clicked service in whichever Services row is now showing
-    xbmc.sleep(250)
-    kodi.run_builtin("SetFocus(%d,%d,absolute)" % (9051 if code else 9050, codes.index(code) if code in codes else 0))
+    code = homefilter.apply(code)
+    homefilter.save(code)
+    homefilter.focus(code)
 
 
 def search(query=None):
@@ -524,10 +551,8 @@ def search(query=None):
         if not query:
             kodi.end_directory(succeeded=False)
             return
-        # re-enter with the query in the URL so Back/refresh keeps the results
-        kodi.run_builtin("Container.Update(%s,replace)" % kodi.build_url(action="search", q=query))
-        kodi.end_directory(succeeded=False)
-        return
+        # show the results right here: ending this listing as "failed" and re-entering with
+        # Container.Update sent Kodi back to its generic Videos page when Search was opened from home
     q = query.lower()
     for p in fast.live_now():
         if q in p["channel"].lower() or q in p["title"].lower():
@@ -593,10 +618,18 @@ def trakt_list(row, svc=""):
                 kodi.add_item("Sign in[CR]to Trakt", kodi.build_url(action="trakt_signin"), False, props={"kind": "tile", "color": "FF8A1F2E", "title": "Sign in to Trakt", "meta": "Remember what you watch, get new-season alerts"})
             kodi.end_directory()
             return
-        for t in trakt.up_next():
+        shown = 0
+        # a service view filters the list, so look further down the history first (the All view's top 20
+        # can easily contain nothing from that service)
+        for t in trakt.up_next(limit=60 if svc else 20):
             if svc and not _on_service(t, svc):
                 continue
             _trakt_item(t, "UP NEXT", "%s %s" % (t["next"], t["episode_title"]))
+            shown += 1
+            if shown >= 20:
+                break
+        if svc and not shown and svc in ondemand.BY_CODE:
+            _empty_service_tile(svc, "Nothing to resume")
     elif row == "calendar":
         # one card per show: the earliest upcoming episode, plus how many are coming in the window
         by_show = {}
@@ -655,6 +688,13 @@ def apps_menu():
 def switch_skin(name):
     """Switch Kodi's skin (user-initiated from the menu / the skin's own 'classic look' card)."""
     kodi.resolve_none()
+    if name != "skin.sportshub" and not xbmcgui.Dialog().yesno(
+            "Classic Kodi look", "Switch to Kodi's standard look (Estuary)?\n\n"
+            "To come back: open the WatchHub add-on and choose \"WatchHub look (skin)\"."):
+        return
+    if name != "skin.sportshub":
+        # WatchHub turned off Kodi's "< Back" list items for its own skin; the classic look expects them
+        kodi.jsonrpc("Settings.SetSettingValue", {"setting": "filelists.showparentdiritems", "value": True})
     # A skin that was copied into the add-ons folder is registered but disabled; enable it first.
     en = kodi.jsonrpc("Addons.SetAddonEnabled", {"addonid": name, "enabled": True})
     res = kodi.jsonrpc("Settings.SetSettingValue", {"setting": "lookandfeel.skin", "value": name})

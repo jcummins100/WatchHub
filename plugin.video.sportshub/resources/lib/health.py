@@ -30,7 +30,9 @@ def installed_apps():
             if pkg:
                 apps.add(pkg)
     except Exception as exc:
+        # an empty result means "can't tell" to every caller; don't remember a failure for 5 minutes
         kodi.log("androidapp:// listing failed: %s" % exc)
+        return apps
     _apps_cache.update(at=now, apps=apps)
     return apps
 

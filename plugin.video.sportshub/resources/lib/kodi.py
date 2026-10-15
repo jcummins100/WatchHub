@@ -186,6 +186,10 @@ VIEWS = {"wall": 500, "widelist": 55, "infowall": 54, "list": 50, "shift": 53}
 
 def end_directory(succeeded=True, cache=False, update_listing=False, view=None):
     log("end_directory handle=%s ok=%s" % (HANDLE, succeeded))
+    if xbmc.getSkinDir() == "skin.sportshub" and HANDLE >= 0:
+        # The WatchHub skin picks its layout from the content type (posters for "movies", channel/tile
+        # cards otherwise) - SetViewMode alone races the window loading the list and sometimes loses.
+        xbmcplugin.setContent(HANDLE, "movies" if view == "posters" else "videos")
     xbmcplugin.endOfDirectory(HANDLE, succeeded=succeeded, updateListing=update_listing, cacheToDisc=cache)
     if succeeded and xbmc.getSkinDir() == "skin.sportshub":
         xbmc.executebuiltin("Container.SetViewMode(%d)" % (601 if view == "posters" else 600))
