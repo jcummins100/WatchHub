@@ -63,6 +63,18 @@ def main():
             if code:
                 homefilter.focus(code, timeout_s=30)
 
+    # Kodi was killed while a channel launched from the TV Guide was playing: put the guide back.
+    if xbmc.getSkinDir() == "skin.sportshub":
+        from resources.lib import guide
+        tab = guide.pending_return()
+        if tab is not None:
+            for _ in range(60):
+                if xbmc.getCondVisibility("Window.IsActive(home)") or monitor.waitForAbort(0.5):
+                    break
+            kodi.log("reopening the TV Guide after a restart (tab %s)" % (tab or "default"))
+            from urllib.parse import quote_plus
+            xbmc.executebuiltin("RunPlugin(plugin://%s/?action=guide&tab=%s)" % (ADDON_ID, quote_plus(tab)))
+
     # Refresh a little before the cache expires so the UI never has to wait on the network.
     home = xbmcgui.Window(10000)
     home.setProperty("sh_service_alive", "1")

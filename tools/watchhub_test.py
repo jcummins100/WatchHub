@@ -37,6 +37,7 @@ LOG = KODI_HOME + "/temp/kodi.log"
 FILTER_FILE = KODI_HOME + "/userdata/addon_data/plugin.video.sportshub/home_filter.json"
 
 # Home rows, top to bottom, as Home.xml lays them out (id, name)
+FIXED_GUIDE_TABS = ["Favorites", "Sports", "News", "Movies", "Shows", "Kids", "Music", "All", "Genres..."]
 ALL_ROWS = [(9050, "Services"), (9960, "Up Next"), (9100, "Live Sports Now"), (9200, "Today's Games"),
             (9950, "New This Week"), (9800, "Trending"), (9700, "Free Live TV"), (9300, "Sports Starting Soon"), (9600, "More")]
 PROVIDER_ROWS = [(9051, "Services"), (9961, "Up Next on <svc>"), (9951, "New This Week on <svc>"), (9801, "Trending on <svc>")]
@@ -242,15 +243,26 @@ class Offline:
               lambda r, b: (len(r["items"]) > 0, "%d items" % len(r["items"])), view_mode="list")
         check("trakt_client_id empty: Up Next row empty (no sign-in card)", "action=trakt&row=upnext&skin=1",
               lambda r, b: (len(r["items"]) == 0, ", ".join(labels(r)) or "empty"), trakt_client_id="")
-        check("Roku app missing: no Roku channels or 'Watch on The Roku Channel'", "action=live&skin=1",
-              lambda r, b: (not any("roku" in json.dumps(i).lower() for i in r["items"]),
+        roku_installed = "com.roku.web.trc" in self.env.get("SH_apps", "")
+        check("Roku channels %s (Roku app %s)" % ("shown" if roku_installed else "hidden", "installed" if roku_installed else "missing"), "action=live&skin=1",
+              lambda r, b: (any("roku" in json.dumps(i).lower() for i in r["items"]) == roku_installed,
                             "%d live items, %d mention Roku" % (len(r["items"]), sum("roku" in json.dumps(i).lower() for i in r["items"]))))
+        check("Roku app missing (simulated): no Roku channels or 'Watch on The Roku Channel'", "action=live&skin=1",
+              lambda r, b: (not any("roku" in json.dumps(i).lower() for i in r["items"]),
+                            "%d live items, %d mention Roku" % (len(r["items"]), sum("roku" in json.dumps(i).lower() for i in r["items"]))),
+              apps=",".join(a for a in self.env.get("SH_apps", "").split(",") if a != "com.roku.web.trc"))
         games = self.run("action=games&league=all&skin=1")["items"]
         with_ctx = [g for g in games if any(c.startswith("Watch on") for c in g["context"])]
         needs = [g for g in games if "needs" in g["props"].get("network", "")]
         self.rep.add(A, "Game cards offer 'Watch on <app>' and flag missing apps", "PASS" if with_ctx else "FAIL",
                      "%d/%d games have Watch-on choices, %d flagged 'needs ... app' (e.g. %s)" % (
                          len(with_ctx), len(games), len(needs), needs[0]["props"]["network"] if needs else "-"))
+        check("hide_spanish=true (default): no En Español genre", "action=tvgroups&skin=1",
+              lambda r, b: (not any("espa" in l.lower() for l in labels(r)), ", ".join(labels(r))[:200]))
+        check("hide_spanish=false: En Español genre back", "action=tvgroups&skin=1",
+              lambda r, b: (any("espa" in l.lower() for l in labels(r)), ", ".join(labels(r))[:200]), hide_spanish="false")
+        check("Home Live Sports Now starts with the TV Guide card", "action=live&skin=1",
+              lambda r, b: (bool(r["items"]) and r["items"][0]["props"].get("kind") == "guide", ", ".join(labels(r)[:3])))
         check("service_priority plex first", "action=live&skin=1",
               lambda r, b: (len(r["items"]) > 0, "first 3 now: %s" % ", ".join(labels(r)[:3])), service_priority="plex,pluto,roku,samsung")
 
@@ -580,7 +592,7 @@ class OnDevice:
         d.goto_item(9100, 1)
 
         # ---------------- every card type: click and see what happens
-        def row_clicks(cid, name, count, expect=None):
+        def row_clicks(cid, name, count, expect=None, first=1):
             d.home()
             if not d.goto_row(cid, ALL_ROWS):
                 rep.add(B, "Click %s" % name, "FAIL", "row not reachable (empty?)")
@@ -588,7 +600,7 @@ class OnDevice:
             total = int(d.info("Container(%d).NumItems" % cid).get("Container(%d).NumItems" % cid) or 0)
             if not total:
                 rep.add(B, "Click %s" % name, "ISSUE", "row reached but has no items (or Kodi not answering)", d.shot("empty-%s" % name))
-            for k in range(1, min(count, total) + 1):
+            for k in range(first, min(count + first - 1, total) + 1):
                 d.goto_row(cid, ALL_ROWS)
                 d.goto_item(cid, k)
                 lab = d.info("Container(%d).ListItem.Label" % cid, "Container(%d).ListItem.Property(meta)" % cid)
@@ -598,14 +610,14 @@ class OnDevice:
         self.row_clicks = row_clicks
         launched_ok = lambda l, s, dl: bool(l)
         row_clicks(9960, "Up Next", 2, lambda l, s, dl: "Window.IsActive(TitleInfo.xml)" in dl or bool(l))
-        row_clicks(9100, "Live Sports Now", 6, launched_ok)
+        row_clicks(9100, "Live Sports Now", 6, launched_ok, first=2)  # card 1 is the TV Guide (tested below)
         row_clicks(9200, "Today's Games", 6)
         row_clicks(9950, "New This Week", 2, lambda l, s, dl: "Window.IsActive(TitleInfo.xml)" in dl)
         row_clicks(9800, "Trending", 2, lambda l, s, dl: "Window.IsActive(TitleInfo.xml)" in dl)
         row_clicks(9300, "Sports Starting Soon", 4, launched_ok)
-        row_clicks(9700, "Free Live TV genre", 3, lambda l, s, dl: "Window.IsActive(videos)" in dl)
+        row_clicks(9700, "Free Live TV genre", 3, lambda l, s, dl: "Window.IsActive(videos)" in dl, first=2)  # card 1 = TV Guide
         # inside a Free Live TV genre: click two channels
-        d.home(); d.goto_row(9700, ALL_ROWS); d.goto_item(9700, 1); d.key("Select"); time.sleep(4)
+        d.home(); d.goto_row(9700, ALL_ROWS); d.goto_item(9700, 2); d.key("Select"); time.sleep(4)
         if d.is_("Window.IsActive(videos)").get("Window.IsActive(videos)"):
             for k in (1, 2):
                 d.key("Down") if k > 1 else None
@@ -615,6 +627,8 @@ class OnDevice:
                     d.sh("am force-stop %s" % launched)
                     d.kodi_front()
         d.home()
+
+        self._guide_tests(B)
 
         # ---------------- More row: every tile
         d.goto_row(9600, ALL_ROWS)
@@ -723,11 +737,11 @@ class OnDevice:
 
     def _free_tv_and_power(self, B):
         d, rep = self.d, self.rep
-        d.home(); d.goto_row(9700, ALL_ROWS); d.goto_item(9700, 1)
+        d.home(); d.goto_row(9700, ALL_ROWS); d.goto_item(9700, 2)
         self.click(B, "Free Live TV genre #1", lambda l, s, dl: "Window.IsActive(videos)" in dl, back=False)
         for k in (1, 2, 3):
             if not d.is_("Window.IsActive(videos)").get("Window.IsActive(videos)"):
-                d.home(); d.goto_row(9700, ALL_ROWS); d.goto_item(9700, 1); d.key("Select"); time.sleep(4)
+                d.home(); d.goto_row(9700, ALL_ROWS); d.goto_item(9700, 2); d.key("Select"); time.sleep(4)
             d.key("Down", k)
             lab = d.info("ListItem.Label").get("ListItem.Label", "")
             launched, _, _ = self.click(B, "Free Live TV > genre 1 > channel: %s" % lab[:50], lambda l, s, dl: bool(l), back=False)
@@ -745,11 +759,124 @@ class OnDevice:
         d.home()
         rep.add(B, "Kodi cold starts after returning from an app (this run)", "INFO", "%d" % getattr(d, "restarts", 0))
 
+    def _guide_tests(self, B):
+        """TV Guide: both ways in, time, tabs, favorites, schedule, watching a channel."""
+        d, rep = self.d, self.rep
+        G = "Window.IsActive(Guide.xml)"
+        favfile = KODI_HOME + "/userdata/addon_data/plugin.video.sportshub/guide_favorites.json"
+        d.sh("rm -f %s" % favfile)
+        opened = lambda: d.wait(lambda: d.is_(G).get(G), 15)
+        # 1. the first Live Sports Now card
+        d.home(); d.goto_row(9100, ALL_ROWS); d.goto_item(9100, 1)
+        lab = d.info("Container(9100).ListItem.Label", "Container(9100).ListItem.Property(kind)")
+        d.key("Select")
+        ok = opened(); time.sleep(2)
+        st = d.info("Window(13000).Property(tab)", "Container(500).NumItems", "Window(13000).Property(slot0)", "Container(300).NumItems")
+        rep.add(B, "Guide: Live Sports Now first card opens it", "PASS" if ok and lab.get("Container(9100).ListItem.Property(kind)") == "guide" else "FAIL",
+                "%s | %s" % (json.dumps(lab), json.dumps(st)), d.shot("guide-from-live-row"))
+        if not ok:
+            return
+        rep.add(B, "Guide: opens on Sports with channels and tabs", "PASS" if st.get("Window(13000).Property(tab)") == "Sports" and int(st.get("Container(500).NumItems") or 0) > 20
+                and int(st.get("Container(300).NumItems") or 0) > 3 else "FAIL", json.dumps(st))
+        tabs = [d.info("Container(300).ListItemAbsolute(%d).Label" % k).get("Container(300).ListItemAbsolute(%d).Label" % k) for k in range(int(st.get("Container(300).NumItems") or 0))]
+        rep.add(B, "Guide: no Spanish tab (hide_spanish on)", "PASS" if not any("espa" in (t or "").lower() for t in tabs) else "FAIL", ", ".join(t or "" for t in tabs))
+        # 2. time: Right x2 = +1 hour, then Left back (never before now)
+        s0 = st.get("Window(13000).Property(slot0)")
+        d.key("Right"); time.sleep(1.5); d.key("Right"); time.sleep(1.5)
+        s2 = d.info("Window(13000).Property(slot0)").get("Window(13000).Property(slot0)")
+        rep.add(B, "Guide: Right moves time forward", "PASS" if s2 and s2 != s0 else "FAIL", "%s -> %s" % (s0, s2), d.shot("guide-plus-1h"))
+        for _ in range(3):
+            d.key("Left"); time.sleep(1.5)
+        s3 = d.info("Window(13000).Property(slot0)").get("Window(13000).Property(slot0)")
+        rep.add(B, "Guide: Left back to now, never before it", "PASS" if s3 == s0 else "FAIL", "%s (start %s)" % (s3, s0))
+        # 3. tabs
+        d.key("Up"); time.sleep(1); d.key("Right"); time.sleep(1); d.key("Select"); time.sleep(3)
+        st = d.info("Window(13000).Property(tab)", "Container(500).NumItems", "System.CurrentControlId")
+        rep.add(B, "Guide: switching tab", "PASS" if st.get("Window(13000).Property(tab)") not in ("Sports", None, "") and int(st.get("Container(500).NumItems") or 0) > 0
+                and st.get("System.CurrentControlId") == "500" else "FAIL", json.dumps(st), d.shot("guide-tab-2"))
+        # 4. long-press menu -> Add to Favorites -> Favorites tab
+        chan = d.info("Container(500).ListItem.Label").get("Container(500).ListItem.Label")
+        d.rpc("Input.ContextMenu"); time.sleep(2)
+        menu = d.is_("Window.IsActive(contextmenu)").get("Window.IsActive(contextmenu)")
+        d.shot("guide-long-press-menu")
+        d.key("Select"); time.sleep(2)
+        favs = d.sh("cat %s 2>/dev/null" % favfile)
+        first_tab = d.info("Container(300).ListItemAbsolute(0).Label").get("Container(300).ListItemAbsolute(0).Label")
+        rep.add(B, "Guide: long-press > Add to Favorites", "PASS" if menu and first_tab == "Favorites" and favs.strip().startswith("[") else "FAIL",
+                "channel %s, saved %s, first tab %s" % (chan, favs.strip()[:80], first_tab))
+        # 5. full schedule
+        d.rpc("Input.ContextMenu"); time.sleep(2); d.key("Down"); d.key("Select"); time.sleep(2)
+        sched = d.is_("Window.IsActive(selectdialog)").get("Window.IsActive(selectdialog)")
+        rep.add(B, "Guide: long-press > Full schedule", "PASS" if sched else "FAIL", "", d.shot("guide-schedule"))
+        d.key("Back"); time.sleep(1)
+        # 5b. times carry am/pm; short programmes inside a column are flagged
+        st = d.info("Window(13000).Property(slot0)", *["Container(500).ListItemAbsolute(%d).Property(s%d)" % (r, c) for r in range(8) for c in range(4)])
+        more = sum(1 for k, v in st.items() if "more" in (v or ""))
+        rep.add(B, "Guide: am/pm times, '+N more' flags", "PASS" if (st.get("Window(13000).Property(slot0)") or "").endswith(("am", "pm")) else "FAIL",
+                "first column %s, %d cells flagged '+N more' in the first 8 rows" % (st.get("Window(13000).Property(slot0)"), more))
+        # 5c. Hide this channel (last entry of the long-press menu)
+        hfile = KODI_HOME + "/userdata/addon_data/plugin.video.sportshub/guide_hidden.json"
+        d.sh("rm -f %s" % hfile)
+        before = int(d.info("Container(500).NumItems").get("Container(500).NumItems") or 0)
+        d.key("Down"); time.sleep(1)
+        victim = d.info("Container(500).ListItem.Label").get("Container(500).ListItem.Label")
+        d.rpc("Input.ContextMenu"); time.sleep(2)
+        n = int(d.info("Container(996).NumItems").get("Container(996).NumItems") or 0)
+        d.key("Down", max(n - 1, 0)); d.key("Select"); time.sleep(2)
+        after = int(d.info("Container(500).NumItems").get("Container(500).NumItems") or 0)
+        rep.add(B, "Guide: long-press > Hide this channel", "PASS" if after == before - 1 and d.sh("cat %s 2>/dev/null" % hfile).strip().startswith("[") else "FAIL",
+                "%s: %d -> %d rows, saved %s" % (victim, before, after, d.sh("cat %s 2>/dev/null" % hfile).strip()[:60]), d.shot("guide-hidden"))
+        d.sh("rm -f %s" % hfile)
+        # 5d. Genres... picks a specific genre (Up until the tab strip has focus)
+        for _ in range(12):
+            if d.focus() == 300:
+                break
+            d.key("Up")
+        for _ in range(14):
+            if d.info("Container(300).ListItem.Label").get("Container(300).ListItem.Label") == "Genres...":
+                break
+            d.key("Right")
+        d.key("Select"); time.sleep(2)
+        picker = d.is_("Window.IsActive(selectdialog)").get("Window.IsActive(selectdialog)")
+        d.key("Down"); d.key("Select"); time.sleep(3)
+        st = d.info("Window(13000).Property(tab)", "Container(500).NumItems")
+        rep.add(B, "Guide: Genres... opens a genre", "PASS" if picker and st.get("Window(13000).Property(tab)") not in FIXED_GUIDE_TABS and int(st.get("Container(500).NumItems") or 0) > 0 else "FAIL",
+                json.dumps(st), d.shot("guide-genre"))
+        tab_before = st.get("Window(13000).Property(tab)")
+        # 6. OK watches the channel now - and after a Kodi restart the guide comes back on that tab
+        chan = d.info("Container(500).ListItem.Label").get("Container(500).ListItem.Label")
+        launched, _, _ = self.click(B, "Guide: OK on %s watches it" % chan, lambda l, s_, dl: bool(l), back=False, settle=12)
+        if launched:
+            d.sh("am force-stop %s" % launched)
+        d.restart_kodi()
+        ok = d.wait(lambda: d.is_(G).get(G), 30)
+        time.sleep(2)
+        st = d.info("Window(13000).Property(tab)")
+        rep.add(B, "Guide: reopens on the same tab after Kodi restarts", "PASS" if ok and st.get("Window(13000).Property(tab)") == tab_before else "FAIL",
+                "open=%s tab=%s (was %s)" % (ok, st.get("Window(13000).Property(tab)"), tab_before), d.shot("guide-reopened"))
+        d.key("Back"); time.sleep(2)  # closing on purpose clears it
+        d.home()
+        # 7. the TV Guide icon in the top bar (leftmost); the guide reopens on Favorites
+        d.goto_row(9050, ALL_ROWS); d.key("Up")
+        for _ in range(5):
+            if d.focus() == 805:
+                break
+            d.key("Left")
+        ok = d.focus() == 805
+        if ok:
+            d.key("Select"); ok = opened(); time.sleep(2)
+        st = d.info("Window(13000).Property(tab)", "Container(500).NumItems")
+        rep.add(B, "Guide: top-bar TV Guide icon opens it on Favorites", "PASS" if ok and st.get("Window(13000).Property(tab)") == "Favorites" else "FAIL",
+                json.dumps(st), d.shot("guide-from-header"))
+        d.key("Back"); time.sleep(1)
+        d.sh("rm -f %s" % favfile)  # leave no test favorites behind
+        d.home()
+
     def _gaps(self, B):
         """Re-run of the row clicks a first run lost to Kodi being killed, then every service filter."""
         d, rep = self.d, self.rep
 
-        def row_clicks(cid, name, count, expect=None):
+        def row_clicks(cid, name, count, expect=None, first=1):
             d.home()
             if not d.goto_row(cid, ALL_ROWS):
                 rep.add(B, "Click %s" % name, "FAIL", "row not reachable (empty?)")
@@ -757,7 +884,7 @@ class OnDevice:
             total = int(d.info("Container(%d).NumItems" % cid).get("Container(%d).NumItems" % cid) or 0)
             if not total:
                 rep.add(B, "Click %s" % name, "ISSUE", "row reached but has no items (or Kodi not answering)", d.shot("empty-%s" % name))
-            for k in range(1, min(count, total) + 1):
+            for k in range(first, min(count + first - 1, total) + 1):
                 d.home()
                 d.goto_row(cid, ALL_ROWS)
                 d.goto_item(cid, k)
@@ -768,8 +895,8 @@ class OnDevice:
         row_clicks(9950, "New This Week", 3, info_ok)
         row_clicks(9800, "Trending", 3, info_ok)
         row_clicks(9300, "Sports Starting Soon", 4, lambda l, s, dl: bool(l))
-        row_clicks(9700, "Free Live TV genre", 3, lambda l, s, dl: "Window.IsActive(videos)" in dl)
-        d.home(); d.goto_row(9700, ALL_ROWS); d.goto_item(9700, 1); d.key("Select"); time.sleep(4)
+        row_clicks(9700, "Free Live TV genre", 3, lambda l, s, dl: "Window.IsActive(videos)" in dl, first=2)  # card 1 = TV Guide
+        d.home(); d.goto_row(9700, ALL_ROWS); d.goto_item(9700, 2); d.key("Select"); time.sleep(4)
         if d.is_("Window.IsActive(videos)").get("Window.IsActive(videos)"):
             for k in (1, 2, 3):
                 if k > 1:
@@ -780,7 +907,7 @@ class OnDevice:
                     d.sh("am force-stop %s" % launched)
                 d.kodi_front()
                 if not d.is_("Window.IsActive(videos)").get("Window.IsActive(videos)"):
-                    d.home(); d.goto_row(9700, ALL_ROWS); d.goto_item(9700, 1); d.key("Select"); time.sleep(4)
+                    d.home(); d.goto_row(9700, ALL_ROWS); d.goto_item(9700, 2); d.key("Select"); time.sleep(4)
                     d.key("Down", k)
         rep.add(B, "Kodi cold starts after returning from an app (this run)", "INFO", "%d" % getattr(d, "restarts", 0))
         self._filters(B)

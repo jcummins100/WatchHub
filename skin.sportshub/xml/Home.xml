@@ -63,7 +63,7 @@
 				<param name="header" value="LIVE SPORTS NOW"/>
 				<param name="content_path" value="plugin://plugin.video.sportshub/?action=live&amp;skin=1&amp;r=$INFO[Window(Home).Property(sh_refresh)]"/>
 				<param name="onclick" value="RunPlugin($INFO[ListItem.FileNameAndPath])"/>
-				<param name="layout" value="SH_CardChannel"/>
+				<param name="layout" value="SH_CardChannelAny"/>
 				<param name="item_width" value="416"/>
 			</include>
 			<include content="SH_Rail">
@@ -294,9 +294,9 @@
 				<textcolor>B0FFFFFF</textcolor>
 			</control>
 			<control type="grouplist" id="700">
-				<left>1080</left>
+				<left>970</left>
 				<top>26</top>
-				<width>330</width>
+				<width>440</width>
 				<height>80</height>
 				<orientation>horizontal</orientation>
 				<itemgap>0</itemgap>
@@ -304,6 +304,13 @@
 				<ondown condition="String.IsEmpty(Window(Home).Property(sh_provider))">9000</ondown>
 				<ondown condition="!String.IsEmpty(Window(Home).Property(sh_provider))">9001</ondown>
 				<onup>noop</onup>
+				<include content="IconButton">
+					<param name="control_id" value="805"/>
+					<param name="height" value="80"/>
+					<param name="onclick" value="RunPlugin(plugin://plugin.video.sportshub/?action=guide)"/>
+					<param name="icon" value="icons/submenu/guide.png"/>
+					<param name="label" value="TV Guide"/>
+				</include>
 				<include content="IconButton">
 					<param name="control_id" value="801"/>
 					<param name="height" value="80"/>

@@ -40,6 +40,11 @@
           <default>false</default>
           <control type="toggle"/>
         </setting>
+        <setting id="hide_spanish" type="boolean" label="30130" help="30131">
+          <level>0</level>
+          <default>true</default>
+          <control type="toggle"/>
+        </setting>
         <setting id="src_pvr" type="boolean" label="30115" help="30116">
           <level>0</level>
           <default>true</default>

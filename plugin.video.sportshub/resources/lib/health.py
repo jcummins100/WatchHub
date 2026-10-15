@@ -94,6 +94,39 @@ def warm_caches():
             sportsdb.tv_today()
         except Exception as exc:
             kodi.log("warm sportsdb failed: %s" % exc)
+    _warm_service_views()
+
+
+_service_warm = {"running": False}
+
+
+def _warm_service_views():
+    """Fill the caches behind the per-service views (Up Next / New This Week / Trending for one
+    service) so switching services in the Services row reads from cache instead of making ~70
+    requests while you wait. Runs on its own thread: the first fill is slow, later ones are cache hits."""
+    import threading
+
+    if _service_warm["running"]:
+        return
+
+    def work():
+        _service_warm["running"] = True
+        t0 = time.time()
+        try:
+            from resources.lib.sources import ondemand, trakt
+            if trakt.signed_in():
+                for t in trakt.up_next(limit=60):
+                    ondemand.lookup(t["title"], t["year"], t["type"])
+            for code in ondemand.installed_codes():
+                ondemand.titles([code], ("MOVIE", "SHOW"), first=40)
+                ondemand.new_titles([code])
+            kodi.log("service views warmed in %.0fs" % (time.time() - t0))
+        except Exception as exc:
+            kodi.log("warm service views failed: %s" % exc)
+        finally:
+            _service_warm["running"] = False
+
+    threading.Thread(target=work, name="sh-warm-services", daemon=True).start()
 
 
 def source_status():

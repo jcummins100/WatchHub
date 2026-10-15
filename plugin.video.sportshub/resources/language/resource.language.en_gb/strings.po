@@ -256,3 +256,11 @@ msgstr ""
 msgctxt "#30322"
 msgid "Comma-separated: aho=HBO Max, aep=MGM+, app=Paramount+, saz=Starz, azp=AMC+, adp=Discovery+, avl=Apple TV, acn=Cinemax, abb=BritBox, pep=Peacock"
 msgstr ""
+
+msgctxt "#30130"
+msgid "Hide Spanish-language channels"
+msgstr ""
+
+msgctxt "#30131"
+msgid "Leaves out Spanish-language free channels (Pluto's En Español genre, Telemundo, Univision, Azteca, \"en Español\" channels...) everywhere: rows, lists and the TV Guide."
+msgstr ""

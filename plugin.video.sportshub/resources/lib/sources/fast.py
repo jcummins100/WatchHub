@@ -48,6 +48,45 @@ SERVICES = {
 }
 
 
+# Spanish-language channels: Pluto files them under "En Español"; Plex and Roku only say so in the name
+SPANISH_GROUP = re.compile(r"espa[nñ]ol", re.I)
+SPANISH_NAME = re.compile(r"espa[nñ]ol|\blatino|telemundo|univisi[oó]n|unim[aá]s|galavisi[oó]n|tudn|azteca|televisa|estrella|caracol"
+                          r"|\bnoticias\b|\bdeportes\b|\bnovelas?\b|telenovela|\bcine\b|\ben vivo\b|\bn\+", re.I)
+
+
+SPANISH_NAME_EXTRA = re.compile(r"\bvix\b", re.I)
+# words that are common in Spanish titles and rare in English ones; accents/ñ/¿¡ count too
+# (é is left out: English uses it too - Pokémon, café; so are lone "el"/"de"/"la")
+SPANISH_WORDS = re.compile(r"[ñ¿¡]|[áíóú]\w|\b(del|los|las|y|con|para|una|por|que|en vivo|cuando|familia|historia|noche)\b", re.I)
+# place and people names that look Spanish inside English titles
+SPANISH_NAMES_IN_ENGLISH = re.compile(r"\b(los angeles|las vegas|el paso|el dorado|el camino|de la hoya|san \w+|santa \w+|la la land)\b", re.I)
+
+
+def is_spanish(ch):
+    if any(SPANISH_GROUP.search(g) for g in _group_names(ch)):
+        return True
+    name = ch.get("name", "")
+    if SPANISH_NAME.search(name) or SPANISH_NAME_EXTRA.search(name):
+        return True
+    # no label at all (Plex/Roku): judge by what it airs from now on - but only with enough evidence
+    # (3+ different titles, 60%+ clearly Spanish); when unsure, the channel stays visible
+    now = time.time()
+    titles = []
+    for entry in sorted(ch.get("programs") or [], key=lambda e: e[0] if e and isinstance(e[0], (int, float)) else 0):
+        try:
+            start, title = int(entry[0]), str(entry[1])
+        except (IndexError, TypeError, ValueError):
+            continue
+        if start + 4 * 3600 >= now and title not in titles:  # recent/upcoming, a marathon counts once
+            titles.append(title)
+        if len(titles) >= 12:
+            break
+    if len(titles) < 3:
+        return False
+    titles = [SPANISH_NAMES_IN_ENGLISH.sub(" ", t) for t in titles]
+    return sum(1 for t in titles if SPANISH_WORDS.search(t)) / len(titles) >= 0.6
+
+
 def enabled_services():
     """Services switched on in settings whose app is on this device (or can't be checked).
 
@@ -85,6 +124,8 @@ def _load(sid):
             regs = ch.get("regions")
             if not regs or region in regs:
                 out[cid] = ch
+    if kodi.setting_bool("hide_spanish", True):
+        out = {cid: ch for cid, ch in out.items() if not is_spanish(ch)}
     return out
 
 

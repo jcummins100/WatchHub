@@ -151,6 +151,7 @@ def root():
         ("Search", "search", "DefaultAddonsSearch.png", "Movies, shows and channels"),
         ("What's Streaming", "ondemand", "DefaultMovies.png", "Trending, new this week, newest releases"),
         ("My Shows & Movies (Trakt)", "trakt", "DefaultTVShows.png", "Up next, new episodes, watchlist"),
+        ("TV Guide", "guide", "DefaultPVRGuide.png", "Free live channels: what's on now and later"),
         ("Free Live TV", "tvgroups", "DefaultTVShows.png", "News, movies, kids and more"),
         ("By Service", "services", "DefaultNetwork.png", "Pluto, Plex, Roku..."),
         (kodi.localized(30004), "pvr", "DefaultTVShows.png", "Kodi Live TV") if pvr_has_channels() else None,
@@ -167,21 +168,26 @@ def root():
         if not t:
             continue
         label, action, icon, meta = t
-        folder = action not in ("refresh", "settings", "skin")
+        folder = action not in ("refresh", "settings", "skin", "guide")
         kodi.add_item(label, kodi.build_url(action=action), folder, art={"icon": icon, "thumb": icon},
                       props={"kind": "tile", "color": MENU_COLORS[i % len(MENU_COLORS)], "meta": meta})
         i += 1
     kodi.end_directory()
 
 
-def live():
+def live(home=False):
     kodi.set_content("videos")
+    if home:
+        # the home row starts with the full guide, one press down from where Home opens
+        kodi.add_item("TV Guide", kodi.build_url(action="guide"), False, art={"icon": "DefaultPVRGuide.png"},
+                      props={"kind": "guide", "color": "FF8A1F2E", "title": "TV Guide", "kicker": "ALL FREE CHANNELS",
+                             "meta": "What's on now and later on every free channel"})
     items = fast.live_now()
     if kodi.setting_bool("src_pvr", True) and pvr.available():
         items += pvr.live_now()
     items = _filter_games(items)
     if not items:
-        kodi.add_item(kodi.localized(30020), kodi.build_url(action="root"), False)
+        kodi.add_item(kodi.localized(30020), kodi.build_url(action="root"), False, props={"kind": "tile", "color": "FF3B3F4A"})
     for p in _sorted_live(items):
         _add_programme(p)
     kodi.end_directory()
@@ -656,6 +662,9 @@ def tvgroups():
     kodi.set_content("videos")
     groups = fast.groups()
     palette = list(SPORT_COLORS.values())
+    # first card: the full guide (kind "guide": the home row runs it instead of opening a folder)
+    kodi.add_item("TV Guide", kodi.build_url(action="guide"), False, art={"icon": "DefaultPVRGuide.png"},
+                  props={"kind": "guide", "color": "FF8A1F2E", "title": "TV Guide", "meta": "Every free channel - what's on now and later"})
     for i, (name, n) in enumerate(groups):
         kodi.add_item(name, kodi.build_url(action="tvgroup", name=name), True, art={"icon": ICON_FOLDER},
                       props={"kind": "tile", "color": palette[i % len(palette)], "meta": "%d channels" % n})
@@ -746,7 +755,7 @@ def dispatch(params):
     if action == "root":
         root()
     elif action == "live":
-        live()
+        live(home=params.get("skin") == "1")
     elif action == "soon":
         soon()
     elif action == "sports":
@@ -845,6 +854,10 @@ def dispatch(params):
         refresh()
     elif action == "status":
         status()
+    elif action == "guide":
+        kodi.resolve_none()
+        from resources.lib import guide
+        guide.show(params.get("tab") or None)
     elif action == "settings":
         kodi.resolve_none()
         kodi.open_settings()

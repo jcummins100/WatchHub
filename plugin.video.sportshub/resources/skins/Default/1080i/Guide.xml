@@ -1,0 +1,450 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- TV Guide (resources/lib/guide.py): free live channels as a time grid, 30-minute columns. -->
+<window type="dialog">
+	<defaultcontrol always="true">500</defaultcontrol>
+	<coordinates><left>0</left><top>0</top></coordinates>
+	<controls>
+		<control type="image">
+			<width>1920</width><height>1080</height>
+			<texture>special://home/addons/plugin.video.sportshub/resources/media/bg.png</texture>
+		</control>
+		<control type="label">
+			<left>100</left><top>40</top><width>600</width><height>50</height>
+			<font>font37</font>
+			<label>[B]TV[/B] GUIDE</label>
+			<textcolor>FFFFFFFF</textcolor>
+		</control>
+		<control type="label">
+			<left>640</left><top>48</top><width>1180</width><height>40</height>
+			<font>font23_narrow</font>
+			<align>right</align>
+			<label>[COLOR FF4CC27F]Sports[/COLOR]   [COLOR FFA98BE0]Movies[/COLOR]   [COLOR FF6FB8E8]Kids[/COLOR]        OK  watch      Left / Right  time      Long-press  favorites, schedule      $INFO[System.Time]</label>
+			<textcolor>A0FFFFFF</textcolor>
+		</control>
+		<!-- tabs: Favorites, Sports, genres -->
+		<control type="list" id="300">
+			<left>90</left><top>104</top><width>1740</width><height>64</height>
+			<orientation>horizontal</orientation>
+			<ondown>500</ondown>
+			<scrolltime>200</scrolltime>
+			<itemlayout width="236" height="64">
+				<control type="label">
+					<left>10</left><top>10</top><width>216</width><height>40</height>
+					<font>font25_title</font><align>center</align>
+					<label>$INFO[ListItem.Label]</label>
+					<textcolor>A0FFFFFF</textcolor>
+					<visible>String.IsEmpty(ListItem.Property(active))</visible>
+				</control>
+				<control type="label">
+					<left>10</left><top>10</top><width>216</width><height>40</height>
+					<font>font25_title</font><align>center</align>
+					<label>[B]$INFO[ListItem.Label][/B]</label>
+					<textcolor>FFFFFFFF</textcolor>
+					<visible>!String.IsEmpty(ListItem.Property(active))</visible>
+				</control>
+				<control type="image">
+					<left>60</left><top>54</top><width>116</width><height>5</height>
+					<texture colordiffuse="FF3D8BFF">special://home/addons/plugin.video.sportshub/resources/media/white.png</texture>
+					<visible>!String.IsEmpty(ListItem.Property(active))</visible>
+				</control>
+			</itemlayout>
+			<focusedlayout width="236" height="64">
+				<control type="image">
+					<left>4</left><top>2</top><width>228</width><height>56</height>
+					<texture border="14" colordiffuse="FF2C3E66">special://home/addons/plugin.video.sportshub/resources/media/pill.png</texture>
+					<visible>Control.HasFocus(300)</visible>
+				</control>
+				<control type="label">
+					<left>10</left><top>10</top><width>216</width><height>40</height>
+					<font>font25_title</font><align>center</align>
+					<label>[B]$INFO[ListItem.Label][/B]</label>
+					<textcolor>FFFFFFFF</textcolor>
+				</control>
+				<control type="image">
+					<left>60</left><top>54</top><width>116</width><height>5</height>
+					<texture colordiffuse="FF3D8BFF">special://home/addons/plugin.video.sportshub/resources/media/white.png</texture>
+					<visible>!String.IsEmpty(ListItem.Property(active))</visible>
+				</control>
+			</focusedlayout>
+		</control>
+		<!-- time ruler -->
+		<control type="label">
+			<left>100</left><top>186</top><width>340</width><height>36</height>
+			<font>font25_title</font>
+			<label>$INFO[Window.Property(day)]  ·  $INFO[Window.Property(tab)]</label>
+			<textcolor>A0FFFFFF</textcolor>
+		</control>
+		<control type="label">
+			<left>468</left><top>186</top><width>340</width><height>36</height>
+			<font>font25_title</font>
+			<label>$INFO[Window.Property(slot0)]</label>
+			<textcolor>FFFFFFFF</textcolor>
+		</control>
+		<control type="label">
+			<left>828</left><top>186</top><width>340</width><height>36</height>
+			<font>font25_title</font>
+			<label>$INFO[Window.Property(slot1)]</label>
+			<textcolor>FFFFFFFF</textcolor>
+		</control>
+		<control type="label">
+			<left>1188</left><top>186</top><width>340</width><height>36</height>
+			<font>font25_title</font>
+			<label>$INFO[Window.Property(slot2)]</label>
+			<textcolor>FFFFFFFF</textcolor>
+		</control>
+		<control type="label">
+			<left>1548</left><top>186</top><width>340</width><height>36</height>
+			<font>font25_title</font>
+			<label>$INFO[Window.Property(slot3)]</label>
+			<textcolor>FFFFFFFF</textcolor>
+		</control>
+		<!-- channels x time -->
+		<control type="list" id="500">
+			<left>100</left><top>230</top><width>1820</width><height>840</height>
+			<onup>300</onup>
+			<onleft>500</onleft>
+			<onright>500</onright>
+			<scrolltime tween="cubic" easing="out">200</scrolltime>
+			<itemlayout width="1820" height="84">
+				<control type="image">
+					<left>0</left><top>4</top><width>348</width><height>76</height>
+					<texture border="12" colordiffuse="FF141B29">special://home/addons/plugin.video.sportshub/resources/media/card.png</texture>
+				</control>
+				<control type="image">
+					<left>10</left><top>12</top><width>100</width><height>60</height>
+					<aspectratio>keep</aspectratio>
+					<texture background="true">$INFO[ListItem.Art(thumb)]</texture>
+				</control>
+				<control type="label">
+					<left>122</left><top>10</top><width>216</width><height>34</height>
+					<font>font23_narrow</font>
+					<label>[B]$INFO[ListItem.Label][/B]</label>
+					<textcolor>FFFFFFFF</textcolor>
+				</control>
+				<control type="label">
+					<left>122</left><top>42</top><width>216</width><height>30</height>
+					<font>font23_narrow</font>
+					<label>$INFO[ListItem.Property(service)]</label>
+					<textcolor>A0FFFFFF</textcolor>
+				</control>
+				<!-- programme backgrounds, then all text on top (titles run across later columns) -->
+				<control type="image">
+					<left>364</left><top>4</top><width>352</width><height>76</height>
+					<texture border="12" colordiffuse="$INFO[ListItem.Property(bg0)]">special://home/addons/plugin.video.sportshub/resources/media/card.png</texture>
+					<visible>String.IsEmpty(ListItem.Property(c0)) + !String.IsEmpty(ListItem.Property(t0))</visible>
+				</control>
+				<control type="image">
+					<left>350</left><top>4</top><width>366</width><height>76</height>
+					<texture border="12" colordiffuse="$INFO[ListItem.Property(bg0)]">special://home/addons/plugin.video.sportshub/resources/media/card.png</texture>
+					<visible>!String.IsEmpty(ListItem.Property(c0))</visible>
+				</control>
+				<control type="image">
+					<left>724</left><top>4</top><width>352</width><height>76</height>
+					<texture border="12" colordiffuse="$INFO[ListItem.Property(bg1)]">special://home/addons/plugin.video.sportshub/resources/media/card.png</texture>
+					<visible>String.IsEmpty(ListItem.Property(c1)) + !String.IsEmpty(ListItem.Property(t1))</visible>
+				</control>
+				<control type="image">
+					<left>710</left><top>4</top><width>366</width><height>76</height>
+					<texture border="12" colordiffuse="$INFO[ListItem.Property(bg1)]">special://home/addons/plugin.video.sportshub/resources/media/card.png</texture>
+					<visible>!String.IsEmpty(ListItem.Property(c1))</visible>
+				</control>
+				<control type="image">
+					<left>1084</left><top>4</top><width>352</width><height>76</height>
+					<texture border="12" colordiffuse="$INFO[ListItem.Property(bg2)]">special://home/addons/plugin.video.sportshub/resources/media/card.png</texture>
+					<visible>String.IsEmpty(ListItem.Property(c2)) + !String.IsEmpty(ListItem.Property(t2))</visible>
+				</control>
+				<control type="image">
+					<left>1070</left><top>4</top><width>366</width><height>76</height>
+					<texture border="12" colordiffuse="$INFO[ListItem.Property(bg2)]">special://home/addons/plugin.video.sportshub/resources/media/card.png</texture>
+					<visible>!String.IsEmpty(ListItem.Property(c2))</visible>
+				</control>
+				<control type="image">
+					<left>1444</left><top>4</top><width>352</width><height>76</height>
+					<texture border="12" colordiffuse="$INFO[ListItem.Property(bg3)]">special://home/addons/plugin.video.sportshub/resources/media/card.png</texture>
+					<visible>String.IsEmpty(ListItem.Property(c3)) + !String.IsEmpty(ListItem.Property(t3))</visible>
+				</control>
+				<control type="image">
+					<left>1430</left><top>4</top><width>366</width><height>76</height>
+					<texture border="12" colordiffuse="$INFO[ListItem.Property(bg3)]">special://home/addons/plugin.video.sportshub/resources/media/card.png</texture>
+					<visible>!String.IsEmpty(ListItem.Property(c3))</visible>
+				</control>
+				<control type="label">
+					<left>380</left><top>8</top><width>322</width><height>38</height>
+					<font>font25_title</font>
+					<label>$INFO[ListItem.Property(t0)]</label>
+					<textcolor>FFFFFFFF</textcolor>
+					<visible>String.IsEmpty(ListItem.Property(c0)) + String.IsEqual(ListItem.Property(r0),1)</visible>
+				</control>
+				<control type="label">
+					<left>380</left><top>8</top><width>682</width><height>38</height>
+					<font>font25_title</font>
+					<label>$INFO[ListItem.Property(t0)]</label>
+					<textcolor>FFFFFFFF</textcolor>
+					<visible>String.IsEmpty(ListItem.Property(c0)) + String.IsEqual(ListItem.Property(r0),2)</visible>
+				</control>
+				<control type="label">
+					<left>380</left><top>8</top><width>1042</width><height>38</height>
+					<font>font25_title</font>
+					<label>$INFO[ListItem.Property(t0)]</label>
+					<textcolor>FFFFFFFF</textcolor>
+					<visible>String.IsEmpty(ListItem.Property(c0)) + String.IsEqual(ListItem.Property(r0),3)</visible>
+				</control>
+				<control type="label">
+					<left>380</left><top>8</top><width>1402</width><height>38</height>
+					<font>font25_title</font>
+					<label>$INFO[ListItem.Property(t0)]</label>
+					<textcolor>FFFFFFFF</textcolor>
+					<visible>String.IsEmpty(ListItem.Property(c0)) + String.IsEqual(ListItem.Property(r0),4)</visible>
+				</control>
+				<control type="label">
+					<left>380</left><top>42</top><width>322</width><height>30</height>
+					<font>font23_narrow</font>
+					<label>$INFO[ListItem.Property(s0)]</label>
+					<textcolor>A0FFFFFF</textcolor>
+					<visible>String.IsEmpty(ListItem.Property(c0))</visible>
+				</control>
+				<control type="label">
+					<left>740</left><top>8</top><width>322</width><height>38</height>
+					<font>font25_title</font>
+					<label>$INFO[ListItem.Property(t1)]</label>
+					<textcolor>FFFFFFFF</textcolor>
+					<visible>String.IsEmpty(ListItem.Property(c1)) + String.IsEqual(ListItem.Property(r1),1)</visible>
+				</control>
+				<control type="label">
+					<left>740</left><top>8</top><width>682</width><height>38</height>
+					<font>font25_title</font>
+					<label>$INFO[ListItem.Property(t1)]</label>
+					<textcolor>FFFFFFFF</textcolor>
+					<visible>String.IsEmpty(ListItem.Property(c1)) + String.IsEqual(ListItem.Property(r1),2)</visible>
+				</control>
+				<control type="label">
+					<left>740</left><top>8</top><width>1042</width><height>38</height>
+					<font>font25_title</font>
+					<label>$INFO[ListItem.Property(t1)]</label>
+					<textcolor>FFFFFFFF</textcolor>
+					<visible>String.IsEmpty(ListItem.Property(c1)) + String.IsEqual(ListItem.Property(r1),3)</visible>
+				</control>
+				<control type="label">
+					<left>740</left><top>42</top><width>322</width><height>30</height>
+					<font>font23_narrow</font>
+					<label>$INFO[ListItem.Property(s1)]</label>
+					<textcolor>A0FFFFFF</textcolor>
+					<visible>String.IsEmpty(ListItem.Property(c1))</visible>
+				</control>
+				<control type="label">
+					<left>1100</left><top>8</top><width>322</width><height>38</height>
+					<font>font25_title</font>
+					<label>$INFO[ListItem.Property(t2)]</label>
+					<textcolor>FFFFFFFF</textcolor>
+					<visible>String.IsEmpty(ListItem.Property(c2)) + String.IsEqual(ListItem.Property(r2),1)</visible>
+				</control>
+				<control type="label">
+					<left>1100</left><top>8</top><width>682</width><height>38</height>
+					<font>font25_title</font>
+					<label>$INFO[ListItem.Property(t2)]</label>
+					<textcolor>FFFFFFFF</textcolor>
+					<visible>String.IsEmpty(ListItem.Property(c2)) + String.IsEqual(ListItem.Property(r2),2)</visible>
+				</control>
+				<control type="label">
+					<left>1100</left><top>42</top><width>322</width><height>30</height>
+					<font>font23_narrow</font>
+					<label>$INFO[ListItem.Property(s2)]</label>
+					<textcolor>A0FFFFFF</textcolor>
+					<visible>String.IsEmpty(ListItem.Property(c2))</visible>
+				</control>
+				<control type="label">
+					<left>1460</left><top>8</top><width>322</width><height>38</height>
+					<font>font25_title</font>
+					<label>$INFO[ListItem.Property(t3)]</label>
+					<textcolor>FFFFFFFF</textcolor>
+					<visible>String.IsEmpty(ListItem.Property(c3)) + String.IsEqual(ListItem.Property(r3),1)</visible>
+				</control>
+				<control type="label">
+					<left>1460</left><top>42</top><width>322</width><height>30</height>
+					<font>font23_narrow</font>
+					<label>$INFO[ListItem.Property(s3)]</label>
+					<textcolor>A0FFFFFF</textcolor>
+					<visible>String.IsEmpty(ListItem.Property(c3))</visible>
+				</control>
+			</itemlayout>
+			<focusedlayout width="1820" height="84">
+				<control type="image">
+					<left>0</left><top>4</top><width>348</width><height>76</height>
+					<texture border="12" colordiffuse="FF2C3E66">special://home/addons/plugin.video.sportshub/resources/media/card.png</texture>
+				</control>
+				<control type="image">
+					<left>10</left><top>12</top><width>100</width><height>60</height>
+					<aspectratio>keep</aspectratio>
+					<texture background="true">$INFO[ListItem.Art(thumb)]</texture>
+				</control>
+				<control type="label">
+					<left>122</left><top>10</top><width>216</width><height>34</height>
+					<font>font23_narrow</font>
+					<label>[B]$INFO[ListItem.Label][/B]</label>
+					<textcolor>FFFFFFFF</textcolor>
+				</control>
+				<control type="label">
+					<left>122</left><top>42</top><width>216</width><height>30</height>
+					<font>font23_narrow</font>
+					<label>$INFO[ListItem.Property(service)]</label>
+					<textcolor>A0FFFFFF</textcolor>
+				</control>
+				<!-- programme backgrounds, then all text on top (titles run across later columns) -->
+				<control type="image">
+					<left>364</left><top>4</top><width>352</width><height>76</height>
+					<texture border="12" colordiffuse="$INFO[ListItem.Property(bf0)]">special://home/addons/plugin.video.sportshub/resources/media/card.png</texture>
+					<visible>String.IsEmpty(ListItem.Property(c0)) + !String.IsEmpty(ListItem.Property(t0))</visible>
+				</control>
+				<control type="image">
+					<left>350</left><top>4</top><width>366</width><height>76</height>
+					<texture border="12" colordiffuse="$INFO[ListItem.Property(bf0)]">special://home/addons/plugin.video.sportshub/resources/media/card.png</texture>
+					<visible>!String.IsEmpty(ListItem.Property(c0))</visible>
+				</control>
+				<control type="image">
+					<left>724</left><top>4</top><width>352</width><height>76</height>
+					<texture border="12" colordiffuse="$INFO[ListItem.Property(bf1)]">special://home/addons/plugin.video.sportshub/resources/media/card.png</texture>
+					<visible>String.IsEmpty(ListItem.Property(c1)) + !String.IsEmpty(ListItem.Property(t1))</visible>
+				</control>
+				<control type="image">
+					<left>710</left><top>4</top><width>366</width><height>76</height>
+					<texture border="12" colordiffuse="$INFO[ListItem.Property(bf1)]">special://home/addons/plugin.video.sportshub/resources/media/card.png</texture>
+					<visible>!String.IsEmpty(ListItem.Property(c1))</visible>
+				</control>
+				<control type="image">
+					<left>1084</left><top>4</top><width>352</width><height>76</height>
+					<texture border="12" colordiffuse="$INFO[ListItem.Property(bf2)]">special://home/addons/plugin.video.sportshub/resources/media/card.png</texture>
+					<visible>String.IsEmpty(ListItem.Property(c2)) + !String.IsEmpty(ListItem.Property(t2))</visible>
+				</control>
+				<control type="image">
+					<left>1070</left><top>4</top><width>366</width><height>76</height>
+					<texture border="12" colordiffuse="$INFO[ListItem.Property(bf2)]">special://home/addons/plugin.video.sportshub/resources/media/card.png</texture>
+					<visible>!String.IsEmpty(ListItem.Property(c2))</visible>
+				</control>
+				<control type="image">
+					<left>1444</left><top>4</top><width>352</width><height>76</height>
+					<texture border="12" colordiffuse="$INFO[ListItem.Property(bf3)]">special://home/addons/plugin.video.sportshub/resources/media/card.png</texture>
+					<visible>String.IsEmpty(ListItem.Property(c3)) + !String.IsEmpty(ListItem.Property(t3))</visible>
+				</control>
+				<control type="image">
+					<left>1430</left><top>4</top><width>366</width><height>76</height>
+					<texture border="12" colordiffuse="$INFO[ListItem.Property(bf3)]">special://home/addons/plugin.video.sportshub/resources/media/card.png</texture>
+					<visible>!String.IsEmpty(ListItem.Property(c3))</visible>
+				</control>
+				<control type="label">
+					<left>380</left><top>8</top><width>322</width><height>38</height>
+					<font>font25_title</font>
+					<label>$INFO[ListItem.Property(t0)]</label>
+					<textcolor>FFFFFFFF</textcolor>
+					<visible>String.IsEmpty(ListItem.Property(c0)) + String.IsEqual(ListItem.Property(r0),1)</visible>
+				</control>
+				<control type="label">
+					<left>380</left><top>8</top><width>682</width><height>38</height>
+					<font>font25_title</font>
+					<label>$INFO[ListItem.Property(t0)]</label>
+					<textcolor>FFFFFFFF</textcolor>
+					<visible>String.IsEmpty(ListItem.Property(c0)) + String.IsEqual(ListItem.Property(r0),2)</visible>
+				</control>
+				<control type="label">
+					<left>380</left><top>8</top><width>1042</width><height>38</height>
+					<font>font25_title</font>
+					<label>$INFO[ListItem.Property(t0)]</label>
+					<textcolor>FFFFFFFF</textcolor>
+					<visible>String.IsEmpty(ListItem.Property(c0)) + String.IsEqual(ListItem.Property(r0),3)</visible>
+				</control>
+				<control type="label">
+					<left>380</left><top>8</top><width>1402</width><height>38</height>
+					<font>font25_title</font>
+					<label>$INFO[ListItem.Property(t0)]</label>
+					<textcolor>FFFFFFFF</textcolor>
+					<visible>String.IsEmpty(ListItem.Property(c0)) + String.IsEqual(ListItem.Property(r0),4)</visible>
+				</control>
+				<control type="label">
+					<left>380</left><top>42</top><width>322</width><height>30</height>
+					<font>font23_narrow</font>
+					<label>$INFO[ListItem.Property(s0)]</label>
+					<textcolor>A0FFFFFF</textcolor>
+					<visible>String.IsEmpty(ListItem.Property(c0))</visible>
+				</control>
+				<control type="label">
+					<left>740</left><top>8</top><width>322</width><height>38</height>
+					<font>font25_title</font>
+					<label>$INFO[ListItem.Property(t1)]</label>
+					<textcolor>FFFFFFFF</textcolor>
+					<visible>String.IsEmpty(ListItem.Property(c1)) + String.IsEqual(ListItem.Property(r1),1)</visible>
+				</control>
+				<control type="label">
+					<left>740</left><top>8</top><width>682</width><height>38</height>
+					<font>font25_title</font>
+					<label>$INFO[ListItem.Property(t1)]</label>
+					<textcolor>FFFFFFFF</textcolor>
+					<visible>String.IsEmpty(ListItem.Property(c1)) + String.IsEqual(ListItem.Property(r1),2)</visible>
+				</control>
+				<control type="label">
+					<left>740</left><top>8</top><width>1042</width><height>38</height>
+					<font>font25_title</font>
+					<label>$INFO[ListItem.Property(t1)]</label>
+					<textcolor>FFFFFFFF</textcolor>
+					<visible>String.IsEmpty(ListItem.Property(c1)) + String.IsEqual(ListItem.Property(r1),3)</visible>
+				</control>
+				<control type="label">
+					<left>740</left><top>42</top><width>322</width><height>30</height>
+					<font>font23_narrow</font>
+					<label>$INFO[ListItem.Property(s1)]</label>
+					<textcolor>A0FFFFFF</textcolor>
+					<visible>String.IsEmpty(ListItem.Property(c1))</visible>
+				</control>
+				<control type="label">
+					<left>1100</left><top>8</top><width>322</width><height>38</height>
+					<font>font25_title</font>
+					<label>$INFO[ListItem.Property(t2)]</label>
+					<textcolor>FFFFFFFF</textcolor>
+					<visible>String.IsEmpty(ListItem.Property(c2)) + String.IsEqual(ListItem.Property(r2),1)</visible>
+				</control>
+				<control type="label">
+					<left>1100</left><top>8</top><width>682</width><height>38</height>
+					<font>font25_title</font>
+					<label>$INFO[ListItem.Property(t2)]</label>
+					<textcolor>FFFFFFFF</textcolor>
+					<visible>String.IsEmpty(ListItem.Property(c2)) + String.IsEqual(ListItem.Property(r2),2)</visible>
+				</control>
+				<control type="label">
+					<left>1100</left><top>42</top><width>322</width><height>30</height>
+					<font>font23_narrow</font>
+					<label>$INFO[ListItem.Property(s2)]</label>
+					<textcolor>A0FFFFFF</textcolor>
+					<visible>String.IsEmpty(ListItem.Property(c2))</visible>
+				</control>
+				<control type="label">
+					<left>1460</left><top>8</top><width>322</width><height>38</height>
+					<font>font25_title</font>
+					<label>$INFO[ListItem.Property(t3)]</label>
+					<textcolor>FFFFFFFF</textcolor>
+					<visible>String.IsEmpty(ListItem.Property(c3)) + String.IsEqual(ListItem.Property(r3),1)</visible>
+				</control>
+				<control type="label">
+					<left>1460</left><top>42</top><width>322</width><height>30</height>
+					<font>font23_narrow</font>
+					<label>$INFO[ListItem.Property(s3)]</label>
+					<textcolor>A0FFFFFF</textcolor>
+					<visible>String.IsEmpty(ListItem.Property(c3))</visible>
+				</control>
+				<control type="image">
+					<left>-8</left><top>-4</top><width>1820</width><height>92</height>
+					<texture border="16">special://home/addons/plugin.video.sportshub/resources/media/card_focus.png</texture>
+				</control>
+			</focusedlayout>
+		</control>
+		<control type="label">
+			<left>100</left><top>300</top><width>1720</width><height>60</height>
+			<font>font30_title</font><align>center</align>
+			<label>$INFO[Window.Property(empty)]</label>
+			<textcolor>A0FFFFFF</textcolor>
+			<visible>!String.IsEmpty(Window.Property(empty))</visible>
+		</control>
+		<!-- now -->
+		<control type="image" id="400">
+			<left>460</left><top>230</top><width>3</width><height>840</height>
+			<texture colordiffuse="FFE0162B">special://home/addons/plugin.video.sportshub/resources/media/white.png</texture>
+		</control>
+	</controls>
+</window>

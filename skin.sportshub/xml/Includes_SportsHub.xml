@@ -61,6 +61,10 @@
 		<value></value>
 	</variable>
 	<variable name="SH_HeroTitle">
+		<value condition="Control.HasFocus(805)">TV Guide</value>
+		<value condition="Control.HasFocus(801)">Search</value>
+		<value condition="Control.HasFocus(802)">WatchHub settings</value>
+		<value condition="Control.HasFocus(804)">Power</value>
 		<value condition="Control.HasFocus(9050)">$INFO[Container(9050).ListItem.Label]</value>
 		<value condition="Control.HasFocus(9051)">$INFO[Container(9051).ListItem.Label]</value>
 		<value condition="$EXP[SH_Focus9100]">$INFO[Container(9100).ListItem.Property(title)]</value>
@@ -81,6 +85,10 @@
 		<value>WatchHub</value>
 	</variable>
 	<variable name="SH_HeroMeta">
+		<value condition="Control.HasFocus(805)">What's on now and later on every free channel</value>
+		<value condition="Control.HasFocus(801)">Movies, shows and channels on your services</value>
+		<value condition="Control.HasFocus(802)">Sources, Trakt, region and display options</value>
+		<value condition="Control.HasFocus(804)">Exit Kodi</value>
 		<value condition="Control.HasFocus(9050)">$INFO[Container(9050).ListItem.Property(meta)]</value>
 		<value condition="Control.HasFocus(9051)">$INFO[Container(9051).ListItem.Property(meta)]</value>
 		<value condition="$EXP[SH_Focus9100]">$INFO[Container(9100).ListItem.Property(meta)]</value>
@@ -156,7 +164,8 @@
 					<ondown condition="!Control.IsVisible($PARAM[next1]) + !Control.IsVisible($PARAM[next2])">$PARAM[next3]</ondown>
 					<visible>Integer.IsGreater(Container($PARAM[list_id]).NumItems,0) | Container($PARAM[list_id]).IsUpdating</visible>
 					<!-- Kodi appends its own "More..." item (no card kind) when a row hits its limit: open the full list -->
-					<onclick condition="!String.IsEmpty(ListItem.Property(kind))">$PARAM[onclick]</onclick>
+					<onclick condition="!String.IsEmpty(ListItem.Property(kind)) + !String.IsEqual(ListItem.Property(kind),guide)">$PARAM[onclick]</onclick>
+					<onclick condition="String.IsEqual(ListItem.Property(kind),guide)">RunPlugin($INFO[ListItem.FileNameAndPath])</onclick>
 					<onclick condition="String.IsEmpty(ListItem.Property(kind))">ActivateWindow(Videos,$INFO[ListItem.FolderPath],return)</onclick>
 					<onback>$PARAM[onback]</onback>
 					<scrolltime tween="cubic" easing="out">300</scrolltime>
@@ -328,6 +337,24 @@
 					<texture border="16">sportshub/card_focus.png</texture>
 					<visible>$PARAM[focused]</visible>
 				</control>
+			</control>
+		</definition>
+	</include>
+
+	<!-- live rows: channel cards, or a plain tile (the TV Guide card, messages) -->
+	<include name="SH_CardChannelAny">
+		<definition>
+			<control type="group">
+				<visible>!String.IsEqual(ListItem.Property(kind),guide) + !String.IsEqual(ListItem.Property(kind),tile)</visible>
+				<include content="SH_CardChannel">
+					<param name="focused" value="$PARAM[focused]"/>
+				</include>
+			</control>
+			<control type="group">
+				<visible>String.IsEqual(ListItem.Property(kind),guide) | String.IsEqual(ListItem.Property(kind),tile)</visible>
+				<include content="SH_CardSport">
+					<param name="focused" value="$PARAM[focused]"/>
+				</include>
 			</control>
 		</definition>
 	</include>
@@ -673,6 +700,12 @@
 							<property name="meta">Everything, as a list</property>
 							<property name="color">FF234F3E</property>
 							<onclick>ActivateWindow(Videos,plugin://plugin.video.sportshub/,return)</onclick>
+						</item>
+						<item>
+							<label>TV Guide</label>
+							<property name="meta">Every free channel - what's on now and later</property>
+							<property name="color">FF8A1F2E</property>
+							<onclick>RunPlugin(plugin://plugin.video.sportshub/?action=guide)</onclick>
 						</item>
 						<item>
 							<label>By sport</label>

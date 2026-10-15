@@ -30,7 +30,9 @@ CACHE = {}
 # ---------------------------------------------------------------- trakt client
 class Trakt:
     def __init__(self, token_file):
+        global CLIENT_ID
         self.tok = json.load(open(token_file))
+        CLIENT_ID = CLIENT_ID or self.tok.get("client_id", "")  # tools/trakt_auth.py stores it with the token
         self.calls = 0
 
     def _req(self, path, data=None, method=None, retries=4):
@@ -196,17 +198,9 @@ class Matcher:
         self.t = trakt
         self.shows = {}       # norm(show) -> (show obj, {norm(ep title): (season, number, ids)}, {(season,number): ids})
         self.movies = {}      # norm(title) -> ids
+        self.hints = {}       # norm(show) -> episode titles we watched (picks between same-named shows)
 
-    def show(self, name):
-        key = norm(name)
-        if key in self.shows:
-            return self.shows[key]
-        res = self.t.get("search/show?query=%s&limit=5" % urllib.parse.quote(name)) or []
-        cands = {norm(r["show"]["title"]): r["show"] for r in res if r.get("show")}
-        show = best_match(name, cands, cutoff=0.8) if cands else None
-        if not show:
-            self.shows[key] = None
-            return None
+    def _episodes(self, show):
         seasons = self.t.get("shows/%s/seasons?extended=episodes" % show["ids"]["trakt"]) or []
         by_title, by_num = {}, {}
         for s in seasons:
@@ -214,11 +208,38 @@ class Matcher:
                 by_num[(s["number"], e["number"])] = e["ids"]
                 if e.get("title"):
                     by_title.setdefault(norm(e["title"]), []).append((s["number"], e["number"], e["ids"]))
+        return by_title, by_num
+
+    def show(self, name, hints=()):
+        """Best Trakt show for a name. Several shows can share one title (US / Japanese / Korean
+        "Suits"): then each is tried and the one whose episode list contains the most of the
+        titles we watched (`hints`) wins - not whichever the search happened to list last."""
+        key = norm(name)
+        if key in self.shows:
+            return self.shows[key]
+        res = self.t.get("search/show?query=%s&limit=10" % urllib.parse.quote(name)) or []
+        shows = [r["show"] for r in res if r.get("show")]
+        titles = {norm(sh["title"]) for sh in shows}
+        best_title = best_match(name, {t: t for t in titles}, cutoff=0.8) if titles else None
+        same = [sh for sh in shows if norm(sh["title"]) == best_title] if best_title else []
+        if not same:
+            self.shows[key] = None
+            return None
+        hint_titles = [norm(h) for h in hints if h]
+        picked = None
+        for sh in same[:4]:
+            by_title, by_num = self._episodes(sh)
+            score = sum(1 for h in hint_titles if best_match(h, by_title, cutoff=0.82)) if hint_titles else 0
+            if picked is None or score > picked[0]:
+                picked = (score, sh, by_title, by_num)
+            if not hint_titles:
+                break  # nothing to compare: keep the search's first (most relevant) result
+        _, show, by_title, by_num = picked
         self.shows[key] = (show, by_title, by_num)
         return self.shows[key]
 
     def episode(self, row):
-        hit = self.show(row["show"])
+        hit = self.show(row["show"], self.hints.get(norm(row["show"]), ()))
         if not hit:
             return None, "show not found"
         show, by_title, by_num = hit
@@ -283,7 +304,11 @@ def main():
     print("  %d existing entries" % len(have))
 
     m = Matcher(t)
+    for r in rows:  # episode titles per show: lets the matcher choose between same-named shows
+        if r["kind"] == "episode" and r.get("episode_title"):
+            m.hints.setdefault(norm(r["show"]), []).append(r["episode_title"])
     episodes, movies, unmatched, skipped = [], [], [], 0
+    matched = []  # (raw, what it matched) - written to the report so matches can be checked, not just misses
     queued = set()
     for i, r in enumerate(rows):
         if r["kind"] == "show_day":
@@ -305,7 +330,7 @@ def main():
                         if ("movies", ids["trakt"]) in have or ("movies", ids["trakt"]) in queued:
                             skipped += 1
                         else:
-                            movies.append({"ids": {"trakt": ids["trakt"]}, "watched_at": r["watched_at"]})
+                            movies.append({"ids": {"trakt": ids["trakt"]}, "watched_at": r["watched_at"]}); matched.append((r["raw"], "MOVIE [trakt %s %s]" % (ids["trakt"], ids.get("slug", ""))))
                             queued.add(("movies", ids["trakt"]))
                         continue
             if not hit:
@@ -315,6 +340,7 @@ def main():
                 skipped += 1
                 continue
             episodes.append({"ids": {"trakt": hit["ids"]["trakt"]}, "watched_at": r["watched_at"]})
+            matched.append((r["raw"], "%s%s  [trakt ep %s]" % (hit.get("show", "?"), " S%02dE%02d" % hit["sn"] if hit.get("sn") else "", hit["ids"]["trakt"])))
             queued.add(("episodes", hit["ids"]["trakt"]))
         else:
             ids, why = m.movie(r)
@@ -324,7 +350,7 @@ def main():
             if ("movies", ids["trakt"]) in have or ("movies", ids["trakt"]) in queued:
                 skipped += 1
                 continue
-            movies.append({"ids": {"trakt": ids["trakt"]}, "watched_at": r["watched_at"]})
+            movies.append({"ids": {"trakt": ids["trakt"]}, "watched_at": r["watched_at"]}); matched.append((r["raw"], "MOVIE [trakt %s %s]" % (ids["trakt"], ids.get("slug", ""))))
             queued.add(("movies", ids["trakt"]))
         if i % 200 == 0:
             print("  ... %d/%d (api calls %d)" % (i, len(rows), t.calls))
@@ -335,6 +361,9 @@ def main():
         fh.write("to add: %d episodes, %d movies; skipped %d; unmatched %d\n\n" % (len(episodes), len(movies), skipped, len(unmatched)))
         for raw, why in unmatched:
             fh.write("UNMATCHED  %-70s  %s\n" % (raw[:70], why))
+        fh.write("\n")
+        for raw, what in matched:
+            fh.write("MATCHED    %-70s  -> %s\n" % (raw[:70], what))
     print("report:", report)
 
     if not a.apply:
