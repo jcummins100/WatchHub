@@ -468,11 +468,52 @@ def ondemand_menu():
     kodi.end_directory()
 
 
-def ondemand_list(row):
+def ondemand_list(row, svc=""):
     kodi.set_content("videos")
-    for t in ondemand.row_items(row):
+    for t in ondemand.row_items(row, svc):
         _add_title(t)
     kodi.end_directory(view="posters")
+
+
+def providers(svc=""):
+    """The home screen's Services row: All + each installed service. `svc` = the one selected now."""
+    kodi.set_content("videos")
+    items = [("", "All services", "", "DefaultVideo.png")] + [
+        (c, ondemand.short_name(c), ondemand.BY_CODE[c][1], "androidapp://sources/apps/%s.png" % ondemand.BY_CODE[c][1]) for c in ondemand.installed_codes()]
+    for code, name, pkg, thumb in items:
+        selected = code == svc
+        if selected and code:
+            meta = "Showing only %s" % name
+        elif selected:
+            meta = "Showing everything - pick a service to narrow the rows"
+        else:
+            meta = "Show only %s" % name if code else "Show everything again"
+        kodi.add_item(name, kodi.build_url(action="provider", code=code), False, art={"thumb": thumb, "icon": "DefaultAddonProgram.png"},
+                      info={"title": name}, props={"kind": "app", "meta": meta, "kicker": "SHOWING" if selected else "SERVICES", "selected": "1" if selected else ""})
+        if selected and code:
+            # the app itself, right next to its filter (comes after it, so the filters' positions don't shift)
+            kodi.add_item("Open %s" % name, kodi.build_url(action="play", src="app", id=pkg, name=name), False,
+                          art={"thumb": thumb, "icon": "DefaultAddonProgram.png"}, info={"title": "Open %s" % name},
+                          props={"kind": "app", "meta": "Launch the %s app" % name, "kicker": "OPEN APP"})
+    kodi.end_directory()
+
+
+def pick_provider(code):
+    """Services row click: narrow the home rows to one service (or back to All); the selected one again opens its app.
+
+    (There is also an explicit "Open <service>" card next to the selected one - this is just the shortcut.)
+    """
+    home = xbmcgui.Window(10000)
+    if code and code == home.getProperty("sh_provider"):
+        launcher.play({"src": "app", "id": ondemand.BY_CODE[code][1], "name": ondemand.short_name(code)})
+        return
+    codes = [""] + ondemand.installed_codes()
+    home.setProperty("sh_provider_name", ondemand.short_name(code).upper() if code else "")
+    home.setProperty("sh_provider", code)
+    # the All rows (9000) and the provider rows (9001) swap visibility: wait a frame, then put focus
+    # back on the clicked service in whichever Services row is now showing
+    xbmc.sleep(250)
+    kodi.run_builtin("SetFocus(%d,%d,absolute)" % (9051 if code else 9050, codes.index(code) if code in codes else 0))
 
 
 def search(query=None):
@@ -538,7 +579,12 @@ def trakt_menu():
     kodi.end_directory()
 
 
-def trakt_list(row):
+def _on_service(t, svc):
+    od = ondemand.lookup(t["title"], t["year"], t["type"])
+    return bool(od) and any(o["code"] == svc for o in od.get("offers") or [])
+
+
+def trakt_list(row, svc=""):
     kodi.set_content("videos")
     if row == "upnext":
         if not trakt.signed_in():
@@ -548,6 +594,8 @@ def trakt_list(row):
             kodi.end_directory()
             return
         for t in trakt.up_next():
+            if svc and not _on_service(t, svc):
+                continue
             _trakt_item(t, "UP NEXT", "%s %s" % (t["next"], t["episode_title"]))
     elif row == "calendar":
         # one card per show: the earliest upcoming episode, plus how many are coming in the window
@@ -688,7 +736,12 @@ def dispatch(params):
         tvgroups()
     elif action == "ondemand":
         row = params.get("row")
-        ondemand_list(int(row)) if row is not None else ondemand_menu()
+        ondemand_list(int(row), params.get("svc", "")) if row is not None else ondemand_menu()
+    elif action == "providers":
+        providers(params.get("svc", ""))
+    elif action == "provider":
+        kodi.resolve_none()
+        pick_provider(params.get("code", ""))
     elif action == "info":
         kodi.resolve_none()
         req = {"title": params.get("title", ""), "year": params.get("year", ""), "kind": params.get("kind", "")}
@@ -720,7 +773,7 @@ def dispatch(params):
             kodi.notify("No trailer found")
     elif action == "trakt":
         row = params.get("row")
-        trakt_list(row) if row else trakt_menu()
+        trakt_list(row, params.get("svc", "")) if row else trakt_menu()
     elif action == "trakt_signin":
         kodi.resolve_none()
         trakt.sign_in()

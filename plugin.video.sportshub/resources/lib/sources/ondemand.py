@@ -271,14 +271,21 @@ def rows():
     return res
 
 
-def row_items(index):
+def row_items(index, svc=""):
+    """Items for rows()[index]; `svc` (a JustWatch code) narrows the row to that one service."""
     rows_ = rows()
     if index < 0 or index >= len(rows_):
         return []
     label, kind, arg = rows_[index]
+    codes = [svc] if svc else arg["codes"]
     if kind == "new":
-        return new_titles(arg["codes"], object_types=tuple(arg["types"]))
-    return titles(arg["codes"], tuple(arg["types"]), first=40, sort=arg.get("sort", "POPULAR"))
+        return new_titles(codes, object_types=tuple(arg["types"]))
+    return titles(codes, tuple(arg["types"]), first=40, sort=arg.get("sort", "POPULAR"))
+
+
+def short_name(code):
+    """'HBO Max (Prime channel)' -> 'HBO Max (Prime)': fits a card."""
+    return BY_CODE[code][0].replace(" channel)", ")")
 
 
 _SEARCH = """
