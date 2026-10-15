@@ -2,6 +2,7 @@
 import hashlib
 import json
 import os
+import threading
 import time
 
 from resources.lib import kodi
@@ -26,7 +27,9 @@ def get(key, max_age_s):
 def put(key, value):
     p = _path(key)
     os.makedirs(os.path.dirname(p), exist_ok=True)
-    tmp = p + ".tmp"
+    # Kodi runs each add-on call (service, every home row) on its own thread in one process, and on
+    # a cold cache several of them fetch the same URL at once - give each writer its own temp file.
+    tmp = "%s.%d.%d.tmp" % (p, os.getpid(), threading.get_ident())
     with open(tmp, "w", encoding="utf-8") as fh:
         json.dump(value, fh)
     os.replace(tmp, p)

@@ -6,12 +6,14 @@
   and nothing accumulates. Data is always re-pulled from upstream; there are no stored stream
   links that can go dead.
 """
+import json
 import os
 import sys
 import time
 
 import xbmc
 import xbmcaddon
+import xbmcgui
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -43,12 +45,16 @@ def main():
     cmd_file = os.path.join(kodi.ensure_profile_dir(), "cmd")
 
     # Refresh a little before the cache expires so the UI never has to wait on the network.
+    home = xbmcgui.Window(10000)
+    home.setProperty("sh_service_alive", "1")
     next_refresh = 0
     while not monitor.abortRequested():
         now = time.time()
         if now >= next_refresh:
             try:
                 health.warm_caches()
+                # bump the home screen's refresh token so every row reloads its (now fresh) contents
+                xbmcgui.Window(10000).setProperty("sh_refresh", str(int(time.time())))
                 pruned = health.prune_cache()
                 if pruned:
                     kodi.log("pruned %d stale cache files" % pruned)
@@ -67,8 +73,18 @@ def main():
                     xbmc.executebuiltin(ln)
             except Exception as exc:
                 kodi.log("cmd failed: %s" % exc)
-        if monitor.waitForAbort(2):
-            break
+        # Poll quickly for info-card requests from the add-on; the slower work above runs on its own schedule.
+        for _ in range(8):
+            req = home.getProperty("sh_info_request")
+            if req:
+                home.clearProperty("sh_info_request")
+                try:
+                    from resources.lib import infodialog
+                    infodialog.show_by_title(**json.loads(req))
+                except Exception as exc:
+                    kodi.log("info card failed: %s" % exc)
+            if monitor.waitForAbort(0.25):
+                return
 
 
 if __name__ == "__main__":

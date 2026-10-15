@@ -225,3 +225,28 @@ def search_ids(title, year, kind):
 
 
 import urllib.parse  # noqa: E402  (used by search_ids)
+
+
+def show_progress(title, year=""):
+    """{"seasons": {n: {"aired", "completed", "episodes": {e: watched_bool}}}, "aired", "completed"} or {}."""
+    if not signed_in():
+        return {}
+    ids = search_ids(title, year, "Show")
+    if not ids.get("trakt"):
+        return {}
+    prog = _call("shows/%s/progress/watched?hidden=false&specials=false" % ids["trakt"], cache_ttl=5 * 60) or {}
+    out = {"aired": prog.get("aired", 0), "completed": prog.get("completed", 0), "seasons": {}}
+    for sn in prog.get("seasons") or []:
+        out["seasons"][sn.get("number")] = {"aired": sn.get("aired", 0), "completed": sn.get("completed", 0),
+                                             "episodes": {e.get("number"): bool(e.get("completed")) for e in sn.get("episodes") or []}}
+    return out
+
+
+def movie_watched(title, year=""):
+    if not signed_in():
+        return False
+    ids = search_ids(title, year, "Movie")
+    if not ids.get("trakt"):
+        return False
+    hist = _call("sync/history/movies/%s?limit=1" % ids["trakt"], cache_ttl=5 * 60) or []
+    return bool(hist)

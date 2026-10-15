@@ -48,6 +48,22 @@ class TitleInfo(xbmcgui.WindowXMLDialog):
             self.setProperty("also", it.get("service") or "Not on your services")
         self.setProperty("trailer", "1")
         self.setProperty("trakt", "1" if trakt.signed_in() else "")
+        self.progress = {}
+        if trakt.signed_in():
+            try:
+                if it["type"] == "Show":
+                    self.progress = trakt.show_progress(it["title"], it.get("year", ""))
+                    pr = self.progress
+                    if pr.get("aired"):
+                        full = sum(1 for sn in pr["seasons"].values() if sn["aired"] and sn["completed"] >= sn["aired"])
+                        if pr["completed"] >= pr["aired"]:
+                            self.setProperty("watched", "Watched every episode")
+                        elif pr["completed"]:
+                            self.setProperty("watched", "Watched %d of %d episodes - %d of %d seasons complete" % (pr["completed"], pr["aired"], full, len(pr["seasons"])))
+                elif trakt.movie_watched(it["title"], it.get("year", "")):
+                    self.setProperty("watched", "Watched")
+            except Exception as exc:
+                kodi.log("trakt progress failed: %s" % exc)
         self.setProperty("episodes", "1" if it["type"] == "Show" else "")
         rel = it.get("released") or ""
         if rel:
@@ -93,20 +109,59 @@ class TitleInfo(xbmcgui.WindowXMLDialog):
                 kodi.start_android_activity(it["play"]["pkg"], action="android.intent.action.VIEW", data_uri=it["play"]["url"])
 
     def _load_episodes(self):
-        d = self.details
-        seasons = tmdb.seasons(d.get("tmdb_id"))
+        it, d = self.item, self.details
+        seasons = []
+        if d.get("tmdb_id"):
+            seasons = [dict(x, episodes=None) for x in tmdb.seasons(d.get("tmdb_id"))]
+        if not seasons:
+            seasons = ondemand.seasons(it["title"], it.get("year", ""))
         if not seasons:
             kodi.notify("No episode data")
             return
-        pick = xbmcgui.Dialog().select("Season", ["Season %s (%s episodes)" % (s["number"], s["count"]) for s in seasons], preselect=len(seasons) - 1)
+        seasons.sort(key=lambda x: x["number"], reverse=True)
+        prog = (getattr(self, "progress", {}) or {}).get("seasons", {})
+        labels = []
+        for sn in seasons:
+            when = _nice_date(sn.get("released", "")) if sn.get("released") else ""
+            p = prog.get(sn["number"])
+            mark = ""
+            if p and p["aired"]:
+                if p["completed"] >= p["aired"]:
+                    mark = "   [COLOR FF4CD27F]Watched[/COLOR]"
+                elif p["completed"]:
+                    mark = "   [COLOR FFFFD166]%d of %d watched[/COLOR]" % (p["completed"], p["aired"])
+            labels.append("Season %s  (%s episodes%s)%s" % (sn["number"], sn.get("count", "?"), ", from %s" % when if when else "", mark))
+        # preselect the first season that isn't finished, else the newest
+        pre = 0
+        for i, sn in enumerate(sorted(seasons, key=lambda x: x["number"])):
+            p = prog.get(sn["number"])
+            if not p or p["completed"] < p["aired"]:
+                pre = len(seasons) - 1 - i
+                break
+        pick = xbmcgui.Dialog().select("Season", labels, preselect=pre)
         if pick < 0:
             return
-        self.episodes = tmdb.episodes(d.get("tmdb_id"), seasons[pick]["number"])
+        sn = seasons[pick]
+        self.episodes = sn.get("episodes") if sn.get("episodes") is not None else tmdb.episodes(d.get("tmdb_id"), sn["number"])
+        seen_map = (prog.get(sn["number"]) or {}).get("episodes") or {}
+        p = prog.get(sn["number"])
+        status = ""
+        if p and p["aired"]:
+            status = "  -  all watched" if p["completed"] >= p["aired"] else "  -  %d of %d watched" % (p["completed"], p["aired"])
+        self.setProperty("season_label", "Season %s%s" % (sn["number"], status))
         lst = self.getControl(LIST_EPISODES)
         lst.reset()
+        today = time.strftime("%Y-%m-%d")
         for e in self.episodes:
-            li = xbmcgui.ListItem("%s. %s" % (e["number"], e["name"]), e["aired"] + (" • %s" % e["runtime"] if e.get("runtime") else ""))
-            li.setArt({"thumb": e["still"]})
+            aired = e.get("aired") or ""
+            when = ("Airs %s" % _nice_date(aired)) if aired > today else (_nice_date(aired) if aired else "")
+            seen = seen_map.get(e["number"])
+            li = xbmcgui.ListItem(e["name"] or "Episode %s" % e["number"], " - ".join(x for x in (when, e.get("runtime")) if x))
+            li.setArt({"thumb": e.get("still") or ""})
+            li.setProperty("num", ("E%s  WATCHED" if seen else "E%s") % e["number"])
+            li.setProperty("watched", "1" if seen else "")
+            li.setProperty("overview", e.get("overview") or "")
+            li.setProperty("upcoming", "1" if aired > today else "")
             lst.addItem(li)
         self.setFocusId(LIST_EPISODES)
 
@@ -130,3 +185,11 @@ def show(item):
     dlg = TitleInfo("TitleInfo.xml", kodi.ADDON_PATH, "Default", "1080i", item=item, details=details)
     dlg.doModal()
     del dlg
+
+
+def show_by_title(title, year="", kind=""):
+    item = ondemand.lookup(title, year, kind)
+    if item:
+        show(item)
+    else:
+        kodi.notify("No details found")

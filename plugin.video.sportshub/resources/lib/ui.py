@@ -1,4 +1,5 @@
 """Menu tree and list rendering."""
+import json
 import time
 
 import xbmc
@@ -505,14 +506,16 @@ def _trakt_item(t, kicker, meta_extra=""):
         props = {"kind": "title", "title": t["title"], "meta": od["meta"], "kicker": kicker or od["service"].upper(), "service": od["service"],
                  "year": str(t["year"]), "type": t["type"], "state": ""}
         art = {"thumb": od["poster"] or "DefaultVideo.png", "poster": od["poster"], "landscape": od["backdrop"], "fanart": od["backdrop"]}
-        url = kodi.build_url(action="play", **od["play"])
+        url = kodi.build_url(action="info", title=t["title"], year=t["year"], kind=t["type"])
         plot = od["plot"]
     else:
         props = {"kind": "title", "title": t["title"], "meta": meta_extra or t["type"], "kicker": kicker, "service": "", "year": str(t["year"]), "type": t["type"], "state": ""}
         art = {"thumb": "DefaultVideo.png"}
-        url = kodi.build_url(action="ondemand_search", title=t["title"], year=t["year"], kind=t["type"])
+        url = kodi.build_url(action="info", title=t["title"], year=t["year"], kind=t["type"])
         plot = ""
     ctx = [("Trakt: mark as watched", "RunPlugin(%s)" % kodi.build_url(action="trakt_watched", title=t["title"], year=t["year"], kind=t["type"]))]
+    if od and od.get("play", {}).get("pkg"):
+        ctx.insert(0, ("Play on %s" % od["service"], "RunPlugin(%s)" % kodi.build_url(action="play", **od["play"])))
     if tmdb.enabled():
         ctx.insert(0, ("Watch trailer", "RunPlugin(%s)" % kodi.build_url(action="trailer", title=t["title"], year=t["year"], kind=t["type"])))
     kodi.add_item(t["title"] if PLAIN else "%s [COLOR gray](%s)[/COLOR]" % (t["title"], meta_extra or t["year"]), url, False, art=art,
@@ -538,6 +541,12 @@ def trakt_menu():
 def trakt_list(row):
     kodi.set_content("videos")
     if row == "upnext":
+        if not trakt.signed_in():
+            # on the home screen this row would otherwise vanish, leaving no hint that Trakt exists
+            if trakt.configured():
+                kodi.add_item("Sign in[CR]to Trakt", kodi.build_url(action="trakt_signin"), False, props={"kind": "tile", "color": "FF8A1F2E", "title": "Sign in to Trakt", "meta": "Remember what you watch, get new-season alerts"})
+            kodi.end_directory()
+            return
         for t in trakt.up_next():
             _trakt_item(t, "UP NEXT", "%s %s" % (t["next"], t["episode_title"]))
     elif row == "calendar":
@@ -583,6 +592,9 @@ def apps_menu():
     """Installed streaming apps, as a rail for the skin (and a list in the menu)."""
     kodi.set_content("videos")
     installed = health.installed_apps()
+    shown = [n for n, p in apps.LAUNCHABLE if not installed or p in installed]
+    kodi.log("apps: %d visible to Kodi, showing %d: %s | not visible: %s" % (len(installed), len(shown), ", ".join(shown),
+             ", ".join(n for n, p in apps.LAUNCHABLE if installed and p not in installed)))
     for name, pkg in apps.LAUNCHABLE:
         if installed and pkg not in installed:
             continue
@@ -679,13 +691,19 @@ def dispatch(params):
         ondemand_list(int(row)) if row is not None else ondemand_menu()
     elif action == "info":
         kodi.resolve_none()
-        item = ondemand.lookup(params.get("title", ""), params.get("year", ""), params.get("kind", ""))
-        if item:
-            infodialog.show(item)
+        req = {"title": params.get("title", ""), "year": params.get("year", ""), "kind": params.get("kind", "")}
+        home = xbmcgui.Window(10000)
+        if home.getProperty("sh_service_alive"):
+            # the always-running service shows the card: no per-click Python start-up/shut-down
+            home.setProperty("sh_info_request", json.dumps(req))
         else:
-            kodi.notify("No details found")
+            infodialog.show_by_title(**req)
     elif action == "search":
         search(params.get("q"))
+    elif action == "enable_addon":
+        kodi.resolve_none()
+        res = kodi.jsonrpc("Addons.SetAddonEnabled", {"addonid": params.get("id", ""), "enabled": True})
+        kodi.log("enable %s: %s" % (params.get("id"), res))
     elif action == "coming":
         coming_soon_list(params.get("which", "movies"))
     elif action == "ondemand_search":
@@ -707,10 +725,12 @@ def dispatch(params):
         kodi.resolve_none()
         trakt.sign_in()
         kodi.run_builtin("Container.Refresh")
+        kodi.run_builtin("SetProperty(sh_refresh,%d,home)" % time.time())  # home rows (Up Next) reload too
     elif action == "trakt_signout":
         kodi.resolve_none()
         trakt.sign_out()
         kodi.run_builtin("Container.Refresh")
+        kodi.run_builtin("SetProperty(sh_refresh,%d,home)" % time.time())  # home rows (Up Next) reload too
     elif action in ("trakt_watched", "trakt_watchlist"):
         kodi.resolve_none()
         ids = trakt.search_ids(params.get("title", ""), params.get("year", ""), params.get("kind", "Show"))

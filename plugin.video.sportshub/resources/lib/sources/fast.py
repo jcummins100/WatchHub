@@ -32,7 +32,7 @@ SERVICES = {
         "url": "https://i.mjh.nz/Roku/.channels.json",
         "layout": "flat",
         "package": "com.roku.web.trc",
-        "deeplink": None,
+        "deeplink": "roku://trc/watch/{id}",  # verified on the Shield (FOX Sports, ALF)
         "setting": "src_roku",
         "color": "FF6F1AB1",
     },

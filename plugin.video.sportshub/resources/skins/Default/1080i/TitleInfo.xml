@@ -88,9 +88,9 @@
 				<width>1100</width>
 				<height>34</height>
 				<font>font25_title</font>
-				<label>$INFO[Window.Property(rating)]</label>
+				<label>$INFO[Window.Property(rating)]$INFO[Window.Property(watched),     [COLOR FF4CD27F],[/COLOR]]</label>
 				<textcolor>FFFFD166</textcolor>
-				<visible>!String.IsEmpty(Window.Property(rating))</visible>
+				<visible>!String.IsEmpty(Window.Property(rating)) | !String.IsEmpty(Window.Property(watched))</visible>
 			</control>
 			<control type="textbox">
 				<top>262</top>
@@ -257,6 +257,17 @@
 					<font>font37</font>
 					<label>$INFO[ListItem.Property(num)]</label>
 					<textcolor>FFE0162B</textcolor>
+					<visible>String.IsEmpty(ListItem.Property(watched))</visible>
+				</control>
+				<control type="label">
+					<left>24</left>
+					<top>16</top>
+					<width>380</width>
+					<height>40</height>
+					<font>font30_title</font>
+					<label>$INFO[ListItem.Property(num)]</label>
+					<textcolor>FF4CD27F</textcolor>
+					<visible>!String.IsEmpty(ListItem.Property(watched))</visible>
 				</control>
 				<control type="label">
 					<left>24</left>
@@ -316,6 +327,17 @@
 					<font>font37</font>
 					<label>$INFO[ListItem.Property(num)]</label>
 					<textcolor>FFE0162B</textcolor>
+					<visible>String.IsEmpty(ListItem.Property(watched))</visible>
+				</control>
+				<control type="label">
+					<left>24</left>
+					<top>16</top>
+					<width>380</width>
+					<height>40</height>
+					<font>font30_title</font>
+					<label>$INFO[ListItem.Property(num)]</label>
+					<textcolor>FF4CD27F</textcolor>
+					<visible>!String.IsEmpty(ListItem.Property(watched))</visible>
 				</control>
 				<control type="label">
 					<left>24</left>

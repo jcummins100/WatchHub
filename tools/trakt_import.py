@@ -170,6 +170,26 @@ def parse_prime(path):
     return rows
 
 
+def netflix_alternatives(raw):
+    """Other ways to split 'A: B: C: D' into show / season / episode."""
+    parts = raw.split(": ")
+    out = []
+    for k in range(1, len(parts)):
+        show = ": ".join(parts[:k])
+        rest = parts[k:]
+        season = None
+        sm = re.match(r"^(?:.*?\b)?(?:Season|Series|Part|Volume|Book)?\s*(\d+)$", rest[0]) if len(rest) > 1 else None
+        if sm and len(rest) > 1:
+            season = int(sm.group(1))
+            rest = rest[1:]
+        ep = rest[-1]
+        out.append({"kind": "episode", "show": show, "season": season, "episode_title": ep, "raw": raw})
+        cm = re.match(r"^Chapter (\w+)$", rest[0]) if len(rest) > 1 else None
+        if cm:
+            out.append({"kind": "episode", "show": show, "season": season, "episode_title": rest[-1], "raw": raw})
+    return out
+
+
 # ---------------------------------------------------------------- matching
 class Matcher:
     def __init__(self, trakt):
@@ -253,39 +273,59 @@ def main():
     for kind in ("episodes", "movies"):
         page = 1
         while True:
-            h = t.get("users/me/history/%s?limit=1000&page=%d" % (kind, page)) or []
+            h = t.get("users/me/history/%s?limit=250&page=%d" % (kind, page)) or []
             for x in h:
                 obj = x.get("episode") or x.get("movie") or {}
-                have.add((kind, obj.get("ids", {}).get("trakt"), x["watched_at"][:10]))
-            if len(h) < 1000:
+                have.add((kind, obj.get("ids", {}).get("trakt")))
+            if len(h) < 250:
                 break
             page += 1
     print("  %d existing entries" % len(have))
 
     m = Matcher(t)
     episodes, movies, unmatched, skipped = [], [], [], 0
+    queued = set()
     for i, r in enumerate(rows):
         if r["kind"] == "show_day":
             unmatched.append((r["raw"], "episodes not expanded on the page"))
             continue
         if r["kind"] == "episode":
             hit, why = m.episode(r)
+            if not hit and a.service == "netflix":
+                for alt in netflix_alternatives(r["raw"]):
+                    hit, _ = m.episode(alt)
+                    if hit:
+                        break
+                if not hit:
+                    # stand-up specials and one-offs are movies on Trakt ("Comedian: Special Name")
+                    ids, _ = m.movie({"title": r["raw"].split(": ", 1)[-1]})
+                    if not ids:
+                        ids, _ = m.movie({"title": r["raw"]})
+                    if ids:
+                        if ("movies", ids["trakt"]) in have or ("movies", ids["trakt"]) in queued:
+                            skipped += 1
+                        else:
+                            movies.append({"ids": {"trakt": ids["trakt"]}, "watched_at": r["watched_at"]})
+                            queued.add(("movies", ids["trakt"]))
+                        continue
             if not hit:
                 unmatched.append((r["raw"], why))
                 continue
-            if ("episodes", hit["ids"]["trakt"], r["watched_at"][:10]) in have:
+            if ("episodes", hit["ids"]["trakt"]) in have or ("episodes", hit["ids"]["trakt"]) in queued:
                 skipped += 1
                 continue
             episodes.append({"ids": {"trakt": hit["ids"]["trakt"]}, "watched_at": r["watched_at"]})
+            queued.add(("episodes", hit["ids"]["trakt"]))
         else:
             ids, why = m.movie(r)
             if not ids:
                 unmatched.append((r["raw"], why))
                 continue
-            if ("movies", ids["trakt"], r["watched_at"][:10]) in have:
+            if ("movies", ids["trakt"]) in have or ("movies", ids["trakt"]) in queued:
                 skipped += 1
                 continue
             movies.append({"ids": {"trakt": ids["trakt"]}, "watched_at": r["watched_at"]})
+            queued.add(("movies", ids["trakt"]))
         if i % 200 == 0:
             print("  ... %d/%d (api calls %d)" % (i, len(rows), t.calls))
 

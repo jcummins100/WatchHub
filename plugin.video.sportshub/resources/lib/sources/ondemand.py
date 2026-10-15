@@ -13,7 +13,7 @@ from resources.lib import cache, kodi
 API = "https://apis.justwatch.com/graphql"
 IMG = "https://images.justwatch.com"
 TTL = 6 * 3600
-QV = "v4"  # bump when the GraphQL queries change so stale cache entries are ignored
+QV = "v5"  # bump when the GraphQL queries change so stale cache entries are ignored
 
 # JustWatch package short code -> (display name, Android TV package)
 SERVICES = [
@@ -205,7 +205,7 @@ query New($country: Country!, $language: Language!, $date: Date!, $first: Int!) 
   newTitles(country: $country, date: $date, first: $first, filter: {packages: %s}) {
     edges { node {
       __typename objectType
-      content(country: $country, language: $language) { title originalReleaseYear shortDescription posterUrl genres { shortName } backdrops { backdropUrl } scoring { imdbScore } runtime ageCertification originalReleaseDate credits { name role characterName } }
+      content(country: $country, language: $language) { title originalReleaseYear shortDescription posterUrl genres { shortName } backdrops { backdropUrl } scoring { imdbScore } }
       offers(country: $country, platform: ANDROID_TV) { monetizationType standardWebURL package { packageId shortName clearName technicalName } }
       ... on Season {
         show { objectType
@@ -238,7 +238,9 @@ def new_titles(codes=None, days=7, object_types=("MOVIE", "SHOW")):
                     data = json.loads(resp.read().decode("utf-8")).get("data") or {}
             except Exception as exc:
                 kodi.log("justwatch new failed: %s" % exc)
-                data = {}
+                data = None
+            if data is None:
+                continue  # don't remember a failure as "nothing new"
             cache.put(key, data)
         for edge in ((data.get("newTitles") or {}).get("edges") or []):
             node = edge.get("node") or {}
