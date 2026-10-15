@@ -1,0 +1,767 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<includes>
+	<!-- ====================== hero variables (follow whichever rail has focus) ====================== -->
+	<expression name="SH_Focus9100">Control.HasFocus(9100)</expression>
+	<expression name="SH_Focus9200">Control.HasFocus(9200)</expression>
+	<expression name="SH_Focus9300">Control.HasFocus(9300)</expression>
+	<expression name="SH_Focus9400">Control.HasFocus(9400)</expression>
+	<expression name="SH_Focus9500">Control.HasFocus(9500)</expression>
+	<expression name="SH_Focus9600">Control.HasFocus(9600)</expression>
+	<expression name="SH_Focus9700">Control.HasFocus(9700)</expression>
+	<expression name="SH_Focus9800">Control.HasFocus(9800)</expression>
+	<expression name="SH_Focus9900">Control.HasFocus(9900)</expression>
+	<expression name="SH_Focus9950">Control.HasFocus(9950)</expression>
+	<expression name="SH_Focus9960">Control.HasFocus(9960)</expression>
+
+	<expression name="SH_HeroIsLive">[$EXP[SH_Focus9100] + String.IsEqual(Container(9100).ListItem.Property(state),live)] | [$EXP[SH_Focus9200] + String.IsEqual(Container(9200).ListItem.Property(state),live)] | [$EXP[SH_Focus9300] + String.IsEqual(Container(9300).ListItem.Property(state),live)]</expression>
+	<expression name="SH_HeroHasProgress">[$EXP[SH_Focus9100] + !String.IsEmpty(Container(9100).ListItem.Property(progress))] | [$EXP[SH_Focus9300] + !String.IsEmpty(Container(9300).ListItem.Property(progress))]</expression>
+
+	<variable name="SH_Backdrop">
+		<value condition="$EXP[SH_Focus9100] + !String.IsEmpty(Container(9100).ListItem.Art(fanart))">$INFO[Container(9100).ListItem.Art(fanart)]</value>
+		<value condition="$EXP[SH_Focus9300] + !String.IsEmpty(Container(9300).ListItem.Art(fanart))">$INFO[Container(9300).ListItem.Art(fanart)]</value>
+		<value condition="$EXP[SH_Focus9200] + !String.IsEmpty(Container(9200).ListItem.Art(fanart))">$INFO[Container(9200).ListItem.Art(fanart)]</value>
+		<value condition="$EXP[SH_Focus9800] + !String.IsEmpty(Container(9800).ListItem.Art(fanart))">$INFO[Container(9800).ListItem.Art(fanart)]</value>
+		<value condition="$EXP[SH_Focus9900] + !String.IsEmpty(Container(9900).ListItem.Art(fanart))">$INFO[Container(9900).ListItem.Art(fanart)]</value>
+		<value condition="$EXP[SH_Focus9950] + !String.IsEmpty(Container(9950).ListItem.Art(fanart))">$INFO[Container(9950).ListItem.Art(fanart)]</value>
+		<value condition="$EXP[SH_Focus9960] + !String.IsEmpty(Container(9960).ListItem.Art(fanart))">$INFO[Container(9960).ListItem.Art(fanart)]</value>
+		<value></value>
+	</variable>
+	<variable name="SH_HeroLogo">
+		<value condition="$EXP[SH_Focus9100]">$INFO[Container(9100).ListItem.Art(thumb)]</value>
+		<value condition="$EXP[SH_Focus9300]">$INFO[Container(9300).ListItem.Art(thumb)]</value>
+		<value condition="$EXP[SH_Focus9200]">$INFO[Container(9200).ListItem.Property(league_logo)]</value>
+		<value condition="$EXP[SH_Focus9500]">$INFO[Container(9500).ListItem.Art(thumb)]</value>
+		<value></value>
+	</variable>
+	<variable name="SH_HeroKicker">
+		<value condition="$EXP[SH_Focus9100]">$INFO[Container(9100).ListItem.Property(kicker)]</value>
+		<value condition="$EXP[SH_Focus9200]">$INFO[Container(9200).ListItem.Property(kicker)]</value>
+		<value condition="$EXP[SH_Focus9300]">$INFO[Container(9300).ListItem.Property(kicker)]</value>
+		<value condition="$EXP[SH_Focus9400]">BROWSE BY SPORT</value>
+		<value condition="$EXP[SH_Focus9500]">OPEN APP</value>
+		<value condition="$EXP[SH_Focus9800]">$INFO[Container(9800).ListItem.Property(kicker)]</value>
+		<value condition="$EXP[SH_Focus9900]">$INFO[Container(9900).ListItem.Property(kicker)]</value>
+		<value condition="$EXP[SH_Focus9950]">$INFO[Container(9950).ListItem.Property(kicker)]</value>
+		<value condition="$EXP[SH_Focus9960]">$INFO[Container(9960).ListItem.Property(kicker)]</value>
+		<value condition="$EXP[SH_Focus9700]">FREE LIVE TV</value>
+		<value condition="$EXP[SH_Focus9600]">KODI</value>
+		<value></value>
+	</variable>
+	<variable name="SH_HeroTitle">
+		<value condition="$EXP[SH_Focus9100]">$INFO[Container(9100).ListItem.Property(title)]</value>
+		<value condition="$EXP[SH_Focus9200]">$INFO[Container(9200).ListItem.Property(title)]</value>
+		<value condition="$EXP[SH_Focus9300]">$INFO[Container(9300).ListItem.Property(title)]</value>
+		<value condition="$EXP[SH_Focus9400]">$INFO[Container(9400).ListItem.Label]</value>
+		<value condition="$EXP[SH_Focus9500]">$INFO[Container(9500).ListItem.Label]</value>
+		<value condition="$EXP[SH_Focus9800]">$INFO[Container(9800).ListItem.Property(title)]</value>
+		<value condition="$EXP[SH_Focus9900]">$INFO[Container(9900).ListItem.Property(title)]</value>
+		<value condition="$EXP[SH_Focus9950]">$INFO[Container(9950).ListItem.Property(title)]</value>
+		<value condition="$EXP[SH_Focus9960]">$INFO[Container(9960).ListItem.Property(title)]</value>
+		<value condition="$EXP[SH_Focus9700]">$INFO[Container(9700).ListItem.Label]</value>
+		<value condition="$EXP[SH_Focus9600]">$INFO[Container(9600).ListItem.Label]</value>
+		<value>WatchHub</value>
+	</variable>
+	<variable name="SH_HeroMeta">
+		<value condition="$EXP[SH_Focus9100]">$INFO[Container(9100).ListItem.Property(meta)]</value>
+		<value condition="$EXP[SH_Focus9200]">$INFO[Container(9200).ListItem.Property(meta)]</value>
+		<value condition="$EXP[SH_Focus9300]">$INFO[Container(9300).ListItem.Property(meta)]</value>
+		<value condition="$EXP[SH_Focus9400]">$INFO[Container(9400).ListItem.Property(meta)]</value>
+		<value condition="$EXP[SH_Focus9500]">$INFO[Container(9500).ListItem.Property(meta)]</value>
+		<value condition="$EXP[SH_Focus9800]">$INFO[Container(9800).ListItem.Property(meta)]</value>
+		<value condition="$EXP[SH_Focus9900]">$INFO[Container(9900).ListItem.Property(meta)]</value>
+		<value condition="$EXP[SH_Focus9950]">$INFO[Container(9950).ListItem.Property(meta)]</value>
+		<value condition="$EXP[SH_Focus9960]">$INFO[Container(9960).ListItem.Property(meta)]</value>
+		<value condition="$EXP[SH_Focus9700]">$INFO[Container(9700).ListItem.Property(meta)]</value>
+		<value condition="$EXP[SH_Focus9600]">$INFO[Container(9600).ListItem.Property(meta)]</value>
+		<value></value>
+	</variable>
+
+	<!-- ====================== a rail: header + one horizontal row of cards ====================== -->
+	<include name="SH_Rail">
+		<param name="limit">25</param>
+		<param name="item_width">416</param>
+		<param name="prev1">700</param>
+		<param name="prev2">700</param>
+		<param name="prev3">700</param>
+		<param name="next1">9600</param>
+		<param name="next2">9600</param>
+		<param name="next3">9600</param>
+		<definition>
+			<control type="group">
+				<top>$PARAM[row_top]</top>
+				<height>376</height>
+				<control type="label">
+					<left>100</left>
+					<top>0</top>
+					<width>1000</width>
+					<height>40</height>
+					<font>font25_title</font>
+					<label>[B]$PARAM[header][/B]</label>
+					<textcolor>FFFFFFFF</textcolor>
+					<shadowcolor>AA000000</shadowcolor>
+				</control>
+				<control type="label">
+					<left>100</left>
+					<top>60</top>
+					<width>1000</width>
+					<height>40</height>
+					<font>font27</font>
+					<label>Nothing right now</label>
+					<textcolor>60FFFFFF</textcolor>
+					<visible>!Integer.IsGreater(Container($PARAM[list_id]).NumItems,0) + !Container($PARAM[list_id]).IsUpdating</visible>
+				</control>
+				<include content="BusyListSpinner">
+					<param name="list_id" value="$PARAM[list_id]"/>
+					<param name="posy" value="120"/>
+				</include>
+				<control type="panel" id="$PARAM[list_id]">
+					<left>84</left>
+					<top>44</top>
+					<right>0</right>
+					<height>312</height>
+					<orientation>horizontal</orientation>
+					<onleft>noop</onleft>
+					<onright>noop</onright>
+					<onup condition="Control.IsVisible($PARAM[prev1])">$PARAM[prev1]</onup>
+					<onup condition="!Control.IsVisible($PARAM[prev1]) + Control.IsVisible($PARAM[prev2])">$PARAM[prev2]</onup>
+					<onup condition="!Control.IsVisible($PARAM[prev1]) + !Control.IsVisible($PARAM[prev2])">$PARAM[prev3]</onup>
+					<ondown condition="Control.IsVisible($PARAM[next1])">$PARAM[next1]</ondown>
+					<ondown condition="!Control.IsVisible($PARAM[next1]) + Control.IsVisible($PARAM[next2])">$PARAM[next2]</ondown>
+					<ondown condition="!Control.IsVisible($PARAM[next1]) + !Control.IsVisible($PARAM[next2])">$PARAM[next3]</ondown>
+					<visible>Integer.IsGreater(Container($PARAM[list_id]).NumItems,0) | Container($PARAM[list_id]).IsUpdating</visible>
+					<onclick>$PARAM[onclick]</onclick>
+					<scrolltime tween="cubic" easing="out">300</scrolltime>
+					<preloaditems>2</preloaditems>
+					<itemlayout width="$PARAM[item_width]" height="312">
+						<include content="$PARAM[layout]">
+							<param name="focused" value="false"/>
+						</include>
+					</itemlayout>
+					<focusedlayout width="$PARAM[item_width]" height="312">
+						<control type="group">
+							<depth>DepthContentPopout</depth>
+							<animation effect="zoom" start="100" end="106" time="160" tween="sine" easing="out" center="216,128">Focus</animation>
+							<animation effect="zoom" start="106" end="100" time="160" tween="sine" easing="out" center="216,128">UnFocus</animation>
+							<include content="$PARAM[layout]">
+								<param name="focused" value="true"/>
+							</include>
+						</control>
+					</focusedlayout>
+					<content target="videos" limit="$PARAM[limit]">$PARAM[content_path]</content>
+				</control>
+			</control>
+		</definition>
+	</include>
+
+	<!-- ====================== card: channel / programme ====================== -->
+	<include name="SH_CardChannel">
+		<definition>
+			<control type="group">
+				<left>16</left>
+				<top>16</top>
+				<width>384</width>
+				<height>216</height>
+				<control type="image">
+					<width>384</width>
+					<height>216</height>
+					<texture border="16" colordiffuse="FF1C2435">sportshub/card.png</texture>
+				</control>
+				<control type="image">
+					<width>384</width>
+					<height>216</height>
+					<aspectratio>scale</aspectratio>
+					<texture background="true" diffuse="sportshub/card_mask.png">$INFO[ListItem.Art(landscape)]</texture>
+				</control>
+				<control type="image">
+					<width>384</width>
+					<height>216</height>
+					<texture border="16" colordiffuse="90000000">sportshub/card.png</texture>
+					<visible>!String.IsEmpty(ListItem.Art(landscape))</visible>
+				</control>
+				<control type="image">
+					<left>42</left>
+					<top>40</top>
+					<width>300</width>
+					<height>120</height>
+					<aspectratio>keep</aspectratio>
+					<texture background="true">$INFO[ListItem.Art(thumb)]</texture>
+				</control>
+				<control type="image">
+					<left>14</left>
+					<top>14</top>
+					<width>70</width>
+					<height>28</height>
+					<texture border="14" colordiffuse="FFE0162B">sportshub/pill.png</texture>
+					<visible>String.IsEqual(ListItem.Property(state),live)</visible>
+				</control>
+				<control type="label">
+					<left>14</left>
+					<top>14</top>
+					<width>70</width>
+					<height>28</height>
+					<align>center</align>
+					<aligny>center</aligny>
+					<font>font10</font>
+					<label>[B]LIVE[/B]</label>
+					<visible>String.IsEqual(ListItem.Property(state),live)</visible>
+				</control>
+				<control type="label">
+					<left>0</left>
+					<top>14</top>
+					<width>370</width>
+					<height>28</height>
+					<align>right</align>
+					<aligny>center</aligny>
+					<font>font12</font>
+					<label>$INFO[ListItem.Property(when)]</label>
+					<textcolor>FFFFFFFF</textcolor>
+					<shadowcolor>AA000000</shadowcolor>
+				</control>
+				<control type="progress">
+					<left>14</left>
+					<top>196</top>
+					<width>356</width>
+					<height>5</height>
+					<texturebg colordiffuse="40FFFFFF">sportshub/white.png</texturebg>
+					<midtexture colordiffuse="FFE0162B">sportshub/white.png</midtexture>
+					<lefttexture/>
+					<righttexture/>
+					<overlaytexture/>
+					<info>ListItem.Property(progress)</info>
+					<visible>!String.IsEmpty(ListItem.Property(progress))</visible>
+				</control>
+				<control type="image">
+					<left>-6</left>
+					<top>-6</top>
+					<width>396</width>
+					<height>228</height>
+					<texture border="16">sportshub/card_focus.png</texture>
+					<visible>$PARAM[focused]</visible>
+				</control>
+				<control type="label">
+					<left>4</left>
+					<top>224</top>
+					<width>376</width>
+					<height>28</height>
+					<font>font25_title</font>
+					<label>$INFO[ListItem.Property(title)]</label>
+					<textcolor>FFFFFFFF</textcolor>
+					<scroll>$PARAM[focused]</scroll>
+				</control>
+				<control type="label">
+					<left>4</left>
+					<top>252</top>
+					<width>376</width>
+					<height>26</height>
+					<font>font23_narrow</font>
+					<label>$INFO[ListItem.Property(channel)]</label>
+					<textcolor>A0FFFFFF</textcolor>
+				</control>
+			</control>
+		</definition>
+	</include>
+
+	<!-- ====================== card: game (two team logos + score) ====================== -->
+	<include name="SH_CardGame">
+		<definition>
+			<control type="group">
+				<left>16</left>
+				<top>16</top>
+				<width>384</width>
+				<height>216</height>
+				<control type="image">
+					<width>384</width>
+					<height>216</height>
+					<texture border="16" colordiffuse="FF1C2435">sportshub/card.png</texture>
+				</control>
+				<control type="image">
+					<left>26</left>
+					<top>44</top>
+					<width>100</width>
+					<height>100</height>
+					<aspectratio>keep</aspectratio>
+					<texture background="true">$INFO[ListItem.Art(away)]</texture>
+				</control>
+				<control type="image">
+					<left>258</left>
+					<top>44</top>
+					<width>100</width>
+					<height>100</height>
+					<aspectratio>keep</aspectratio>
+					<texture background="true">$INFO[ListItem.Art(home)]</texture>
+				</control>
+				<control type="label">
+					<left>122</left>
+					<top>40</top>
+					<width>140</width>
+					<height>110</height>
+					<align>center</align>
+					<aligny>center</aligny>
+					<font>font32</font>
+					<label>$INFO[ListItem.Property(score)]</label>
+					<textcolor>FFFFFFFF</textcolor>
+					<visible>!String.IsEmpty(ListItem.Property(score))</visible>
+				</control>
+				<control type="label">
+					<left>122</left>
+					<top>40</top>
+					<width>140</width>
+					<height>110</height>
+					<align>center</align>
+					<aligny>center</aligny>
+					<font>font25_title</font>
+					<label>@</label>
+					<textcolor>80FFFFFF</textcolor>
+					<visible>String.IsEmpty(ListItem.Property(score))</visible>
+				</control>
+				<control type="label">
+					<left>16</left>
+					<top>150</top>
+					<width>120</width>
+					<height>26</height>
+					<align>center</align>
+					<font>font23_narrow</font>
+					<label>$INFO[ListItem.Property(away)]</label>
+					<textcolor>FFB8C4D6</textcolor>
+				</control>
+				<control type="label">
+					<left>248</left>
+					<top>150</top>
+					<width>120</width>
+					<height>26</height>
+					<align>center</align>
+					<font>font23_narrow</font>
+					<label>$INFO[ListItem.Property(home)]</label>
+					<textcolor>FFB8C4D6</textcolor>
+				</control>
+				<control type="label">
+					<left>0</left>
+					<top>182</top>
+					<width>384</width>
+					<height>26</height>
+					<align>center</align>
+					<font>font12</font>
+					<label>$INFO[ListItem.Property(detail)]</label>
+					<textcolor>FFFFFFFF</textcolor>
+				</control>
+				<control type="image">
+					<left>14</left>
+					<top>14</top>
+					<width>70</width>
+					<height>28</height>
+					<texture border="14" colordiffuse="FFE0162B">sportshub/pill.png</texture>
+					<visible>String.IsEqual(ListItem.Property(state),live)</visible>
+				</control>
+				<control type="label">
+					<left>14</left>
+					<top>14</top>
+					<width>70</width>
+					<height>28</height>
+					<align>center</align>
+					<aligny>center</aligny>
+					<font>font10</font>
+					<label>[B]LIVE[/B]</label>
+					<visible>String.IsEqual(ListItem.Property(state),live)</visible>
+				</control>
+				<control type="label">
+					<left>0</left>
+					<top>14</top>
+					<width>370</width>
+					<height>28</height>
+					<align>right</align>
+					<aligny>center</aligny>
+					<font>font12</font>
+					<label>$INFO[ListItem.Property(league)]</label>
+					<textcolor>C0FFFFFF</textcolor>
+				</control>
+				<control type="image">
+					<left>-6</left>
+					<top>-6</top>
+					<width>396</width>
+					<height>228</height>
+					<texture border="16">sportshub/card_focus.png</texture>
+					<visible>$PARAM[focused]</visible>
+				</control>
+				<control type="label">
+					<left>4</left>
+					<top>224</top>
+					<width>376</width>
+					<height>28</height>
+					<font>font25_title</font>
+					<label>$INFO[ListItem.Property(title)]</label>
+					<textcolor>FFFFFFFF</textcolor>
+					<scroll>$PARAM[focused]</scroll>
+				</control>
+				<control type="label">
+					<left>4</left>
+					<top>252</top>
+					<width>376</width>
+					<height>26</height>
+					<font>font23_narrow</font>
+					<label>$INFO[ListItem.Property(network)]</label>
+					<textcolor>A0FFFFFF</textcolor>
+				</control>
+			</control>
+		</definition>
+	</include>
+
+	<!-- ====================== card: sport category ====================== -->
+	<include name="SH_CardSport">
+		<definition>
+			<control type="group">
+				<left>16</left>
+				<top>16</top>
+				<width>384</width>
+				<height>216</height>
+				<control type="image">
+					<width>384</width>
+					<height>216</height>
+					<texture border="16" colordiffuse="FF2C3E66">sportshub/card.png</texture>
+				</control>
+				<control type="image">
+					<width>384</width>
+					<height>216</height>
+					<texture border="16" colordiffuse="$INFO[ListItem.Property(color)]">sportshub/card.png</texture>
+					<visible>!String.IsEmpty(ListItem.Property(color))</visible>
+				</control>
+				<control type="image">
+					<width>384</width>
+					<height>216</height>
+					<texture>sportshub/grad_bottom.png</texture>
+				</control>
+				<control type="label">
+					<left>24</left>
+					<top>0</top>
+					<width>336</width>
+					<height>216</height>
+					<align>left</align>
+					<aligny>center</aligny>
+					<font>font32</font>
+					<label>[B]$INFO[ListItem.Label][/B]</label>
+					<textcolor>FFFFFFFF</textcolor>
+					<shadowcolor>AA000000</shadowcolor>
+					<wrapmultiline>true</wrapmultiline>
+					<visible>!ListItem.IsParentFolder</visible>
+				</control>
+				<control type="label">
+					<left>24</left>
+					<top>0</top>
+					<width>336</width>
+					<height>216</height>
+					<aligny>center</aligny>
+					<font>font32</font>
+					<label>[B]&lt; Back[/B]</label>
+					<textcolor>FFFFFFFF</textcolor>
+					<visible>ListItem.IsParentFolder</visible>
+				</control>
+				<control type="label">
+					<left>24</left>
+					<top>168</top>
+					<width>336</width>
+					<height>30</height>
+					<font>font23_narrow</font>
+					<label>$INFO[ListItem.Property(meta)]</label>
+					<textcolor>C0FFFFFF</textcolor>
+				</control>
+				<control type="image">
+					<left>-6</left>
+					<top>-6</top>
+					<width>396</width>
+					<height>228</height>
+					<texture border="16">sportshub/card_focus.png</texture>
+					<visible>$PARAM[focused]</visible>
+				</control>
+			</control>
+		</definition>
+	</include>
+
+	<!-- ====================== card: Android app ====================== -->
+	<include name="SH_CardApp">
+		<definition>
+			<control type="group">
+				<left>16</left>
+				<top>16</top>
+				<width>384</width>
+				<height>216</height>
+				<control type="image">
+					<width>384</width>
+					<height>216</height>
+					<texture border="16" colordiffuse="FF1C2435">sportshub/card.png</texture>
+				</control>
+				<control type="image">
+					<left>132</left>
+					<top>38</top>
+					<width>120</width>
+					<height>120</height>
+					<aspectratio>keep</aspectratio>
+					<texture background="true">$INFO[ListItem.Art(thumb)]</texture>
+				</control>
+				<control type="label">
+					<left>0</left>
+					<top>166</top>
+					<width>384</width>
+					<height>34</height>
+					<align>center</align>
+					<font>font25_title</font>
+					<label>$INFO[ListItem.Label]</label>
+					<textcolor>FFFFFFFF</textcolor>
+				</control>
+				<control type="image">
+					<left>-6</left>
+					<top>-6</top>
+					<width>396</width>
+					<height>228</height>
+					<texture border="16">sportshub/card_focus.png</texture>
+					<visible>$PARAM[focused]</visible>
+				</control>
+			</control>
+		</definition>
+	</include>
+
+	<!-- ====================== static rail: the rest of Kodi ====================== -->
+	<include name="SH_RailStatic">
+		<param name="prev1">9700</param>
+		<param name="prev2">9500</param>
+		<param name="prev3">9400</param>
+		<definition>
+			<control type="group">
+				<top>$PARAM[row_top]</top>
+				<height>376</height>
+				<control type="label">
+					<left>100</left>
+					<top>0</top>
+					<width>1000</width>
+					<height>40</height>
+					<font>font25_title</font>
+					<label>[B]$PARAM[header][/B]</label>
+					<textcolor>FFFFFFFF</textcolor>
+				</control>
+				<control type="panel" id="$PARAM[list_id]">
+					<left>84</left>
+					<top>44</top>
+					<right>0</right>
+					<height>312</height>
+					<orientation>horizontal</orientation>
+					<onleft>noop</onleft>
+					<onright>noop</onright>
+					<onup condition="Control.IsVisible($PARAM[prev1])">$PARAM[prev1]</onup>
+					<onup condition="!Control.IsVisible($PARAM[prev1]) + Control.IsVisible($PARAM[prev2])">$PARAM[prev2]</onup>
+					<onup condition="!Control.IsVisible($PARAM[prev1]) + !Control.IsVisible($PARAM[prev2])">$PARAM[prev3]</onup>
+					<ondown>noop</ondown>
+					<scrolltime tween="cubic" easing="out">300</scrolltime>
+					<itemlayout width="416" height="312">
+						<include content="SH_CardSport">
+							<param name="focused" value="false"/>
+						</include>
+					</itemlayout>
+					<focusedlayout width="416" height="312">
+						<control type="group">
+							<depth>DepthContentPopout</depth>
+							<animation effect="zoom" start="100" end="106" time="160" tween="sine" easing="out" center="216,128">Focus</animation>
+							<animation effect="zoom" start="106" end="100" time="160" tween="sine" easing="out" center="216,128">UnFocus</animation>
+							<include content="SH_CardSport">
+								<param name="focused" value="true"/>
+							</include>
+						</control>
+					</focusedlayout>
+					<content>
+						<item>
+							<label>Live TV</label>
+							<property name="meta">Kodi's TV guide and channels</property>
+							<property name="color">FF2C3E66</property>
+							<onclick>ActivateWindow(TVChannels)</onclick>
+							<visible>System.HasPVRAddon</visible>
+						</item>
+						<item>
+							<label>WatchHub menu</label>
+							<property name="meta">Everything, as a list</property>
+							<property name="color">FF234F3E</property>
+							<onclick>ActivateWindow(Videos,plugin://plugin.video.sportshub/,return)</onclick>
+						</item>
+						<item>
+							<label>Videos</label>
+							<property name="meta">Files, sources and your library</property>
+							<property name="color">FF3A2F5C</property>
+							<onclick>ActivateWindow(Videos,root,return)</onclick>
+						</item>
+						<item>
+							<label>Add-ons</label>
+							<property name="meta">Installed Kodi add-ons</property>
+							<property name="color">FF5C3A2F</property>
+							<onclick>ActivateWindow(1100)</onclick>
+						</item>
+						<item>
+							<label>Settings</label>
+							<property name="meta">Kodi settings</property>
+							<property name="color">FF3B3F4A</property>
+							<onclick>ActivateWindow(settings)</onclick>
+						</item>
+						<item>
+							<label>Classic Kodi look</label>
+							<property name="meta">Switch back to the Estuary skin</property>
+							<property name="color">FF2B4A5E</property>
+							<onclick>RunPlugin(plugin://plugin.video.sportshub/?action=skin&amp;name=skin.estuary)</onclick>
+						</item>
+					</content>
+				</control>
+			</control>
+		</definition>
+	</include>
+	<!-- ====================== card: on-demand title (portrait poster, Netflix style) ====================== -->
+	<include name="SH_CardTitle">
+		<param name="left">108</param>
+		<definition>
+			<control type="group">
+				<left>$PARAM[left]</left>
+				<top>4</top>
+				<width>200</width>
+				<height>308</height>
+				<control type="image">
+					<width>200</width>
+					<height>276</height>
+					<texture border="16" colordiffuse="FF1C2435">sportshub/card.png</texture>
+				</control>
+				<control type="image">
+					<width>200</width>
+					<height>276</height>
+					<aspectratio>scale</aspectratio>
+					<texture background="true" diffuse="sportshub/poster_mask.png">$INFO[ListItem.Art(poster)]</texture>
+				</control>
+				<control type="group">
+					<visible>String.IsEmpty(ListItem.Art(poster))</visible>
+					<control type="image">
+						<top>150</top>
+						<width>200</width>
+						<height>126</height>
+						<texture>sportshub/grad_bottom.png</texture>
+					</control>
+					<control type="label">
+						<left>12</left>
+						<top>160</top>
+						<width>176</width>
+						<height>104</height>
+						<font>font25_title</font>
+						<label>$INFO[ListItem.Property(title)]</label>
+						<textcolor>FFFFFFFF</textcolor>
+						<wrapmultiline>true</wrapmultiline>
+						<aligny>bottom</aligny>
+					</control>
+				</control>
+				<control type="image">
+					<left>-6</left>
+					<top>-6</top>
+					<width>212</width>
+					<height>288</height>
+					<texture border="16">sportshub/card_focus.png</texture>
+					<visible>$PARAM[focused]</visible>
+				</control>
+				<control type="label">
+					<left>4</left>
+					<top>282</top>
+					<width>192</width>
+					<height>24</height>
+					<font>font23_narrow</font>
+					<label>$INFO[ListItem.Property(service)]</label>
+					<textcolor>A0FFFFFF</textcolor>
+				</control>
+			</control>
+		</definition>
+	</include>
+
+	<include name="SH_CardPosterRow">
+		<definition>
+			<include content="SH_CardTitle">
+				<param name="focused" value="$PARAM[focused]"/>
+				<param name="left" value="16"/>
+			</include>
+		</definition>
+	</include>
+
+	<!-- poster-sized card for the poster grid: titles as posters, anything else (e.g. the Back item) as a small tile -->
+	<include name="SH_CardPosterAny">
+		<definition>
+			<control type="group">
+				<visible>String.IsEqual(ListItem.Property(kind),title)</visible>
+				<include content="SH_CardTitle">
+					<param name="focused" value="$PARAM[focused]"/>
+					<param name="left" value="16"/>
+				</include>
+			</control>
+			<control type="group">
+				<visible>!String.IsEqual(ListItem.Property(kind),title)</visible>
+				<left>16</left>
+				<top>4</top>
+				<width>200</width>
+				<height>276</height>
+				<control type="image">
+					<width>200</width>
+					<height>276</height>
+					<texture border="16" colordiffuse="FF2C3E66">sportshub/card.png</texture>
+				</control>
+				<control type="label">
+					<left>16</left>
+					<width>168</width>
+					<height>276</height>
+					<aligny>center</aligny>
+					<font>font27</font>
+					<label>[B]$INFO[ListItem.Label][/B]</label>
+					<wrapmultiline>true</wrapmultiline>
+					<visible>!ListItem.IsParentFolder</visible>
+				</control>
+				<control type="label">
+					<left>16</left>
+					<width>168</width>
+					<height>276</height>
+					<aligny>center</aligny>
+					<font>font27</font>
+					<label>[B]&lt; Back[/B]</label>
+					<visible>ListItem.IsParentFolder</visible>
+				</control>
+				<control type="image">
+					<left>-6</left>
+					<top>-6</top>
+					<width>212</width>
+					<height>288</height>
+					<texture border="16">sportshub/card_focus.png</texture>
+					<visible>$PARAM[focused]</visible>
+				</control>
+			</control>
+		</definition>
+	</include>
+
+	<!-- ====================== card: any item, styled by its "kind" property ====================== -->
+	<include name="SH_CardAny">
+		<definition>
+			<control type="group">
+				<visible>String.IsEqual(ListItem.Property(kind),channel)</visible>
+				<include content="SH_CardChannel">
+					<param name="focused" value="$PARAM[focused]"/>
+				</include>
+			</control>
+			<control type="group">
+				<visible>String.IsEqual(ListItem.Property(kind),game)</visible>
+				<include content="SH_CardGame">
+					<param name="focused" value="$PARAM[focused]"/>
+				</include>
+			</control>
+			<control type="group">
+				<visible>String.IsEqual(ListItem.Property(kind),app)</visible>
+				<include content="SH_CardApp">
+					<param name="focused" value="$PARAM[focused]"/>
+				</include>
+			</control>
+			<control type="group">
+				<visible>String.IsEqual(ListItem.Property(kind),title)</visible>
+				<include content="SH_CardTitle">
+					<param name="focused" value="$PARAM[focused]"/>
+				</include>
+			</control>
+			<control type="group">
+				<visible>!String.IsEqual(ListItem.Property(kind),channel) + !String.IsEqual(ListItem.Property(kind),game) + !String.IsEqual(ListItem.Property(kind),app) + !String.IsEqual(ListItem.Property(kind),title)</visible>
+				<include content="SH_CardSport">
+					<param name="focused" value="$PARAM[focused]"/>
+				</include>
+			</control>
+		</definition>
+	</include>
+</includes>

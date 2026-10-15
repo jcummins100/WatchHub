@@ -1,0 +1,350 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Detail page for a movie / show (opened from a poster). Properties are set by resources/lib/infodialog.py -->
+<window type="dialog">
+	<defaultcontrol always="true">100</defaultcontrol>
+	<coordinates>
+		<left>0</left>
+		<top>0</top>
+	</coordinates>
+	<controls>
+		<control type="image">
+			<width>1920</width>
+			<height>1080</height>
+			<texture>special://home/addons/plugin.video.sportshub/resources/media/bg.png</texture>
+		</control>
+		<control type="image">
+			<left>640</left>
+			<top>0</top>
+			<width>1280</width>
+			<height>720</height>
+			<aspectratio align="right" aligny="top">scale</aspectratio>
+			<fadetime>300</fadetime>
+			<texture background="true" colordiffuse="D0FFFFFF">$INFO[Window.Property(backdrop)]</texture>
+		</control>
+		<control type="image">
+			<left>640</left>
+			<top>0</top>
+			<width>900</width>
+			<height>720</height>
+			<texture>special://home/addons/plugin.video.sportshub/resources/media/grad_left.png</texture>
+		</control>
+		<control type="image">
+			<left>640</left>
+			<top>320</top>
+			<width>1280</width>
+			<height>400</height>
+			<texture>special://home/addons/plugin.video.sportshub/resources/media/grad_bottom.png</texture>
+		</control>
+		<control type="image">
+			<left>640</left>
+			<top>0</top>
+			<width>1280</width>
+			<height>160</height>
+			<texture flipy="true">special://home/addons/plugin.video.sportshub/resources/media/grad_bottom.png</texture>
+		</control>
+
+		<!-- poster -->
+		<control type="image">
+			<left>100</left>
+			<top>120</top>
+			<width>380</width>
+			<height>570</height>
+			<aspectratio>scale</aspectratio>
+			<texture background="true">$INFO[Window.Property(poster)]</texture>
+		</control>
+
+		<!-- text -->
+		<control type="group">
+			<left>540</left>
+			<top>110</top>
+			<width>1200</width>
+			<control type="label">
+				<top>0</top>
+				<width>1100</width>
+				<height>30</height>
+				<font>font25_title</font>
+				<label>[B]$INFO[Window.Property(kicker)][/B]</label>
+				<textcolor>FFB8C4D6</textcolor>
+			</control>
+			<control type="textbox">
+				<top>36</top>
+				<width>1100</width>
+				<height>130</height>
+				<font>font60</font>
+				<label>$INFO[Window.Property(title)]</label>
+				<textcolor>FFFFFFFF</textcolor>
+				<shadowcolor>AA000000</shadowcolor>
+			</control>
+			<control type="label">
+				<top>176</top>
+				<width>1100</width>
+				<height>36</height>
+				<font>font27</font>
+				<label>$INFO[Window.Property(meta)]</label>
+				<textcolor>FFD6DEEA</textcolor>
+			</control>
+			<control type="label">
+				<top>214</top>
+				<width>1100</width>
+				<height>34</height>
+				<font>font25_title</font>
+				<label>$INFO[Window.Property(rating)]</label>
+				<textcolor>FFFFD166</textcolor>
+				<visible>!String.IsEmpty(Window.Property(rating))</visible>
+			</control>
+			<control type="textbox">
+				<top>262</top>
+				<width>1160</width>
+				<height>220</height>
+				<font>font27</font>
+				<label>$INFO[Window.Property(plot)]</label>
+				<textcolor>FFE6EBF2</textcolor>
+				<autoscroll delay="12000" time="4000" repeat="20000">true</autoscroll>
+			</control>
+			<control type="textbox">
+				<top>490</top>
+				<width>1160</width>
+				<height>64</height>
+				<font>font25_title</font>
+				<label>$INFO[Window.Property(cast)]</label>
+				<textcolor>C8FFFFFF</textcolor>
+			</control>
+			<control type="label">
+				<top>556</top>
+				<width>1160</width>
+				<height>30</height>
+				<font>font23_narrow</font>
+				<label>$INFO[Window.Property(director)]$INFO[Window.Property(also),   ,]</label>
+				<textcolor>B0FFFFFF</textcolor>
+			</control>
+		</control>
+
+		<!-- buttons -->
+		<control type="grouplist" id="100">
+			<left>100</left>
+			<top>730</top>
+			<width>1720</width>
+			<height>70</height>
+			<orientation>horizontal</orientation>
+			<itemgap>16</itemgap>
+			<onup>100</onup>
+			<ondown>200</ondown>
+			<control type="button" id="101">
+				<width>auto</width>
+				<height>72</height>
+				<font>font30_title</font>
+				<textoffsetx>30</textoffsetx>
+				<align>center</align>
+				<label>$INFO[Window.Property(playlabel)]</label>
+				<texturefocus border="16" colordiffuse="FFE0162B">special://home/addons/plugin.video.sportshub/resources/media/card.png</texturefocus>
+				<texturenofocus border="16" colordiffuse="FF2C3E66">special://home/addons/plugin.video.sportshub/resources/media/card.png</texturenofocus>
+				<visible>!String.IsEmpty(Window.Property(playlabel))</visible>
+			</control>
+			<control type="button" id="102">
+				<width>auto</width>
+				<height>72</height>
+				<font>font30_title</font>
+				<textoffsetx>30</textoffsetx>
+				<align>center</align>
+				<label>Trailer</label>
+				<texturefocus border="16" colordiffuse="FFFFFFFF">special://home/addons/plugin.video.sportshub/resources/media/card.png</texturefocus>
+				<texturenofocus border="16" colordiffuse="FF2C3E66">special://home/addons/plugin.video.sportshub/resources/media/card.png</texturenofocus>
+				<focusedcolor>FF101828</focusedcolor>
+				<visible>String.IsEqual(Window.Property(trailer),1)</visible>
+			</control>
+			<control type="button" id="103">
+				<width>auto</width>
+				<height>72</height>
+				<font>font30_title</font>
+				<textoffsetx>30</textoffsetx>
+				<align>center</align>
+				<label>Episodes</label>
+				<texturefocus border="16" colordiffuse="FFFFFFFF">special://home/addons/plugin.video.sportshub/resources/media/card.png</texturefocus>
+				<texturenofocus border="16" colordiffuse="FF2C3E66">special://home/addons/plugin.video.sportshub/resources/media/card.png</texturenofocus>
+				<focusedcolor>FF101828</focusedcolor>
+				<visible>String.IsEqual(Window.Property(episodes),1)</visible>
+			</control>
+			<control type="button" id="106">
+				<width>auto</width>
+				<height>72</height>
+				<font>font30_title</font>
+				<textoffsetx>30</textoffsetx>
+				<align>center</align>
+				<label>Watch on...</label>
+				<texturefocus border="16" colordiffuse="FFFFFFFF">special://home/addons/plugin.video.sportshub/resources/media/card.png</texturefocus>
+				<texturenofocus border="16" colordiffuse="FF2C3E66">special://home/addons/plugin.video.sportshub/resources/media/card.png</texturenofocus>
+				<focusedcolor>FF101828</focusedcolor>
+				<visible>String.IsEqual(Window.Property(alts),1)</visible>
+			</control>
+			<control type="button" id="104">
+				<width>auto</width>
+				<height>72</height>
+				<font>font30_title</font>
+				<textoffsetx>30</textoffsetx>
+				<align>center</align>
+				<label>+ Watchlist</label>
+				<texturefocus border="16" colordiffuse="FFFFFFFF">special://home/addons/plugin.video.sportshub/resources/media/card.png</texturefocus>
+				<texturenofocus border="16" colordiffuse="FF2C3E66">special://home/addons/plugin.video.sportshub/resources/media/card.png</texturenofocus>
+				<focusedcolor>FF101828</focusedcolor>
+				<visible>String.IsEqual(Window.Property(trakt),1)</visible>
+			</control>
+			<control type="button" id="105">
+				<width>auto</width>
+				<height>72</height>
+				<font>font30_title</font>
+				<textoffsetx>30</textoffsetx>
+				<align>center</align>
+				<label>Mark watched</label>
+				<texturefocus border="16" colordiffuse="FFFFFFFF">special://home/addons/plugin.video.sportshub/resources/media/card.png</texturefocus>
+				<texturenofocus border="16" colordiffuse="FF2C3E66">special://home/addons/plugin.video.sportshub/resources/media/card.png</texturenofocus>
+				<focusedcolor>FF101828</focusedcolor>
+				<visible>String.IsEqual(Window.Property(trakt),1)</visible>
+			</control>
+			<control type="button" id="199">
+				<width>auto</width>
+				<height>72</height>
+				<font>font30_title</font>
+				<textoffsetx>30</textoffsetx>
+				<align>center</align>
+				<label>Close</label>
+				<texturefocus border="16" colordiffuse="FFFFFFFF">special://home/addons/plugin.video.sportshub/resources/media/card.png</texturefocus>
+				<texturenofocus border="16" colordiffuse="FF2C3E66">special://home/addons/plugin.video.sportshub/resources/media/card.png</texturenofocus>
+				<focusedcolor>FF101828</focusedcolor>
+			</control>
+		</control>
+
+		<!-- episodes -->
+		<control type="label">
+			<left>100</left>
+			<top>812</top>
+			<width>600</width>
+			<height>30</height>
+			<font>font25_title</font>
+			<label>[B]$INFO[Window.Property(season_label)][/B]</label>
+			<textcolor>FFB8C4D6</textcolor>
+			<visible>Integer.IsGreater(Container(200).NumItems,0)</visible>
+		</control>
+		<control type="list" id="200">
+			<left>100</left>
+			<top>846</top>
+			<width>1720</width>
+			<height>230</height>
+			<onup>100</onup>
+			<orientation>horizontal</orientation>
+			<scrolltime>200</scrolltime>
+			<visible>Integer.IsGreater(Container(200).NumItems,0)</visible>
+			<itemlayout width="430" height="230">
+				<control type="image">
+					<left>8</left>
+					<top>8</top>
+					<width>414</width>
+					<height>214</height>
+					<texture border="16" colordiffuse="FF1C2435">special://home/addons/plugin.video.sportshub/resources/media/card.png</texture>
+				</control>
+				<control type="image">
+					<left>8</left>
+					<top>8</top>
+					<width>414</width>
+					<height>214</height>
+					<aspectratio>scale</aspectratio>
+					<texture background="true" colordiffuse="60FFFFFF">$INFO[ListItem.Art(thumb)]</texture>
+				</control>
+				<control type="label">
+					<left>24</left>
+					<top>16</top>
+					<width>120</width>
+					<height>40</height>
+					<font>font37</font>
+					<label>$INFO[ListItem.Property(num)]</label>
+					<textcolor>FFE0162B</textcolor>
+				</control>
+				<control type="label">
+					<left>24</left>
+					<top>60</top>
+					<width>380</width>
+					<height>30</height>
+					<font>font25_title</font>
+					<label>$INFO[ListItem.Label]</label>
+				</control>
+				<control type="label">
+					<left>24</left>
+					<top>90</top>
+					<width>380</width>
+					<height>24</height>
+					<font>font23_narrow</font>
+					<label>$INFO[ListItem.Label2]</label>
+					<textcolor>FFFFD166</textcolor>
+				</control>
+				<control type="textbox">
+					<left>24</left>
+					<top>118</top>
+					<width>380</width>
+					<height>96</height>
+					<font>font23_narrow</font>
+					<label>$INFO[ListItem.Property(overview)]</label>
+					<textcolor>C0FFFFFF</textcolor>
+				</control>
+			</itemlayout>
+			<focusedlayout width="430" height="230">
+				<control type="image">
+					<left>8</left>
+					<top>8</top>
+					<width>414</width>
+					<height>214</height>
+					<texture border="16" colordiffuse="FF27324A">special://home/addons/plugin.video.sportshub/resources/media/card.png</texture>
+				</control>
+				<control type="image">
+					<left>8</left>
+					<top>8</top>
+					<width>414</width>
+					<height>214</height>
+					<aspectratio>scale</aspectratio>
+					<texture background="true" colordiffuse="60FFFFFF">$INFO[ListItem.Art(thumb)]</texture>
+				</control>
+				<control type="image">
+					<left>2</left>
+					<top>2</top>
+					<width>426</width>
+					<height>226</height>
+					<texture border="16">special://home/addons/plugin.video.sportshub/resources/media/card_focus.png</texture>
+				</control>
+				<control type="label">
+					<left>24</left>
+					<top>16</top>
+					<width>120</width>
+					<height>40</height>
+					<font>font37</font>
+					<label>$INFO[ListItem.Property(num)]</label>
+					<textcolor>FFE0162B</textcolor>
+				</control>
+				<control type="label">
+					<left>24</left>
+					<top>60</top>
+					<width>380</width>
+					<height>30</height>
+					<font>font25_title</font>
+					<label>$INFO[ListItem.Label]</label>
+				</control>
+				<control type="label">
+					<left>24</left>
+					<top>90</top>
+					<width>380</width>
+					<height>24</height>
+					<font>font23_narrow</font>
+					<label>$INFO[ListItem.Label2]</label>
+					<textcolor>FFFFD166</textcolor>
+				</control>
+				<control type="textbox">
+					<left>24</left>
+					<top>118</top>
+					<width>380</width>
+					<height>96</height>
+					<font>font23_narrow</font>
+					<label>$INFO[ListItem.Property(overview)]</label>
+					<textcolor>C0FFFFFF</textcolor>
+					<autoscroll delay="3000" time="2000" repeat="6000">true</autoscroll>
+				</control>
+			</focusedlayout>
+		</control>
+	</controls>
+</window>

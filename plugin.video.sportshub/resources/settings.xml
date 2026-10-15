@@ -1,0 +1,201 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<settings version="1">
+  <section id="plugin.video.sportshub">
+    <category id="sources" label="30100" help="">
+      <group id="1" label="30101">
+        <setting id="region" type="string" label="30102" help="">
+          <level>0</level>
+          <default>us</default>
+          <constraints>
+            <options>
+              <option label="USA">us</option>
+              <option label="Canada">ca</option>
+              <option label="UK">gb</option>
+            </options>
+          </constraints>
+          <control type="list" format="string"/>
+        </setting>
+        <setting id="service_priority" type="string" label="30125" help="30126">
+          <level>0</level>
+          <default>pluto,plex,roku,samsung</default>
+          <control type="edit" format="string"><heading>30125</heading></control>
+        </setting>
+        <setting id="src_pluto" type="boolean" label="30110" help="">
+          <level>0</level>
+          <default>true</default>
+          <control type="toggle"/>
+        </setting>
+        <setting id="src_plex" type="boolean" label="30111" help="">
+          <level>0</level>
+          <default>true</default>
+          <control type="toggle"/>
+        </setting>
+        <setting id="src_roku" type="boolean" label="30112" help="">
+          <level>0</level>
+          <default>true</default>
+          <control type="toggle"/>
+        </setting>
+        <setting id="src_samsung" type="boolean" label="30113" help="30114">
+          <level>0</level>
+          <default>false</default>
+          <control type="toggle"/>
+        </setting>
+        <setting id="src_pvr" type="boolean" label="30115" help="30116">
+          <level>0</level>
+          <default>true</default>
+          <control type="toggle"/>
+        </setting>
+        <setting id="src_scores" type="boolean" label="30120" help="30121">
+          <level>0</level>
+          <default>true</default>
+          <control type="toggle"/>
+        </setting>
+        <setting id="src_sportsdb" type="boolean" label="30117" help="30118">
+          <level>0</level>
+          <default>false</default>
+          <control type="toggle"/>
+        </setting>
+        <setting id="sportsdb_key" type="string" label="30122" help="30123">
+          <level>0</level>
+          <default></default>
+          <constraints>
+            <allowempty>true</allowempty>
+          </constraints>
+          <control type="edit" format="string">
+            <heading>30122</heading>
+          </control>
+          <dependencies>
+            <dependency type="enable" setting="src_sportsdb">true</dependency>
+          </dependencies>
+        </setting>
+        <setting id="src_youtube" type="boolean" label="30119" help="">
+          <level>0</level>
+          <default>true</default>
+          <control type="toggle"/>
+        </setting>
+      </group>
+    </category>
+    <category id="accounts" label="30300" help="">
+      <group id="1" label="30301">
+        <setting id="trakt_client_id" type="string" label="30302" help="30303">
+          <level>0</level>
+          <default></default>
+          <constraints><allowempty>true</allowempty></constraints>
+          <control type="edit" format="string"><heading>30302</heading></control>
+        </setting>
+        <setting id="trakt_client_secret" type="string" label="30304" help="">
+          <level>0</level>
+          <default></default>
+          <constraints><allowempty>true</allowempty></constraints>
+          <control type="edit" format="string"><heading>30304</heading><hidden>true</hidden></control>
+        </setting>
+        <setting id="trakt_access_token" type="string" label="30305" help="">
+          <level>4</level>
+          <default></default>
+          <constraints><allowempty>true</allowempty></constraints>
+          <control type="edit" format="string"><heading>30305</heading><hidden>true</hidden></control>
+        </setting>
+        <setting id="trakt_refresh_token" type="string" label="30305" help="">
+          <level>4</level>
+          <default></default>
+          <constraints><allowempty>true</allowempty></constraints>
+          <control type="edit" format="string"><heading>30305</heading><hidden>true</hidden></control>
+        </setting>
+        <setting id="trakt_token_expires" type="string" label="30305" help="">
+          <level>4</level>
+          <default></default>
+          <constraints><allowempty>true</allowempty></constraints>
+          <control type="edit" format="string"><heading>30305</heading></control>
+        </setting>
+      </group>
+      <group id="3" label="30320">
+        <setting id="amazon_channels" type="string" label="30321" help="30322">
+          <level>0</level>
+          <default>aho,app</default>
+          <constraints><allowempty>true</allowempty></constraints>
+          <control type="edit" format="string"><heading>30321</heading></control>
+        </setting>
+      </group>
+      <group id="2" label="30310">
+        <setting id="tmdb_key" type="string" label="30311" help="30312">
+          <level>0</level>
+          <default></default>
+          <constraints><allowempty>true</allowempty></constraints>
+          <control type="edit" format="string"><heading>30311</heading></control>
+        </setting>
+      </group>
+    </category>
+    <category id="display" label="30200" help="">
+      <group id="0" label="30210">
+        <setting id="open_on_start" type="boolean" label="30211" help="30212">
+          <level>0</level>
+          <default>true</default>
+          <control type="toggle"/>
+        </setting>
+        <setting id="start_delay" type="integer" label="30213" help="">
+          <level>1</level>
+          <default>3</default>
+          <constraints>
+            <minimum>0</minimum>
+            <step>1</step>
+            <maximum>30</maximum>
+          </constraints>
+          <control type="slider" format="integer">
+            <popup>false</popup>
+          </control>
+        </setting>
+      </group>
+      <group id="1" label="30201">
+        <setting id="view_mode" type="string" label="30207" help="30208">
+          <level>0</level>
+          <default>wall</default>
+          <constraints>
+            <options>
+              <option label="Wall (tiles with logos)">wall</option>
+              <option label="Wide list (logo + description)">widelist</option>
+              <option label="Info wall">infowall</option>
+              <option label="Shift">shift</option>
+              <option label="Plain list">list</option>
+              <option label="Let Kodi remember my choice">kodi</option>
+            </options>
+          </constraints>
+          <control type="list" format="string"/>
+        </setting>
+        <setting id="soon_minutes" type="integer" label="30202" help="">
+          <level>0</level>
+          <default>120</default>
+          <constraints>
+            <minimum>15</minimum>
+            <step>15</step>
+            <maximum>360</maximum>
+          </constraints>
+          <control type="slider" format="integer">
+            <popup>false</popup>
+          </control>
+        </setting>
+        <setting id="games_only" type="boolean" label="30203" help="30204">
+          <level>0</level>
+          <default>false</default>
+          <control type="toggle"/>
+        </setting>
+        <setting id="cache_minutes" type="integer" label="30205" help="">
+          <level>1</level>
+          <default>60</default>
+          <constraints>
+            <minimum>10</minimum>
+            <step>10</step>
+            <maximum>720</maximum>
+          </constraints>
+          <control type="slider" format="integer">
+            <popup>false</popup>
+          </control>
+        </setting>
+        <setting id="debug" type="boolean" label="30206" help="">
+          <level>2</level>
+          <default>false</default>
+          <control type="toggle"/>
+        </setting>
+      </group>
+    </category>
+  </section>
+</settings>

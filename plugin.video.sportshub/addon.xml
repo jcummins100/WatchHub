@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<addon id="plugin.video.sportshub"
+       name="WatchHub"
+       version="0.2.0"
+       provider-name="jcummins">
+  <requires>
+    <import addon="xbmc.python" version="3.0.1"/>
+  </requires>
+  <extension point="xbmc.python.pluginsource" library="addon.py">
+    <provides>video</provides>
+  </extension>
+  <extension point="xbmc.service" library="service.py"/>
+  <extension point="xbmc.addon.metadata">
+    <summary lang="en_GB">WatchHub - live sports, free TV and your streaming services in one place</summary>
+    <description lang="en_GB">Shows what sports are live right now across free services (Pluto TV, Plex, The Roku Channel), your over-the-air PVR channels (e.g. HDHomeRun) and today's TV schedule, and tunes to them with one click by launching the official app or Kodi's PVR.</description>
+    <platform>all</platform>
+    <license>MIT</license>
+    <assets>
+      <icon>icon.png</icon>
+    </assets>
+  </extension>
+</addon>

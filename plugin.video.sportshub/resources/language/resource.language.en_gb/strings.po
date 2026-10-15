@@ -1,0 +1,258 @@
+# Kodi Media Center language file
+# Addon Name: Sports Hub
+# Addon id: plugin.video.sportshub
+msgid ""
+msgstr ""
+"Project-Id-Version: Sports Hub\n"
+"Language: en_GB\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+# Menus
+msgctxt "#30000"
+msgid "Live Now"
+msgstr ""
+
+msgctxt "#30001"
+msgid "Starting Soon"
+msgstr ""
+
+msgctxt "#30002"
+msgid "By Sport"
+msgstr ""
+
+msgctxt "#30003"
+msgid "By Service"
+msgstr ""
+
+msgctxt "#30004"
+msgid "Over-the-air / PVR"
+msgstr ""
+
+msgctxt "#30005"
+msgid "Today's TV Schedule"
+msgstr ""
+
+msgctxt "#30006"
+msgid "Official YouTube Channels"
+msgstr ""
+
+msgctxt "#30007"
+msgid "Settings"
+msgstr ""
+
+msgctxt "#30008"
+msgid "Refresh guide data"
+msgstr ""
+
+msgctxt "#30009"
+msgid "All channels"
+msgstr ""
+
+# Messages
+msgctxt "#30020"
+msgid "Nothing live right now"
+msgstr ""
+
+msgctxt "#30021"
+msgid "Guide data refreshed"
+msgstr ""
+
+msgctxt "#30022"
+msgid "Launching %s..."
+msgstr ""
+
+msgctxt "#30023"
+msgid "No Android app for %s on this device"
+msgstr ""
+
+msgctxt "#30024"
+msgid "No PVR channel found for this programme"
+msgstr ""
+
+msgctxt "#30025"
+msgid "Not an Android device - cannot launch external app"
+msgstr ""
+
+msgctxt "#30026"
+msgid "No PVR client is enabled"
+msgstr ""
+
+# Settings - sources
+msgctxt "#30100"
+msgid "Sources"
+msgstr ""
+
+msgctxt "#30101"
+msgid "Where to look for live sports"
+msgstr ""
+
+msgctxt "#30102"
+msgid "Region"
+msgstr ""
+
+msgctxt "#30110"
+msgid "Pluto TV (official app)"
+msgstr ""
+
+msgctxt "#30111"
+msgid "Plex live TV (official app)"
+msgstr ""
+
+msgctxt "#30112"
+msgid "The Roku Channel (official app)"
+msgstr ""
+
+msgctxt "#30113"
+msgid "Samsung TV Plus (guide only)"
+msgstr ""
+
+msgctxt "#30114"
+msgid "Samsung TV Plus has no app for NVIDIA Shield; enabling this shows its channels in the guide for reference only."
+msgstr ""
+
+msgctxt "#30115"
+msgid "Kodi PVR channels (HDHomeRun, IPTV Simple, etc.)"
+msgstr ""
+
+msgctxt "#30116"
+msgid "Uses any enabled Kodi PVR client. Programmes tagged as sports in the EPG are shown and played natively."
+msgstr ""
+
+msgctxt "#30117"
+msgid "TheSportsDB TV listings (needs a supporter key)"
+msgstr ""
+
+msgctxt "#30118"
+msgid "TheSportsDB's free tier only returns a handful of events; a Patreon supporter key (thesportsdb.com) unlocks full worldwide TV listings."
+msgstr ""
+
+msgctxt "#30120"
+msgid "Today's games & scores (ESPN schedule data)"
+msgstr ""
+
+msgctxt "#30121"
+msgid "Live scores, start times and the network carrying each game for NFL, college football, NBA, MLB, NHL, MLS, Premier League, Champions League, PGA, F1, UFC and tennis."
+msgstr ""
+
+msgctxt "#30122"
+msgid "TheSportsDB API key"
+msgstr ""
+
+msgctxt "#30123"
+msgid "Leave empty to use the limited public key."
+msgstr ""
+
+msgctxt "#30119"
+msgid "Official league YouTube channels"
+msgstr ""
+
+# Settings - display
+msgctxt "#30200"
+msgid "Display"
+msgstr ""
+
+msgctxt "#30201"
+msgid "Lists"
+msgstr ""
+
+msgctxt "#30202"
+msgid "'Starting Soon' window (minutes)"
+msgstr ""
+
+msgctxt "#30203"
+msgid "Games only"
+msgstr ""
+
+msgctxt "#30204"
+msgid "Hide studio shows, replays and talk programmes; only show things that look like live events."
+msgstr ""
+
+msgctxt "#30205"
+msgid "Guide cache lifetime (minutes)"
+msgstr ""
+
+msgctxt "#30210"
+msgid "Startup"
+msgstr ""
+
+msgctxt "#30211"
+msgid "Open WatchHub when Kodi starts"
+msgstr ""
+
+msgctxt "#30212"
+msgid "Skips the normal Kodi home screen and goes straight to the WatchHub menu. Press Back to get to Kodi."
+msgstr ""
+
+msgctxt "#30213"
+msgid "Startup delay (seconds)"
+msgstr ""
+
+msgctxt "#30206"
+msgid "Debug logging"
+msgstr ""
+
+msgctxt "#30207"
+msgid "Screen layout"
+msgstr ""
+
+msgctxt "#30208"
+msgid "How WatchHub lists are displayed. 'Wall' shows channel logos as tiles."
+msgstr ""
+
+msgctxt "#30125"
+msgid "Preferred service order"
+msgstr ""
+
+msgctxt "#30126"
+msgid "When a channel is on several services, the first one listed here is used; the others are on the long-press menu. Example: pluto,plex,roku"
+msgstr ""
+
+msgctxt "#30300"
+msgid "Accounts"
+msgstr ""
+
+msgctxt "#30301"
+msgid "Trakt (watch history, up next, new episodes)"
+msgstr ""
+
+msgctxt "#30302"
+msgid "Trakt Client ID"
+msgstr ""
+
+msgctxt "#30303"
+msgid "From trakt.tv/oauth/applications (free). New apps need no secret. Then use 'Sign in to Trakt' in the menu."
+msgstr ""
+
+msgctxt "#30304"
+msgid "Trakt Client Secret (older apps only)"
+msgstr ""
+
+msgctxt "#30305"
+msgid "Trakt token"
+msgstr ""
+
+msgctxt "#30310"
+msgid "TMDB (trailers)"
+msgstr ""
+
+msgctxt "#30311"
+msgid "TMDB API key"
+msgstr ""
+
+msgctxt "#30312"
+msgid "Free key from themoviedb.org (Settings > API). Enables 'Watch trailer' on movies and shows."
+msgstr ""
+
+msgctxt "#30320"
+msgid "Prime Video channels you subscribe to"
+msgstr ""
+
+msgctxt "#30321"
+msgid "Prime channel codes"
+msgstr ""
+
+msgctxt "#30322"
+msgid "Comma-separated: aho=HBO Max, aep=MGM+, app=Paramount+, saz=Starz, azp=AMC+, adp=Discovery+, avl=Apple TV, acn=Cinemax, abb=BritBox, pep=Peacock"
+msgstr ""
