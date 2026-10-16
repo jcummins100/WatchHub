@@ -289,9 +289,12 @@ def genre_counts(chans):
 
 
 def genres(chans):
-    """What "Categories" offers: Single Show and the common ones first, the rest by size, then Other."""
+    """What "Categories" offers: Single Show and the common ones first, the rest by size, then Other.
+    Categories with their own tab (Sports, News, Movies, Game Shows, Kids) aren't repeated: the tab
+    shows exactly the same channels."""
     counts = genre_counts(chans)
-    cats = [c for c in categories.CATEGORIES if counts.get(c)]
+    own_tab = {categories.TAB_CATEGORY.get(t, t) for t in FIXED_TABS}
+    cats = [c for c in categories.CATEGORIES if counts.get(c) and c not in own_tab]
     cats = cats[:categories.COMMON] + sorted(cats[categories.COMMON:], key=lambda c: -counts[c])
     return cats + ([OTHER] if counts[OTHER] else [])
 
