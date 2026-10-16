@@ -64,6 +64,21 @@ class Worker(threading.Thread):
         kodi.log("%s window closed after %.0fs" % (action, time.time() - t))
 
 
+def fill_show_genres():
+    """A few more single-show channels get their show's genres each refresh (Plex has no labels)."""
+    def work():
+        try:
+            from resources.lib import categories, guide
+            names = [c["name"] for c in guide.channels() if not c["cats"] - {categories.SINGLE_SHOW}]
+            n = categories.fill_show_genres(names, budget=40)
+            if n:
+                kodi.log("categories: looked up %d channel shows" % n)
+                guide.channels(rebuild=True)
+        except Exception as exc:
+            kodi.log("show genre lookup failed: %s" % exc)
+    threading.Thread(target=work, name="sh-show-genres", daemon=True).start()
+
+
 def warm_guide():
     """Build the guide's channel list ahead of time (after each data refresh), on its own thread."""
     def work():

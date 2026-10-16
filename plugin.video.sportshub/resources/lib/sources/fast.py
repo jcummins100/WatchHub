@@ -75,7 +75,10 @@ SPANISH_NAME = re.compile(r"espa[nñ]ol|\blatino|telemundo|univisi[oó]n|unim[a�
 
 
 SPANISH_NAME_EXTRA = re.compile(r"\bvix\b|\ben alerta\b|cr[ií]menes|pel[ií]culas|cl[aá]sicos?\b|misterios|\bseries gratis\b|\bconcursos\b"
-                                r"|\bacci[oó]n\b|\bcorazón\b|\bnaturaleza\b|\bverdaderos\b|\bsalvaje\b", re.I)
+                                r"|freetv (banda|estelar|acci|cl[aá]sico|drama|familia|hits|horror|sure)|\bdelito\b|\bconflicto\b|entravision"
+                                r"|americatev|buen viaje|autopista al cielo|\bnovelas?\b|como dice el dicho|\bpelimex\b|\btelevisa\b"
+                                r"|novel[ií]sima|\bmi casa\b|\blatv\b|\bwapa\b|caso cerrado|\brebelde\b|vas o no vas|reino infantil|\bcanela\b"
+                                r"|\bacci[oó]n\b|\bcorazón\b|\bnaturaleza\b|\bverdaderos\b|\bsalvaje\b|\blatinus\b|hispanic favorites|\blatinx\b|\blucha plus\b", re.I)
 # words that are common in Spanish titles and rare in English ones; accents/ñ/¿¡ count too
 # (é is left out: English uses it too - Pokémon, café; so are lone "el"/"de"/"la")
 SPANISH_WORDS = re.compile(r"[ñ¿¡]|[áíóú]\w|\b(del|los|las|y|con|para|una|por|que|en vivo|cuando|familia|historia|noche)\b", re.I)

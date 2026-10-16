@@ -37,7 +37,7 @@ LOG = KODI_HOME + "/temp/kodi.log"
 FILTER_FILE = KODI_HOME + "/userdata/addon_data/plugin.video.sportshub/home_filter.json"
 
 # Home rows, top to bottom, as Home.xml lays them out (id, name)
-FIXED_GUIDE_TABS = ["Favorites", "Genres...", "Sports", "News", "Movies", "Shows", "Game Shows", "Music", "All"]
+FIXED_GUIDE_TABS = ["Favorites", "Categories", "Sports", "News", "Movies", "Game Shows", "Kids", "All"]
 ALL_ROWS = [(9050, "Services"), (9960, "Up Next"), (9100, "Live Sports Now"), (9200, "Today's Games"),
             (9950, "New This Week"), (9800, "Trending"), (9700, "Free Live TV"), (9300, "Sports Starting Soon"), (9600, "More")]
 PROVIDER_ROWS = [(9051, "Services"), (9961, "Up Next on <svc>"), (9951, "New This Week on <svc>"), (9801, "Trending on <svc>")]
@@ -893,21 +893,23 @@ class OnDevice:
         rep.add(B, "Guide: long-press > Hide this channel", "PASS" if after == before - 1 and d.sh("cat %s 2>/dev/null" % hfile).strip().startswith("[") else "FAIL",
                 "%s: %d -> %d rows, saved %s" % (victim, before, after, d.sh("cat %s 2>/dev/null" % hfile).strip()[:60]), d.shot("guide-hidden"))
         d.sh("rm -f %s" % hfile)
-        # 5d. Genres... picks a specific genre (Up until the tab strip has focus)
+        # 5d. Categories opens the tiles (Single Show first) and a tile picks that category
         for _ in range(12):
             if d.focus() == 300:
                 break
             d.key("Up")
         for _ in range(14):
-            if d.info("Container(300).ListItem.Label").get("Container(300).ListItem.Label") == "Genres...":
+            if d.info("Container(300).ListItem.Label").get("Container(300).ListItem.Label") == "Categories":
                 break
-            d.key("Right")
+            d.key("Left")
         d.key("Select"); time.sleep(2)
-        picker = d.is_("Window.IsActive(selectdialog)").get("Window.IsActive(selectdialog)")
+        tiles = d.info("Container(600).NumItems", "Container(600).ListItem(0).Label")
+        on_tiles = d.focus() == 600
         d.key("Down"); d.key("Select"); time.sleep(3)
         st = d.info("Window(13000).Property(tab)", "Container(500).NumItems")
-        rep.add(B, "Guide: Genres... opens a genre", "PASS" if picker and st.get("Window(13000).Property(tab)") not in FIXED_GUIDE_TABS and int(st.get("Container(500).NumItems") or 0) > 0 else "FAIL",
-                json.dumps(st), d.shot("guide-genre"))
+        rep.add(B, "Guide: Categories tiles open a category", "PASS" if on_tiles and tiles.get("Container(600).ListItem(0).Label") == "Single Show"
+                and st.get("Window(13000).Property(tab)") not in FIXED_GUIDE_TABS and int(st.get("Container(500).NumItems") or 0) > 0 else "FAIL",
+                json.dumps(dict(tiles, **st)), d.shot("guide-genre"))
         tab_before = st.get("Window(13000).Property(tab)")
         # 6. OK watches the channel now - and after a Kodi restart the guide comes back on that tab
         chan = d.info("Container(500).ListItem.Label").get("Container(500).ListItem.Label")

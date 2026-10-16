@@ -103,6 +103,7 @@ def main():
             try:
                 health.warm_caches()
                 uiworker.warm_guide()
+                uiworker.fill_show_genres()
                 reload_pending = reload_pending or time.time()
                 pruned = health.prune_cache()
                 if pruned:

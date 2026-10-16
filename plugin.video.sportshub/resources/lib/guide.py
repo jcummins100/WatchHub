@@ -1,8 +1,8 @@
 """TV Guide: the free live channels (Pluto TV, Plex, The Roku Channel) as a time grid.
 
 Channels down the side, two hours across in 30-minute columns. Left/right moves through time,
-up/down through channels; tabs across the top pick Favorites, Sports, News, Movies, Shows, Kids,
-Music, All - or any specific genre through "Genres...". OK watches the channel now in its own app
+up/down through channels; tabs across the top pick Favorites, Sports, News, Movies, Game Shows, Kids,
+All - or any specific category through "Categories". OK watches the channel now in its own app
 (WatchHub never plays streams itself); long-press offers favorites, the channel's schedule and the
 other services airing the same thing.
 
@@ -19,45 +19,21 @@ import time
 import xbmc
 import xbmcgui
 
-from resources.lib import kodi, launcher, sports
+from resources.lib import categories, kodi, launcher, sports
 from resources.lib.sources import fast
 
 SLOT = 1800            # one column = 30 minutes
 COLS = 4               # columns on screen
 COL_W, GRID_X = 360, 460  # column width and the x of the first column on screen (Guide.xml)
 AHEAD = 16 * 3600      # furthest the first column can start from now (listings run 8-19 h ahead)
-TABS, GRID, NOW_LINE = 300, 500, 400
+TABS, GRID, NOW_LINE, CAT_PANEL = 300, 500, 400, 600
 ACTION_LEFT, ACTION_RIGHT, ACTION_CONTEXT, ACTION_BACK, ACTION_NAV_BACK = 1, 2, 117, 10, 92
 
 # Fixed tabs (a D-pad can't browse 39 shifting genre tabs); every channel is in Shows/News/... by
-# its genres, and "Genres..." opens the full list of specific genres.
-FIXED_TABS = ["Favorites", "Sports", "News", "Movies", "Shows", "Game Shows", "Music", "All"]
-# WatchHub's own categories (from _categories): Kids lives under "Genres..." to keep the tab row to one screen
-CATEGORY_TABS = set(FIXED_TABS) | {"Kids"}
-GENRES_TAB = "Genres..."
-_CATEGORY_WORDS = (
-    ("News", ("news", "opinion", "weather", "politic", "business")),
-    ("Movies", ("movie", "cinema", "film", "western")),
-    ("Kids", ("kid", "family", "animation", "cartoon", "anime")),
-    ("Music", ("music", "vevo", "concert", "karaoke")),
-)
-
-# Game shows go by name only: Pluto's "Daytime + Game Shows" group also holds talk/judge/shopping channels
-# (Dr. Phil, Judge Judy, QVC) and Roku tags America's Got Talent "Game Show". Phrases, not "game", so
-# Game & Fish TV, GameTVGO, XITE Rap Game and pocket.watch Game-On stay out.
-_GAME_SHOWS = re.compile(r"price is right|\btpir\b|family feud|deal or no deal|let'?s make a deal|buzzr|game show"
-                         r"|quiz show|supermarket sweep|name game|jeopardy|wheel of fortune|match game|press your luck"
-                         r"|card sharks|newlywed|wipeout|hollywood squares|weakest link|minute to win it|to tell the truth")
-# Plex (and some Roku) channels come without genres, so their names decide - checked against the full
-# channel list ('FilmRise Comedy' is a distributor, not a movie channel; 'Family Handyman' is not kids).
-_NAME_WORDS = (
-    ("News", re.compile(r"\bnews|weather|local now|bloomberg|cheddar|france 24|reuters|usa today|livenow|\bcnn\b")),
-    ("Movies", re.compile(r"movie(?! music)|cinema|\bfilms\b|flix\b|western|pel[ií]culas|mgm presents|miramax|at the movies")),
-    ("Kids", re.compile(r"\bkid(?!s in the hall)|toon|cartoon|\bbaby|teletubbies|wiggles|little pony|sonic|super mario|power rangers"
-                        r"|beyblade|yu-gi-oh|transformers|strawberry shortcake|moonbug|like nastya|pocket\.watch|garfield")),
-    ("Music", re.compile(r"music|\bhits\b|stingray|\bxite\b|vevo|karaoke|jazz|classic rock|k-pop|concert|\btrace\b"
-                         r"|metal\.rocks|easy listening|hip-hop/r&b|country\b|soul storm")),
-)
+# its genres, and "Categories" opens the full list as tiles.
+FIXED_TABS = ["Favorites", "Sports", "News", "Movies", "Game Shows", "Kids", "All"]
+GENRES_TAB = "Categories"   # opens the category tiles
+OTHER = "Other"   # channels no source labels, name or show lookup could place: never dropped, listed here and in All
 
 # Cell colours, the familiar cable-guide convention: green sports, purple movies, light blue kids, gold game shows,
 # dark blue everything else. (normal, on now, focused row, focused row + on now)
@@ -70,8 +46,14 @@ COLORS = {
 }
 
 
+TILE_COLORS = {"Sports": "FF22543A", "Movies": "FF3E2C5A", "Kids": "FF22506E", "Game Shows": "FF544520", "News": "FF5A2A2A",
+               "Comedy": "FF5E4A1E", "Drama": "FF3A2E4F", "Crime": "FF4A2626", "Reality": "FF4F2E4A", "Horror": "FF3A1E1E",
+               "Sci-Fi": "FF1E3A4F", "Westerns": "FF5A3E22", "Music": "FF2A4A5A", "Nature": "FF2E4A2A",
+               "Food & Home": "FF5A3A22", "Travel": "FF22465A", "Single Show": "FF4A3A1E", OTHER: "FF2E3442"}
+
+
 def category(chan, title):
-    """sports / movies / kids / '' for one programme on one channel (the cell colour)."""
+    """sports / movies / kids / gameshows / '' for one programme on one channel (the cell colour)."""
     if chan["sports"] or sports.classify(title):
         return "sports"
     if "Game Shows" in chan["cats"]:
@@ -81,21 +63,6 @@ def category(chan, title):
     if "Movies" in chan["cats"]:
         return "movies"
     return ""
-
-
-def _categories(groups, is_sports, name=""):
-    """The fixed tabs a channel belongs in: its genre groups, else its name; "Shows" when nothing fits."""
-    name = name.lower()
-    cats = {"Sports"} if is_sports else set()
-    if _GAME_SHOWS.search(name):
-        cats.add("Game Shows")
-    text = " ".join(groups).lower()
-    for cat, words in _CATEGORY_WORDS:
-        if any(w in text for w in words):
-            cats.add(cat)
-    if not cats - {"Sports"}:
-        cats.update(cat for cat, rx in _NAME_WORDS if rx.search(name))
-    return cats or {"Shows"}
 
 
 # ---------------------------------------------------------------- small json files in the profile
@@ -271,18 +238,19 @@ def _build_channels():
             progs = _programs(ch.get("programs"))
             if not key or not progs:
                 continue
-            groups = list(dict.fromkeys(GENRE_ALIASES.get(g, g) for g in fast._group_names(ch)))
+            groups = fast._group_names(ch)
             is_sports = sports.is_sports_channel(name, groups)
             current = next((t for s, t in reversed(progs) if s <= now), "")
             by_key.setdefault(key, []).append({
                 "key": key, "name": name, "logo": ch.get("logo") or "", "programs": progs, "groups": groups,
-                "sports": is_sports, "cats": _categories(groups, is_sports, name), "service": svc["name"], "sid": sid,
+                "sports": is_sports, "cats": categories.with_single_show(categories.for_channel(name, groups, is_sports), name, progs), "service": svc["name"], "sid": sid,
                 "play": {"src": sid, "id": cid, "name": name}, "current": fast._norm(current)})
     for feeds in by_key.values():
-        known = set().union(*(f["cats"] for f in feeds if f["groups"])) - {"Shows"}
+        # a feed without labels (Plex) takes the categories of a same-named labelled channel (Pluto)
+        known = set().union(*(f["cats"] for f in feeds if f["groups"]))
         for f in feeds:
-            if not f["groups"] and known and f["cats"] <= {"Shows"}:
-                f["cats"] = set(known)
+            if not f["groups"] and known and not f["cats"] - {"Sports"}:
+                f["cats"] = f["cats"] | known
     rows = []
     for key, feeds in by_key.items():
         feeds.sort(key=lambda f: prio.get(f["sid"], 99))
@@ -310,32 +278,26 @@ def _same_broadcast(a, b):
     return a in b or b in a or difflib.SequenceMatcher(None, a, b).ratio() >= 0.8
 
 
-# the services' biggest categories, listed first under "Genres..." (the rest follow A-Z)
-FEATURED_GENRES = ("Kids", "Reality", "Comedy", "True Crime", "Crime", "Classic TV", "Westerns")
-# one name per category across services (Pluto says "Sci-Fi", Roku "Science Fiction")
-GENRE_ALIASES = {"Western": "Westerns", "Science Fiction": "Sci-Fi", "Wrestling": "Pro Wrestling", "Animals + Nature": "Animals",
-                 "Nature": "Animals", "Mixed Martial Arts": "MMA", "Martial Arts": "MMA", "Bicycle": "Cycling", "Bicycle Racing": "Cycling"}
-
-
 def genre_counts(chans):
+    """{WatchHub category or source label: channel count}."""
     counts = {}
     for c in chans:
-        for g in c["groups"]:
+        for g in set(c["cats"]) | set(c["groups"]):
             counts[g] = counts.get(g, 0) + 1
-    # WatchHub's Kids category (names + Pluto/Roku groups) replaces the services' smaller "Kids" groups
-    counts["Kids"] = sum(1 for c in chans if "Kids" in c["cats"])
+    counts[OTHER] = sum(1 for c in chans if not c["cats"])
     return counts
 
 
 def genres(chans):
-    """Every category any channel is in (the services' own: Reality, Anime, Cooking, Poker...)."""
+    """What "Categories" offers: Single Show and the common ones first, the rest by size, then Other."""
     counts = genre_counts(chans)
-    featured = [g for g in FEATURED_GENRES if g in counts]
-    return featured + sorted((g for g in counts if g not in featured), key=str.lower)
+    cats = [c for c in categories.CATEGORIES if counts.get(c)]
+    cats = cats[:categories.COMMON] + sorted(cats[categories.COMMON:], key=lambda c: -counts[c])
+    return cats + ([OTHER] if counts[OTHER] else [])
 
 
 def tabs(tab):
-    """The tab strip, one screen wide: Favorites, Genres..., the genre picked from it (if any), then the rest."""
+    """The tab strip, one screen wide: Favorites, Categories, the category picked from it (if any), then the rest."""
     picked = [tab] if tab not in FIXED_TABS and tab != GENRES_TAB else []
     return FIXED_TABS[:1] + [GENRES_TAB] + picked + FIXED_TABS[1:]
 
@@ -345,8 +307,11 @@ def in_tab(chans, tab, favs):
         return [c for c in chans if c["key"] in favs]
     if tab == "All":
         return list(chans)
-    if tab in CATEGORY_TABS:
-        return [c for c in chans if tab in c["cats"]]
+    if tab == OTHER:
+        return [c for c in chans if not c["cats"]]
+    cat = categories.TAB_CATEGORY.get(tab, tab)
+    if cat in categories.CATEGORIES:
+        return [c for c in chans if cat in c["cats"]]
     return [c for c in chans if tab in c["groups"]]
 
 
@@ -388,11 +353,12 @@ class Guide(xbmcgui.WindowXMLDialog):
         self.favs = favorites()
         self.tab = start_tab or "Favorites"   # always opens on Favorites (a restart returns to the tab you were on)
         self.rows = []
+        self.cat_choices = []
         self.t0 = _now_slot()
 
     def onInit(self):
         t = time.time()
-        if self.tab == GENRES_TAB or (self.tab not in CATEGORY_TABS and self.tab not in genres(self.chans)):
+        if self.tab == GENRES_TAB or (self.tab not in FIXED_TABS and self.tab not in genres(self.chans)):
             self.tab = "Favorites"
         self._tabs()
         self._fill()
@@ -472,6 +438,10 @@ class Guide(xbmcgui.WindowXMLDialog):
     def onAction(self, action):
         aid = action.getId()
         kodi.debug("guide action %d (button %s)" % (aid, action.getButtonCode()))
+        if aid in (ACTION_BACK, ACTION_NAV_BACK) and self.getProperty("picking"):
+            self._hide_categories()     # Back closes the tiles, not the guide
+            self.setFocusId(TABS)
+            return
         if aid in (ACTION_BACK, ACTION_NAV_BACK):
             forget_return()  # closed on purpose: don't reopen it after a restart
             self.close()
@@ -500,16 +470,21 @@ class Guide(xbmcgui.WindowXMLDialog):
                 return
             pick = names[pos]
             if pick == GENRES_TAB:
-                all_genres, counts = genres(self.chans), genre_counts(self.chans)
-                extra = ["Hidden channels (%d)" % len(self.hidden)] if self.hidden else []
-                labels = ["%s  (%d)" % (g, counts[g]) for g in all_genres]
-                choice = xbmcgui.Dialog().select("Genres", labels + extra)
-                if choice < 0:
-                    return
-                if choice >= len(all_genres):
-                    self._unhide()
-                    return
-                pick = all_genres[choice]
+                self._show_categories()
+                return
+            self.tab = pick
+            self._tabs()
+            self._fill()
+            self.setFocusId(GRID if self.rows else TABS)
+        elif control_id == CAT_PANEL:
+            pos = self.getControl(CAT_PANEL).getSelectedPosition()
+            if not 0 <= pos < len(self.cat_choices):
+                return
+            pick = self.cat_choices[pos]
+            self._hide_categories()
+            if pick is None:
+                self._unhide()
+                return
             self.tab = pick
             self._tabs()
             self._fill()
@@ -519,6 +494,29 @@ class Guide(xbmcgui.WindowXMLDialog):
             if 0 <= pos < len(self.rows):
                 remember_return(self.tab)  # the 2 GB Shield often kills Kodi while the app plays
                 launcher.play(self.rows[pos]["play"])  # always "watch now": the apps can't record or tune ahead
+
+    def _show_categories(self):
+        """Categories as tiles in the guide itself (not a Kodi pop-up): name, channel count, colour."""
+        counts = genre_counts(self.chans)
+        self.cat_choices = genres(self.chans) + ([None] if self.hidden else [])
+        panel = self.getControl(CAT_PANEL)
+        panel.reset()
+        items = []
+        for c in self.cat_choices:
+            li = xbmcgui.ListItem(c if c else "Hidden channels")
+            li.setProperty("count", "%d channels" % (counts.get(c, 0) if c else len(self.hidden)))
+            li.setProperty("color", TILE_COLORS.get(c, "FF2A3550"))
+            items.append(li)
+        panel.addItems(items)
+        self.setProperty("picking", "1")
+        for _ in range(10):  # the panel only takes focus once the skin has shown it
+            self.setFocusId(CAT_PANEL)
+            if self.getFocusId() == CAT_PANEL:
+                break
+            xbmc.sleep(30)
+
+    def _hide_categories(self):
+        self.setProperty("picking", "")
 
     def _menu(self, c, pos):
         fav = c["key"] in self.favs
@@ -530,7 +528,7 @@ class Guide(xbmcgui.WindowXMLDialog):
             if _write_json(_hidden_path(), self.hidden + [c["key"]]):
                 self.hidden.append(c["key"])
                 self.chans = [x for x in self.chans if x["key"] != c["key"]]
-                kodi.notify("%s hidden - bring it back from Genres... > Hidden channels" % c["name"])
+                kodi.notify("%s hidden - bring it back from Categories > Hidden channels" % c["name"])
                 self._fill(pos)
                 if not self.rows:
                     self.setFocusId(TABS)

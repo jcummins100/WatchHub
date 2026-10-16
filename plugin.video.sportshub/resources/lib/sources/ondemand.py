@@ -191,6 +191,7 @@ def _make(node, codes, require_offer=True):
         "certification": c.get("ageCertification") or "",
         "released": c.get("originalReleaseDate") or "",
         "season": node.get("season_name") or "",
+        "genre_codes": [g.get("shortName") for g in (c.get("genres") or []) if g.get("shortName")],
         "offers": _offers(node.get("offers"), codes),
         "playable": bool(pkg),
         "play": {"src": "ondemand", "pkg": pkg, "url": _link(offer), "name": name},

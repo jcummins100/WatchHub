@@ -25,6 +25,7 @@
 		<control type="list" id="300">
 			<left>90</left><top>104</top><width>1737</width><height>64</height>
 			<orientation>horizontal</orientation>
+			<ondown condition="!String.IsEmpty(Window.Property(picking))">600</ondown>
 			<ondown>500</ondown>
 			<scrolltime>200</scrolltime>
 			<itemlayout width="193" height="64">
@@ -70,36 +71,87 @@
 		<!-- time ruler -->
 		<control type="label">
 			<left>100</left><top>186</top><width>340</width><height>36</height>
+			<visible>String.IsEmpty(Window.Property(picking))</visible>
 			<font>font25_title</font>
 			<label>$INFO[Window.Property(day)]  ·  $INFO[Window.Property(tab)]</label>
 			<textcolor>A0FFFFFF</textcolor>
 		</control>
 		<control type="label">
 			<left>468</left><top>186</top><width>340</width><height>36</height>
+			<visible>String.IsEmpty(Window.Property(picking))</visible>
 			<font>font25_title</font>
 			<label>$INFO[Window.Property(slot0)]</label>
 			<textcolor>FFFFFFFF</textcolor>
 		</control>
 		<control type="label">
 			<left>828</left><top>186</top><width>340</width><height>36</height>
+			<visible>String.IsEmpty(Window.Property(picking))</visible>
 			<font>font25_title</font>
 			<label>$INFO[Window.Property(slot1)]</label>
 			<textcolor>FFFFFFFF</textcolor>
 		</control>
 		<control type="label">
 			<left>1188</left><top>186</top><width>340</width><height>36</height>
+			<visible>String.IsEmpty(Window.Property(picking))</visible>
 			<font>font25_title</font>
 			<label>$INFO[Window.Property(slot2)]</label>
 			<textcolor>FFFFFFFF</textcolor>
 		</control>
 		<control type="label">
 			<left>1548</left><top>186</top><width>340</width><height>36</height>
+			<visible>String.IsEmpty(Window.Property(picking))</visible>
 			<font>font25_title</font>
 			<label>$INFO[Window.Property(slot3)]</label>
 			<textcolor>FFFFFFFF</textcolor>
 		</control>
 		<!-- channels x time -->
+		<!-- Categories: tiles shown in place of the channel rows while choosing one -->
+		<control type="panel" id="600">
+			<left>100</left><top>190</top><width>1740</width><height>860</height>
+			<onup>300</onup>
+			<orientation>vertical</orientation>
+			<scrolltime tween="cubic" easing="out">200</scrolltime>
+			<visible>!String.IsEmpty(Window.Property(picking))</visible>
+			<itemlayout width="290" height="150">
+				<control type="image">
+					<left>6</left><top>6</top><width>278</width><height>138</height>
+					<texture border="12" colordiffuse="$INFO[ListItem.Property(color)]">special://home/addons/plugin.video.sportshub/resources/media/card.png</texture>
+				</control>
+				<control type="label">
+					<left>24</left><top>22</top><width>242</width><height>70</height>
+					<font>font30_title</font><wrapmultiline>true</wrapmultiline>
+					<label>[B]$INFO[ListItem.Label][/B]</label><textcolor>FFFFFFFF</textcolor>
+				</control>
+				<control type="label">
+					<left>24</left><top>100</top><width>242</width><height>30</height>
+					<font>font23_narrow</font>
+					<label>$INFO[ListItem.Property(count)]</label><textcolor>B0FFFFFF</textcolor>
+				</control>
+			</itemlayout>
+			<focusedlayout width="290" height="150">
+				<control type="image">
+					<left>6</left><top>6</top><width>278</width><height>138</height>
+					<texture border="12" colordiffuse="$INFO[ListItem.Property(color)]">special://home/addons/plugin.video.sportshub/resources/media/card.png</texture>
+				</control>
+				<control type="image">
+					<left>0</left><top>0</top><width>290</width><height>150</height>
+					<texture border="16">special://home/addons/plugin.video.sportshub/resources/media/card_focus.png</texture>
+					<visible>Control.HasFocus(600)</visible>
+				</control>
+				<control type="label">
+					<left>24</left><top>22</top><width>242</width><height>70</height>
+					<font>font30_title</font><wrapmultiline>true</wrapmultiline>
+					<label>[B]$INFO[ListItem.Label][/B]</label><textcolor>FFFFFFFF</textcolor>
+				</control>
+				<control type="label">
+					<left>24</left><top>100</top><width>242</width><height>30</height>
+					<font>font23_narrow</font>
+					<label>$INFO[ListItem.Property(count)]</label><textcolor>FFFFFFFF</textcolor>
+				</control>
+			</focusedlayout>
+		</control>
 		<control type="list" id="500">
+			<visible>String.IsEmpty(Window.Property(picking))</visible>
 			<left>100</left><top>230</top><width>1820</width><height>840</height>
 			<onup>300</onup>
 			<onleft>500</onleft>
@@ -443,6 +495,7 @@
 		</control>
 		<!-- now -->
 		<control type="image" id="400">
+			<visible>String.IsEmpty(Window.Property(picking))</visible>
 			<left>460</left><top>230</top><width>3</width><height>840</height>
 			<texture colordiffuse="FFE0162B">special://home/addons/plugin.video.sportshub/resources/media/white.png</texture>
 		</control>
