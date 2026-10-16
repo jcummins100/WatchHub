@@ -11,7 +11,8 @@ log, version, device, total = sys.argv[1], sys.argv[2], sys.argv[3], int(sys.arg
 final = len(sys.argv) > 5
 rows = [l for l in open(log, encoding="utf-8", errors="replace") if l.startswith("[")]
 cnt = lambda k: sum(1 for l in rows if l.startswith("[" + k))
-started = datetime.datetime.fromtimestamp(os.stat(log).st_birthtime)
+_st = os.stat(log)
+started = datetime.datetime.fromtimestamp(getattr(_st, "st_birthtime", None) or _st.st_ctime)  # Linux has no birth time
 now = datetime.datetime.now()
 done = len(rows)
 eta = None
@@ -37,7 +38,7 @@ PHASES = [  # (name, area, case prefixes) in the order the test runner works thr
     ("Setup: version, apps, Kodi start", "B", ("Installed", "Third-party", "Kodi started")),
     ("Startup screen", "B", ("Startup",)),
     ("Home rows on the TV", "B", ("All view row", "Down on last row", "Up from", "Row end", "Right at end")),
-    ("Every card type clicked", "B", ("Click", "Free Live")),
+    ("Every card type clicked", "B", ("Click", "Free Live", "Browse")),
     ("TV Guide", "B", ("Guide",)),
     ("More row tiles", "B", ("More:",)),
     ("Info page buttons", "B", ("Info",)),

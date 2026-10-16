@@ -550,7 +550,7 @@ class OnDevice:
         state = d.info("System.CurrentWindow", "Window(Home).Property(sh_provider)")
         dialogs = [k for k, v in d.is_("Window.IsActive(yesnodialog)", "Window.IsActive(contextmenu)", "Window.IsActive(busydialog)",
                                        "Window.IsActive(selectdialog)", "Window.IsActive(okdialog)", "Window.IsActive(addonsettings)",
-                                       "Window.IsActive(virtualkeyboard)", "Window.IsActive(TitleInfo.xml)", "Window.IsActive(videos)",
+                                       "Window.IsActive(virtualkeyboard)", "Window.IsActive(TitleInfo.xml)", "Window.IsActive(Browse.xml)", "Window.IsActive(videos)",
                                        "Window.IsActive(shutdownmenu)", "Window.IsActive(skinsettings)").items() if v]
         outcome = ("launched %s" % launched) if launched else ("window: %s %s" % (state.get("System.CurrentWindow"), ",".join(x[16:-1] for x in dialogs)))
         result = "FAIL" if tb else "PASS"
