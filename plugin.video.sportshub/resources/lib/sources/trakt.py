@@ -163,6 +163,7 @@ def up_next(limit=20):
                 continue
             t = _title(w["show"], "Show")
             t.update({"next": "S%02dE%02d" % (nxt.get("season", 0), nxt.get("number", 0)), "episode_title": nxt.get("title") or "",
+                      "season": nxt.get("season", 0), "number": nxt.get("number", 0),
                       "aired": prog.get("aired", 0), "completed": prog.get("completed", 0), "last_watched": w.get("last_watched_at") or ""})
             out.append(t)
             if len(out) >= limit:

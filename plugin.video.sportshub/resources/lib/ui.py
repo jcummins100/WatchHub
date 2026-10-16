@@ -674,23 +674,24 @@ def search(query=None):
     kodi.end_directory(view="posters")
 
 
-def _trakt_item(t, kicker, meta_extra=""):
+def _trakt_item(t, kicker, meta_extra="", extra_props=None, url_extra=None):
     """A Trakt title -> card. Availability/deep link comes from JustWatch by name; falls back to a search."""
     od = ondemand.lookup(t["title"], t["year"], t["type"])
     if od:
         od = dict(od)
+        chips = od["meta"]  # the title's own line, without the episode in front (Up Next hero)
         od["meta"] = " \u2022 ".join(x for x in (meta_extra, od["meta"]) if x)
         od["service"] = od["service"]
         props = {"kind": "title", "title": t["title"], "meta": od["meta"], "kicker": kicker or od["service"].upper(), "service": od["service"],
-                 "year": str(t["year"]), "type": t["type"], "state": ""}
+                 "year": str(t["year"]), "type": t["type"], "state": "", "chips": chips}
         art = {"thumb": od["poster"] or "DefaultVideo.png", "poster": od["poster"], "landscape": od["backdrop"], "fanart": od["backdrop"]}
-        url = kodi.build_url(action="info", title=t["title"], year=t["year"], kind=t["type"])
         plot = od["plot"]
     else:
         props = {"kind": "title", "title": t["title"], "meta": meta_extra or t["type"], "kicker": kicker, "service": "", "year": str(t["year"]), "type": t["type"], "state": ""}
         art = {"thumb": "DefaultVideo.png"}
-        url = kodi.build_url(action="info", title=t["title"], year=t["year"], kind=t["type"])
         plot = ""
+    url = kodi.build_url(action="info", title=t["title"], year=t["year"], kind=t["type"], **(url_extra or {}))
+    props.update(extra_props or {})
     # same order as every other poster: Play, trailer, Trakt, Favorites
     ctx = []
     if od and od.get("play", {}).get("pkg"):
@@ -725,6 +726,19 @@ def _on_service(t, svc):
     return bool(od) and any(o["code"] == svc for o in od.get("offers") or [])
 
 
+def _episode_summary(t):
+    """One line about the next episode (JustWatch's season data, cached a day), or ""."""
+    try:
+        for sn in ondemand.seasons(t["title"], t["year"]):
+            if sn["number"] == t["season"]:
+                for e in sn["episodes"]:
+                    if e["number"] == t["number"]:
+                        return e["overview"]
+    except Exception as exc:
+        kodi.log("episode summary for %s failed: %s" % (t["title"], exc))
+    return ""
+
+
 def trakt_list(row, svc=""):
     kodi.set_content("videos")
     if row == "upnext":
@@ -734,16 +748,28 @@ def trakt_list(row, svc=""):
                 kodi.add_item("Sign in[CR]to Trakt", kodi.build_url(action="trakt_signin"), False, props={"kind": "tile", "color": "FF8A1F2E", "title": "Sign in to Trakt", "meta": "Remember what you watch, get new-season alerts"})
             kodi.end_directory()
             return
-        shown = 0
         # a service view filters the list, so look further down the history first (the All view's top 20
         # can easily contain nothing from that service)
+        picks = []
         for t in trakt.up_next(limit=60 if svc else 20):
             if svc and not _on_service(t, svc):
                 continue
-            _trakt_item(t, "UP NEXT", "%s %s" % (t["next"], t["episode_title"]))
-            shown += 1
-            if shown >= 20:
+            picks.append(t)
+            if len(picks) >= 20:
                 break
+        from concurrent.futures import ThreadPoolExecutor
+        with ThreadPoolExecutor(max_workers=6) as pool:
+            summaries = list(pool.map(_episode_summary, picks))
+        shown = 0
+        for t, summary in zip(picks, summaries):
+            # the hero (map 5.3): "Season 2 · Episode 4 — The Bigger Picture", its summary, "Watched 11 of 16 episodes"
+            ep = "Season %s \u00b7 Episode %s" % (t["season"], t["number"]) + (" \u2014 %s" % t["episode_title"] if t["episode_title"] else "")
+            props = {"episode": ep, "summary": summary,
+                     "progress_text": "Watched %d of %d episodes" % (t["completed"], t["aired"]) if t["aired"] else "",
+                     "progress": str(int(100 * t["completed"] / t["aired"])) if t["aired"] else ""}
+            _trakt_item(t, "UP NEXT", "%s %s" % (t["next"], t["episode_title"]), extra_props=props,
+                        url_extra={"season": t["season"], "episode": t["number"]})
+            shown += 1
         if svc and not shown and svc in ondemand.BY_CODE:
             _empty_service_tile(svc, "Nothing to resume")
     elif row == "calendar":
@@ -975,8 +1001,9 @@ def dispatch(params):
         kodi.resolve_none()
         # the always-running service shows the page (the skin's poster rows ask it directly, without this step)
         from resources.lib import uiworker
-        if not uiworker.request(kodi.build_url(action="info", title=params.get("title", ""), year=params.get("year", ""), kind=params.get("kind", ""))):
-            infodialog.show_by_title(params.get("title", ""), params.get("year", ""), params.get("kind", ""))
+        ep = {k: params[k] for k in ("season", "episode") if params.get(k)}
+        if not uiworker.request(kodi.build_url(action="info", title=params.get("title", ""), year=params.get("year", ""), kind=params.get("kind", ""), **ep)):
+            infodialog.show_by_title(params.get("title", ""), params.get("year", ""), params.get("kind", ""), **ep)
     elif action == "search":
         search(params.get("q"))
     elif action == "favorites":

@@ -438,6 +438,123 @@
 				<label>$VAR[SH_HeroMeta]</label>
 				<textcolor>FFD6DEEA</textcolor>
 				<shadowcolor>AA000000</shadowcolor>
+				<visible>!$EXP[SH_UpNextHero]</visible>
+			</control>
+			<!-- Up Next: Season 2 · Episode 4 — title / its summary / service · year · genres / watched 11 of 16 -->
+			<control type="group">
+				<visible>$EXP[SH_UpNextHero]</visible>
+				<control type="label">
+					<left>0</left>
+					<top>222</top>
+					<width>1100</width>
+					<height>44</height>
+					<font>font32_title</font>
+					<label>[B]$INFO[Container(9960).ListItem.Property(episode)][/B]</label>
+					<textcolor>FFFFFFFF</textcolor>
+					<shadowcolor>AA000000</shadowcolor>
+					<visible>Control.HasFocus(9960)</visible>
+				</control>
+				<control type="label">
+					<left>0</left>
+					<top>222</top>
+					<width>1100</width>
+					<height>44</height>
+					<font>font32_title</font>
+					<label>[B]$INFO[Container(9961).ListItem.Property(episode)][/B]</label>
+					<textcolor>FFFFFFFF</textcolor>
+					<shadowcolor>AA000000</shadowcolor>
+					<visible>Control.HasFocus(9961)</visible>
+				</control>
+				<control type="label">
+					<left>0</left>
+					<top>266</top>
+					<width>1100</width>
+					<height>36</height>
+					<font>font27</font>
+					<label>$INFO[Container(9960).ListItem.Property(summary)]</label>
+					<textcolor>FFD6DEEA</textcolor>
+					<shadowcolor>AA000000</shadowcolor>
+					<visible>Control.HasFocus(9960)</visible>
+				</control>
+				<control type="label">
+					<left>0</left>
+					<top>266</top>
+					<width>1100</width>
+					<height>36</height>
+					<font>font27</font>
+					<label>$INFO[Container(9961).ListItem.Property(summary)]</label>
+					<textcolor>FFD6DEEA</textcolor>
+					<shadowcolor>AA000000</shadowcolor>
+					<visible>Control.HasFocus(9961)</visible>
+				</control>
+				<control type="label">
+					<left>0</left>
+					<top>304</top>
+					<width>1100</width>
+					<height>36</height>
+					<font>font27</font>
+					<label>$INFO[Container(9960).ListItem.Property(chips)]</label>
+					<textcolor>FF9AA5BD</textcolor>
+					<shadowcolor>AA000000</shadowcolor>
+					<visible>Control.HasFocus(9960)</visible>
+				</control>
+				<control type="label">
+					<left>0</left>
+					<top>304</top>
+					<width>1100</width>
+					<height>36</height>
+					<font>font27</font>
+					<label>$INFO[Container(9961).ListItem.Property(chips)]</label>
+					<textcolor>FF9AA5BD</textcolor>
+					<shadowcolor>AA000000</shadowcolor>
+					<visible>Control.HasFocus(9961)</visible>
+				</control>
+				<control type="label">
+					<left>540</left>
+					<top>338</top>
+					<width>560</width>
+					<height>36</height>
+					<font>font25_title</font>
+					<label>$INFO[Container(9960).ListItem.Property(progress_text)]</label>
+					<textcolor>FF4CD27F</textcolor>
+					<visible>Control.HasFocus(9960)</visible>
+				</control>
+				<control type="label">
+					<left>540</left>
+					<top>338</top>
+					<width>560</width>
+					<height>36</height>
+					<font>font25_title</font>
+					<label>$INFO[Container(9961).ListItem.Property(progress_text)]</label>
+					<textcolor>FF4CD27F</textcolor>
+					<visible>Control.HasFocus(9961)</visible>
+				</control>
+				<control type="progress">
+					<left>0</left>
+					<top>362</top>
+					<width>520</width>
+					<height>6</height>
+					<texturebg colordiffuse="40FFFFFF">sportshub/white.png</texturebg>
+					<midtexture colordiffuse="FF4CD27F">sportshub/white.png</midtexture>
+					<lefttexture/>
+					<righttexture/>
+					<overlaytexture/>
+					<info>Container(9960).ListItem.Property(progress)</info>
+					<visible>Control.HasFocus(9960) + !String.IsEmpty(Container(9960).ListItem.Property(progress))</visible>
+				</control>
+				<control type="progress">
+					<left>0</left>
+					<top>362</top>
+					<width>520</width>
+					<height>6</height>
+					<texturebg colordiffuse="40FFFFFF">sportshub/white.png</texturebg>
+					<midtexture colordiffuse="FF4CD27F">sportshub/white.png</midtexture>
+					<lefttexture/>
+					<righttexture/>
+					<overlaytexture/>
+					<info>Container(9961).ListItem.Property(progress)</info>
+					<visible>Control.HasFocus(9961) + !String.IsEmpty(Container(9961).ListItem.Property(progress))</visible>
+				</control>
 			</control>
 			<control type="progress">
 				<left>0</left>

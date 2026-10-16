@@ -15,6 +15,7 @@ BTN_PLAY, BTN_TRAILER, BTN_EPISODES, BTN_WATCHLIST, BTN_WATCHED, BTN_ALTS, BTN_C
 class TitleInfo(xbmcgui.WindowXMLDialog):
     def __init__(self, *args, **kwargs):
         self.item = kwargs.pop("item")
+        self.focus_ep = kwargs.pop("focus_ep", None)  # (season, episode): open on that episode (Up Next)
         self.details = kwargs.pop("details", None) or {}
         self.episodes = []
         self.progress = {}
@@ -100,6 +101,10 @@ class TitleInfo(xbmcgui.WindowXMLDialog):
                 if self.seasons and not self.closed.is_set():
                     self._episodes_for(self.seasons[pre])
                 kodi.log("info: seasons prefetched in %.2fs" % (time.time() - t))
+                if self.focus_ep and self.seasons and not self.closed.is_set():
+                    sn = next((x for x in self.seasons if str(x["number"]) == str(self.focus_ep[0])), None)
+                    if sn:
+                        self._show_season(sn, self.focus_ep[1])
         except Exception as exc:
             kodi.log("info enrich failed: %s" % exc)
         finally:
@@ -206,7 +211,12 @@ class TitleInfo(xbmcgui.WindowXMLDialog):
         pick = xbmcgui.Dialog().select("Season", labels, preselect=pre)
         if pick < 0:
             return
-        sn = seasons[pick]
+        self._show_season(seasons[pick])
+
+    def _show_season(self, sn, focus_episode=None):
+        """Fill the episode list with one season; focus_episode (its number) puts focus on that one."""
+        it = self.item
+        prog = (getattr(self, "progress", {}) or {}).get("seasons", {})
         t = time.time()
         self.episodes = self.season_eps.get(sn["number"])
         if self.episodes is None:
@@ -233,6 +243,10 @@ class TitleInfo(xbmcgui.WindowXMLDialog):
             li.setProperty("upcoming", "1" if aired > today else "")
             lst.addItem(li)
         self.setFocusId(LIST_EPISODES)
+        if focus_episode:
+            pos = next((i for i, e in enumerate(self.episodes or []) if str(e["number"]) == str(focus_episode)), None)
+            if pos is not None:
+                lst.selectItem(pos)
 
     def onAction(self, action):
         if action.getId() in (xbmcgui.ACTION_PREVIOUS_MENU, xbmcgui.ACTION_NAV_BACK):
@@ -248,9 +262,9 @@ def _nice_date(iso):
         return iso or ""
 
 
-def show(item):
+def show(item, focus_ep=None):
     """Open the detail page for an on-demand item (dict from sources.ondemand)."""
-    dlg = TitleInfo("TitleInfo.xml", kodi.ADDON_PATH, "Default", "1080i", item=item)
+    dlg = TitleInfo("TitleInfo.xml", kodi.ADDON_PATH, "Default", "1080i", item=item, focus_ep=focus_ep)
     try:
         dlg.doModal()
     finally:
@@ -258,11 +272,11 @@ def show(item):
     del dlg
 
 
-def show_by_title(title, year="", kind=""):
+def show_by_title(title, year="", kind="", season="", episode=""):
     t = time.time()
     item = ondemand.lookup(title, year, kind)
     kodi.log("info: JustWatch lookup for %s in %.2fs" % (title, time.time() - t))
     if item:
-        show(item)
+        show(item, (season, episode) if season and episode else None)
     else:
         kodi.notify("No details found")

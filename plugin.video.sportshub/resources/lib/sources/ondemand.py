@@ -194,6 +194,17 @@ def _offers(offers, codes):
     return out
 
 
+GENRE_NAMES = {"act": "Action", "ani": "Animation", "cmy": "Comedy", "crm": "Crime", "doc": "Documentary", "drm": "Drama",
+               "eur": "European", "fml": "Family", "fnt": "Fantasy", "hrr": "Horror", "hst": "History", "msc": "Music",
+               "rly": "Reality", "rma": "Romance", "scf": "Sci-Fi", "spt": "Sport", "trl": "Thriller", "war": "War",
+               "wsn": "Western"}
+
+
+def genre_name(code):
+    """JustWatch's short genre code -> the word ("cmy" -> "Comedy")."""
+    return GENRE_NAMES.get(code, code.title())
+
+
 def _make(node, codes, require_offer=True):
     if node.get("__typename") == "Season" or node.get("objectType") == "SHOW_SEASON":
         # 'new this week' returns seasons; present them as their show
@@ -214,7 +225,7 @@ def _make(node, codes, require_offer=True):
         name, pkg = ("Not on your services" + (" (on %s)" % ", ".join(x for x in others if x)[:60] if others else "")), ""
     year = c.get("originalReleaseYear") or ""
     kind = "Movie" if node.get("objectType") == "MOVIE" else "Show"
-    genres = ", ".join(g.get("shortName", "").title() for g in (c.get("genres") or [])[:2])
+    genres = ", ".join(genre_name(g.get("shortName", "")) for g in (c.get("genres") or [])[:2])
     imdb = (c.get("scoring") or {}).get("imdbScore")
     backdrops = c.get("backdrops") or []
     title = c.get("title") or ""

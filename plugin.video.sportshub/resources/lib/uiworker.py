@@ -54,7 +54,8 @@ class Worker(threading.Thread):
         if action == "info":
             from resources.lib import infodialog
             kodi.log("info: request for %s" % params.get("title", ""))
-            infodialog.show_by_title(params.get("title", ""), params.get("year", ""), params.get("kind", ""))
+            infodialog.show_by_title(params.get("title", ""), params.get("year", ""), params.get("kind", ""),
+                                     season=params.get("season", ""), episode=params.get("episode", ""))
         elif action == "guide":
             from resources.lib import guide
             guide.show(params.get("tab") or None)
