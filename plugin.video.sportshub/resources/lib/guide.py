@@ -48,7 +48,7 @@ COLORS = {
 
 TILE_COLORS = {"Sports": "FF22543A", "Movies": "FF3E2C5A", "Kids": "FF22506E", "Game Shows": "FF544520", "News": "FF5A2A2A",
                "Comedy": "FF5E4A1E", "Drama": "FF3A2E4F", "Crime": "FF4A2626", "Reality": "FF4F2E4A", "Horror": "FF3A1E1E",
-               "Sci-Fi": "FF1E3A4F", "Westerns": "FF5A3E22", "Music": "FF2A4A5A", "Nature": "FF2E4A2A",
+               "Sci-Fi": "FF1E3A4F", "Westerns": "FF5A3E22", "Music": "FF2A4A5A", "International": "FF3A2E55", "Nature": "FF2E4A2A",
                "Food & Home": "FF5A3A22", "Travel": "FF22465A", "Single Show": "FF4A3A1E", OTHER: "FF2E3442"}
 
 

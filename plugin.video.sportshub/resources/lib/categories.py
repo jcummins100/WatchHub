@@ -21,7 +21,7 @@ CATEGORIES = [
     "Single Show", "Sports", "News", "Movies", "Comedy", "Drama", "Crime", "Reality", "Kids",
     "Game Shows", "Sci-Fi", "Action", "Documentary",
     "Mystery", "Horror", "Westerns", "Animation", "Nature", "Food & Home",
-    "Travel", "Music", "Talk", "Cars", "Romance", "Faith",
+    "Travel", "Music", "Talk", "Cars", "Romance", "Faith", "International",
 ]
 COMMON = 13
 
@@ -162,6 +162,38 @@ def from_labels(labels):
     return out
 
 
+# Channels no label or name rule can place, checked by hand against what they air (Oct 2026).
+# Keys are normalized names (_n). Added to whatever else the channel gets.
+CHANNEL_CATS = {
+    "123go": ["Food & Home"], "365blk fast": ["Movies"], "4uv": ["Reality"], "acl cornhole tv": ["Sports"],
+    "aliwko": ["International", "Drama"], "allblk gems": ["Drama"], "amasian tv": ["International", "Movies", "Action"],
+    "asiancrush": ["International", "Drama"], "bet classics": ["Comedy"], "bet pluto tv": ["Reality", "Comedy"],
+    "blackpix": ["Documentary"], "boot": ["Reality"], "brat tv": ["Kids"], "cesar s pack leader tv": ["Reality"],
+    "cinelife": ["Movies", "Horror"], "classic tv families": ["Comedy"], "confess by nosey": ["Talk"],
+    "creator television": ["Comedy"], "cw forever": ["Drama"], "cw gold": ["Drama", "Crime"], "entertains": ["Comedy"],
+    "fashiontv": ["Reality"], "feva tv": ["Faith"], "filmrise action": ["Movies", "Action"],
+    "filmrise black tv": ["Movies", "Drama"], "filmrise classic tv": ["Westerns", "Comedy"], "filmrise creators": ["Comedy"],
+    "fox soul": ["Talk"], "gametvgo": ["Game Shows"], "get factual": ["Documentary"], "glewed tv": ["Movies", "Drama"],
+    "growthday network": ["Talk"], "halloween plus": ["Horror", "Movies"], "hard knocks": ["Sports"],
+    "hasbro legends": ["Kids", "Animation"], "hersphere by lionsgate": ["Movies", "Drama"], "inter 24 7": ["Sports"],
+    "inwonder": ["Documentary"], "journy": ["Travel"], "joysauce": ["Food & Home"], "jubao": ["International", "Drama"],
+    "logo pluto tv": ["Reality"], "man city 24 7": ["Sports"], "mcleods daughters": ["Drama"],
+    "medical incredible": ["Reality"], "mi 5": ["Drama", "Crime"], "midnight pulp": ["Movies", "Sci-Fi", "Horror"],
+    "more u": ["Talk"], "mtv pluto tv": ["Reality"], "national lampoon": ["Comedy", "Movies"], "new kfood": ["Food & Home"],
+    "nolly africa hd": ["International", "Movies", "Drama"], "non stop 90s": ["Movies"], "nosey": ["Talk"],
+    "paramount picks": ["Drama", "Comedy"], "people are awesome": ["Reality"], "perform by lifetime": ["Reality"],
+    "pickletv": ["Sports"], "pink panther": ["Kids", "Animation"], "plex24": ["Movies", "Action"], "pluto tv pride": ["Drama"],
+    "qwest tv": ["Music"], "rakuten viki": ["International", "Drama"], "rcm": ["Movies"], "real emergency": ["Reality"],
+    "retrocrush": ["Animation"], "rifftrax": ["Comedy", "Movies"], "shemaroo bollywood": ["International", "Movies"],
+    "shout tv": ["Comedy"], "skwad": ["Kids"], "slightly off ifc": ["Movies", "Comedy", "Horror"], "so yummy": ["Food & Home"],
+    "startalk tv": ["Documentary", "Talk"], "tg junior": ["Kids"], "the black effect": ["Comedy"], "the grio": ["Documentary"],
+    "the prof g channel": ["Talk"], "tony robbins network": ["Talk"], "trailers from hell": ["Movies"],
+    "tribeca channel": ["Movies"], "trublu": ["Crime"], "tvone stars stories": ["Reality", "Documentary"],
+    "very carolina by wxii": ["Documentary"], "very carolina by wyff 4": ["Documentary"], "wired2fish": ["Sports"],
+    "wsoc channel 9": ["News"],
+}
+
+
 def from_name(name):
     return [c for c, rx in NAME_RULES if rx.search(name or "")]
 
@@ -178,8 +210,8 @@ def from_jw(codes):
 def for_channel(name, labels, is_sports=False):
     """WatchHub categories for one channel (a set). Game shows go by name only (Pluto's game-show group also
     holds talk and shopping channels); the rest by labels, then name words, then the show behind the channel."""
-    cats = set(from_labels(labels))
-    if "Game Shows" in cats and not _GAME_SHOW_RX.search(name or ""):
+    cats = set(from_labels(labels)) | set(CHANNEL_CATS.get(_n(name), []))
+    if "Game Shows" in cats and not _GAME_SHOW_RX.search(name or "") and _n(name) not in CHANNEL_CATS:
         cats.discard("Game Shows")
         cats.add("Talk")
     if _GAME_SHOW_RX.search(name or ""):

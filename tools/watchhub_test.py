@@ -298,7 +298,7 @@ class Offline:
         self.rep.add(A, "Guide data builds", "PASS", "%d rows; %s" % (g["rows"], ", ".join("%s %d" % (t, v["total"]) for t, v in tabs.items())))
         gs = " | ".join(g["game_shows"]).lower()
         want = ["price is right", "family feud", "make a deal"]
-        bad = [n for n in g["game_shows"] if any(w in n.lower() for w in ("dr. phil", "judge", "qvc", "hsn", "game & fish", "gametv", "rap game", "game-on"))]
+        bad = [n for n in g["game_shows"] if any(w in n.lower() for w in ("dr. phil", "judge", "qvc", "hsn", "game & fish", "rap game", "game-on"))]
         missing = [w for w in want if w not in gs]
         self.rep.add(A, "Guide: Game Shows tab", "FAIL" if missing or bad else "PASS",
                      "%d channels%s%s: %s" % (len(g["game_shows"]), "; missing " + ", ".join(missing) if missing else "",
