@@ -262,11 +262,12 @@
 				<shadowcolor>AA000000</shadowcolor>
 			</control>
 			<control type="label">
-				<left>400</left>
-				<top>48</top>
-				<width>700</width>
-				<height>44</height>
-				<font>font27</font>
+				<!-- under WATCHHUB, on the same line as the date on the right (the icons are centred above) -->
+				<left>100</left>
+				<top>96</top>
+				<width>540</width>
+				<height>30</height>
+				<font>font25_title</font>
 				<label>[B]BROWSING: $INFO[Window(Home).Property(sh_provider_name)][/B]</label>
 				<textcolor>FF3D8BFF</textcolor>
 				<shadowcolor>AA000000</shadowcolor>
@@ -294,13 +295,14 @@
 				<textcolor>B0FFFFFF</textcolor>
 			</control>
 			<control type="grouplist" id="700">
-				<left>860</left>
+				<!-- centred on the screen: 5 buttons x 120 -->
+				<left>660</left>
 				<top>26</top>
-				<width>550</width>
+				<width>600</width>
 				<height>80</height>
 				<orientation>horizontal</orientation>
 				<itemgap>0</itemgap>
-				<align>right</align>
+				<align>center</align>
 				<ondown condition="String.IsEmpty(Window(Home).Property(sh_provider))">9000</ondown>
 				<ondown condition="!String.IsEmpty(Window(Home).Property(sh_provider))">9001</ondown>
 				<onup>noop</onup>
@@ -315,7 +317,7 @@
 					<param name="control_id" value="806"/>
 					<param name="height" value="80"/>
 					<param name="onclick" value="ActivateWindow(Videos,plugin://plugin.video.sportshub/?action=favorites,return)"/>
-					<param name="icon" value="icons/sidemenu/favourites.png"/>
+					<param name="icon" value="sportshub/star.png"/>
 					<param name="label" value="Favorites"/>
 				</include>
 				<include content="IconButton">

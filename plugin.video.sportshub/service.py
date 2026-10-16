@@ -79,6 +79,10 @@ def main():
     # Info pages and the TV Guide open from here, on their own thread (see uiworker).
     from resources.lib import uiworker
     uiworker.Worker(monitor).start()
+    if xbmc.getSkinDir() == "skin.sportshub":
+        uiworker.install_keymap()
+    else:
+        uiworker.remove_keymap()   # the classic Kodi look keeps Kodi's own long-press menu
     # Refresh a little before the cache expires so the UI never has to wait on the network.
     home = xbmcgui.Window(10000)
     home.setProperty("sh_service_alive", "1")

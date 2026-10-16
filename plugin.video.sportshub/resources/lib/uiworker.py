@@ -48,6 +48,9 @@ class Worker(threading.Thread):
         params = dict(parse_qsl(urlparse(req).query))
         action = params.get("action")
         t = time.time()
+        if action == "ctx":
+            show_menu()
+            return
         if action == "info":
             from resources.lib import infodialog
             kodi.log("info: request for %s" % params.get("title", ""))
@@ -70,3 +73,65 @@ def warm_guide():
         except Exception as exc:
             kodi.log("guide prebuild failed: %s" % exc)
     threading.Thread(target=work, name="sh-guide-build", daemon=True).start()
+
+
+def show_menu():
+    """Long-press OK on a WatchHub card: just the card's own entries, without Kodi's (Play next, Queue item,
+    Add to favourites...). Anything that isn't a WatchHub card gets Kodi's normal menu."""
+    import json
+    import xbmc
+    raw = xbmc.getInfoLabel("ListItem.Property(sh_ctx)")
+    try:
+        entries = [e for e in json.loads(raw) if isinstance(e, list) and len(e) == 2] if raw else []
+    except ValueError:
+        entries = []
+    if not entries:
+        xbmc.executebuiltin("Action(ContextMenu)")
+        return
+    pick = xbmcgui.Dialog().contextmenu([e[0] for e in entries])
+    if pick >= 0:
+        xbmc.executebuiltin(entries[pick][1])
+
+
+KEYMAP = """<keymap>
+  <!-- installed by WatchHub: long-press OK opens WatchHub's own menu on its cards (no Kodi extras) -->
+  <home><keyboard><return mod="longpress">SetProperty(sh_ui_request,plugin://plugin.video.sportshub/?action=ctx,home)</return></keyboard></home>
+  <videos><keyboard><return mod="longpress">SetProperty(sh_ui_request,plugin://plugin.video.sportshub/?action=ctx,home)</return></keyboard></videos>
+</keymap>
+"""
+
+
+def install_keymap():
+    """Write userdata/keymaps/watchhub.xml (once, or when it changes) and reload Kodi's keymaps."""
+    import os
+    import xbmc
+    import xbmcvfs
+    folder = xbmcvfs.translatePath("special://profile/keymaps/")
+    path = os.path.join(folder, "watchhub.xml")
+    try:
+        with open(path, encoding="utf-8") as fh:
+            if fh.read() == KEYMAP:
+                return
+    except OSError:
+        pass
+    try:
+        os.makedirs(folder, exist_ok=True)
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write(KEYMAP)
+        xbmc.executebuiltin("Action(reloadkeymaps)")
+        kodi.log("installed the WatchHub long-press keymap")
+    except OSError as exc:
+        kodi.log("keymap not installed: %s" % exc)
+
+
+def remove_keymap():
+    import os
+    import xbmc
+    import xbmcvfs
+    path = os.path.join(xbmcvfs.translatePath("special://profile/keymaps/"), "watchhub.xml")
+    if os.path.exists(path):
+        try:
+            os.remove(path)
+            xbmc.executebuiltin("Action(reloadkeymaps)")
+        except OSError:
+            pass

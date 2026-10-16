@@ -102,7 +102,7 @@ def _service_tag(p):
     return "[COLOR %s]%s[/COLOR]" % (color, svc) if color else svc
 
 
-def _add_programme(p, show_time=False, show_channel=True):
+def _add_programme(p, show_time=False, show_channel=True, kicker=None):
     info = {
         "title": p["title"],
         "plot": "%s  |  %s\n%s - %s\n\n%s" % (
@@ -126,7 +126,10 @@ def _add_programme(p, show_time=False, show_channel=True):
                     "ActivateWindow(Videos,%s,return)" % kodi.build_url(action="channel", src=p["source"], id=p["channel_id"])))
     ctx = ctx or None
     info["plot"] = "%s%s\n%s" % (_fmt_time(p["start"]) + " - " + _fmt_time(p["end"]) if p["start"] else "", _progress(p), info["plot"])
-    kodi.add_item(_label(p, show_time, show_channel), url, is_folder=False, art=art, info=info, context=ctx, props=_props(p))
+    props = _props(p)
+    if kicker:
+        props["kicker"] = kicker
+    kodi.add_item(_label(p, show_time, show_channel), url, is_folder=False, art=art, info=info, context=ctx, props=props)
 
 
 def _filter_games(items):
@@ -477,7 +480,7 @@ def favorites_list():
     keys = favorites.channel_keys()
     if keys:
         now = time.time()
-        rows = sorted((c for c in guide.channels() if c["key"] in keys), key=lambda c: keys.index(c["key"]))
+        rows = sorted((c for c in guide.channels() if c["key"] in keys), key=lambda c: c["name"].lower())
         shown = set()
         for c in rows:
             if c["key"] in shown:
@@ -490,20 +493,22 @@ def favorites_list():
             p = {"title": cur[1] if cur else c["name"], "start": cur[0] if cur else 0, "end": end, "logo": c["logo"], "art": "",
                  "source": c["sid"], "channel": c["name"], "channel_id": c["play"]["id"], "service": c["service"], "play": c["play"],
                  "alts": c.get("alts") or [], "sport": "", "plot": ""}
-            _add_programme(p)
+            _add_programme(p, kicker="LIVE TV CHANNEL")
             count += 1
-    for it in favorites.items():
+    # Live TV channels first (above), then TV shows, movies and games, each A-Z
+    group = {"Show": 0, "Movie": 1}
+    for it in sorted(favorites.items(), key=lambda x: (2 if x["kind"] == "game" else group.get(x.get("type"), 1), x.get("label", "").lower())):
         star = (_star(True), "RunPlugin(%s)" % kodi.build_url(action="fav", what=it["kind"], key=it["key"], label=it.get("label", "")))
         if it["kind"] == "title":
             props = {"kind": "title", "title": it["label"], "meta": " \u2022 ".join(x for x in (it.get("service"), it.get("type"), it.get("year")) if x),
-                     "kicker": "FAVORITE", "service": it.get("service") or "", "year": it.get("year") or "", "type": it.get("type") or "", "state": ""}
+                     "kicker": "TV SHOW" if it.get("type") == "Show" else "MOVIE", "service": it.get("service") or "", "year": it.get("year") or "", "type": it.get("type") or "", "state": ""}
             art = {"thumb": it.get("poster") or "DefaultVideo.png", "poster": it.get("poster") or "", "fanart": it.get("backdrop") or "",
                    "landscape": it.get("backdrop") or ""}
             kodi.add_item(it["label"], kodi.build_url(action="info", title=it["label"], year=it.get("year", ""), kind=it.get("type", "")), False,
                           art=art, info={"title": it["label"]}, props=props, context=[star])
         else:
             kodi.add_item(it["label"], kodi.build_url(action="games"), True, art={"thumb": it.get("logo") or ICON_LIVE, "icon": it.get("logo") or ICON_LIVE},
-                          props={"kind": "tile", "color": "FF22543A", "title": it["label"], "meta": it.get("league") or "Game", "kicker": "FAVORITE GAME"},
+                          props={"kind": "tile", "color": "FF22543A", "title": it["label"], "meta": it.get("league") or "Game", "kicker": "GAME"},
                           context=[star])
         count += 1
     for f in favorites.kodi_favourites():

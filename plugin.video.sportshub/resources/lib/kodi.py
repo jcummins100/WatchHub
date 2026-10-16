@@ -171,6 +171,8 @@ def add_item(label, url, is_folder=False, playable=False, art=None, info=None, l
         li.setProperty("IsPlayable", "true")
     if context:
         li.addContextMenuItems(context)
+        # WatchHub's own long-press menu (uiworker) reads these, so Kodi's extras (Play next, Queue item...) stay out
+        li.setProperty("sh_ctx", json.dumps(context))
     xbmcplugin.addDirectoryItem(HANDLE, url, li, is_folder)
     return li
 

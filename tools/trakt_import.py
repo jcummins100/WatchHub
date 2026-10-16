@@ -133,22 +133,28 @@ PRIME_DATE = re.compile(r"^(January|February|March|April|May|June|July|August|Se
 
 WORD_NUM = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10,
             "eleven": 11, "twelve": 12}
-SEASON_SUFFIX = re.compile(r"[:\s-]*(?:(?:Season|Series)\s+(\d+|%s)|S(\d+))\s*$" % "|".join(WORD_NUM), re.I)
+ORDINAL = {"first": 1, "second": 2, "third": 3, "fourth": 4, "fifth": 5, "sixth": 6, "seventh": 7, "eighth": 8, "ninth": 9,
+           "tenth": 10, "eleventh": 11, "twelfth": 12}
+WORD_NUM.update(ORDINAL)
+SEASON_SUFFIX = re.compile(r"[:\s-]*(?:(?:The\s+Complete\s+)?(?:(%s)\s+(?:Season|Series)|(?:Season|Series)\s+(\d+|%s))|S(\d+))(?:\s*\((?:UK|US)\))?\s*$"
+                           % ("|".join(ORDINAL), "|".join(WORD_NUM)), re.I)
 # Amazon sells several cuts of one film; Trakt knows just the film
-EDITION = re.compile(r"\s*[-:(\[]*\s*(4K UHD|UHD|HD|Bonus X-Ray Edition|X-Ray Edition|Unrated Version|Unrated|Extended Edition|"
+EDITION = re.compile(r"\s*[-:(\[]*\s*(4K UHD|UHD|HD|OV|Feature|The Magnum Edition|Bonus X-Ray Edition|X-Ray Edition|Unrated Version|Unrated|Extended Edition|"
                      r"Extended Cut|Extended Version|Theatrical Version|Director'?s Cut|Special Edition|Plus Bonus Content)\s*[)\]]*\s*$", re.I)
 
 
 def split_season(title):
     """'MobLand S2' / 'Lanterns: Season 1' / 'The Bondsman - Season One' -> (show, season or None)."""
+    title = title.replace("\u200b", "").strip()
     m = SEASON_SUFFIX.search(title)
     if not m:
-        return title.strip(), None
-    num = m.group(1) or m.group(2)
+        return title, None
+    num = m.group(1) or m.group(2) or m.group(3)
     return title[:m.start()].strip(), int(num) if num.isdigit() else WORD_NUM.get(num.lower())
 
 
 def clean_movie(title):
+    title = title.replace("\u200b", "").strip()
     prev = None
     while prev != title:
         prev, title = title, EDITION.sub("", title).strip()
