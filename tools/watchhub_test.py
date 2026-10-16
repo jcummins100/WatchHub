@@ -130,6 +130,11 @@ class Offline:
             if empty_label:
                 self.rep.add(A, "Labels present: %s" % name, "ISSUE", "%d cards with an empty label" % len(empty_label))
 
+        # One card per title on Home (map 5.4): Trending doesn't repeat New This Week
+        new_ = {i["label"] for i in self.run("action=ondemand&row=3&home=1&skin=1")["items"]}
+        trend = {i["label"] for i in self.run("action=ondemand&row=0&home=1&skin=1")["items"]}
+        self.rep.add(A, "Home: Trending doesn't repeat New This Week", "PASS" if trend and not (new_ & trend) else "FAIL",
+                     "%d trending, repeats: %s" % (len(trend), sorted(new_ & trend)[:5] or "none"))
         # Rediscover: 1985-2015 movies, a mix of decades, nothing already in New This Week or Trending
         red = self.run("action=rediscover&skin=1")["items"]
         others = {i["label"] for q in ("action=ondemand&row=3&skin=1", "action=ondemand&row=0&skin=1") for i in self.run(q)["items"]}

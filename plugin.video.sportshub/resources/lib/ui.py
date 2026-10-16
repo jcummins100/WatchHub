@@ -604,9 +604,26 @@ def _empty_service_tile(svc, what):
                   props={"kind": "tile", "color": "FF3B3F4A", "title": "%s on %s" % (what, name), "meta": "Open %s to browse it yourself" % name})
 
 
-def ondemand_list(row, svc=""):
+def _home_taken(row, svc=""):
+    """JustWatch ids already on Home above this row: a title shows once, in its highest row (map 5.4):
+    Up Next, then New this week (row 3), then Trending (row 0)."""
+    taken = set()
+    if trakt.signed_in():
+        for t in trakt.up_next(limit=60 if svc else 20):
+            od = ondemand.lookup(t["title"], t["year"], t["type"])
+            if od and od.get("jw_id"):
+                taken.add(od["jw_id"])
+    if row == 0:
+        taken |= {t["jw_id"] for t in ondemand.row_items(3, svc) if t.get("jw_id")}
+    return taken
+
+
+def ondemand_list(row, svc="", home=False):
     kodi.set_content("videos")
     items = ondemand.row_items(row, svc)
+    if home and items:
+        taken = _home_taken(row, svc)
+        items = [t for t in items if t.get("jw_id") not in taken]
     for t in items:
         _add_title(t)
     if not items:
@@ -991,7 +1008,7 @@ def dispatch(params):
         tvgroups()
     elif action == "ondemand":
         row = params.get("row")
-        ondemand_list(int(row), params.get("svc", "")) if row is not None else ondemand_menu()
+        ondemand_list(int(row), params.get("svc", ""), home=params.get("home") == "1") if row is not None else ondemand_menu()
     elif action == "providers":
         providers(params.get("svc", ""))
     elif action == "provider":

@@ -13,7 +13,7 @@ from resources.lib import cache, kodi
 API = "https://apis.justwatch.com/graphql"
 IMG = "https://images.justwatch.com"
 TTL = 6 * 3600
-QV = "v7"  # bump when the GraphQL queries change so stale cache entries are ignored
+QV = "v8"  # bump when the GraphQL queries change so stale cache entries are ignored
 
 # JustWatch package short code -> (display name, Android TV package)
 SERVICES = [
@@ -231,6 +231,7 @@ def _make(node, codes, require_offer=True):
     title = c.get("title") or ""
     return {
         "source": "ondemand",
+        "jw_id": node.get("id") or "",  # identity (map 5.4): a remake shares the name, never the id
         "service": name,
         "title": title,
         "year": year,
@@ -265,10 +266,11 @@ def titles(codes=None, object_types=("MOVIE", "SHOW"), first=30, sort="POPULAR",
         flt["genres"] = list(genres)
     data = _post({"country": kodi.setting("region", "us").upper(), "language": "en", "first": first, "sort": sort,
                   "filter": flt})
-    out = []
+    out, seen = [], set()
     for edge in ((data.get("popularTitles") or {}).get("edges") or []):
         item = _make(edge.get("node") or {}, codes)
-        if item:
+        if item and (item["jw_id"] or item["title"]) not in seen:
+            seen.add(item["jw_id"] or item["title"])
             out.append(item)
     return out
 
@@ -345,11 +347,11 @@ _NEW = """
 query New($country: Country!, $language: Language!, $date: Date!, $first: Int!) {
   newTitles(country: $country, date: $date, first: $first, filter: {packages: %s}) {
     edges { node {
-      __typename objectType
+      __typename id objectType
       content(country: $country, language: $language) { title originalReleaseYear shortDescription posterUrl genres { shortName } backdrops { backdropUrl } scoring { imdbScore } }
       offers(country: $country, platform: ANDROID_TV) { monetizationType retailPrice(language: $language) standardWebURL deeplinkURL: deeplinkURL(platform: ANDROID_TV) package { packageId shortName clearName technicalName } }
       ... on Season {
-        show { objectType
+        show { id objectType
           content(country: $country, language: $language) { title originalReleaseYear shortDescription posterUrl genres { shortName } backdrops { backdropUrl } scoring { imdbScore } runtime ageCertification originalReleaseDate credits { name role characterName } }
           offers(country: $country, platform: ANDROID_TV) { monetizationType retailPrice(language: $language) standardWebURL deeplinkURL: deeplinkURL(platform: ANDROID_TV) package { packageId shortName clearName technicalName } }
         }
@@ -388,8 +390,8 @@ def new_titles(codes=None, days=7, object_types=("MOVIE", "SHOW")):
             if node.get("objectType") not in object_types and not (node.get("__typename") == "Season" and "SHOW" in object_types):
                 continue
             item = _make(node, codes)
-            if item and item["title"] not in seen:
-                seen.add(item["title"])
+            if item and (item["jw_id"] or item["title"]) not in seen:  # a show's new seasons are one card
+                seen.add(item["jw_id"] or item["title"])
                 item["added"] = day
                 item["meta"] = "Added %s \u2022 %s" % (day, item["meta"])
                 out.append(item)

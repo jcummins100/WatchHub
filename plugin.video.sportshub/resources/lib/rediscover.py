@@ -96,7 +96,7 @@ def _elsewhere():
     seen = set()
     for row in (3, 0):
         try:
-            seen |= {t["title"].lower() for t in ondemand.row_items(row)}
+            seen |= {t["jw_id"] for t in ondemand.row_items(row) if t.get("jw_id")}
         except Exception as exc:
             kodi.log("rediscover: row %d not checked: %s" % (row, exc))
     return seen
@@ -160,7 +160,7 @@ def today():
         unseen_only = kodi.setting_bool("rediscover_unseen_only", False)
         elsewhere = _elsewhere()
         cands = [t for t in all_ if t["jw_id"] not in hidden and t["jw_id"] not in shown
-                 and t["title"].lower() not in elsewhere
+                 and t["jw_id"] not in elsewhere
                  and not (unseen_only and _seen(t, watched))]
         picks = _pick(cands, state, day)
         now = time.time()
