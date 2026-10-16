@@ -71,6 +71,7 @@ def _launch_app(package, link, name, fresh=False):
         kodi.notify(kodi.localized(30025), icon=xbmcgui.NOTIFICATION_WARNING)
         return False
     if health.app_installed(package) is False:
+        apps.count_launch("needed:" + package)  # someone wanted an app this Shield doesn't have (lean app set)
         if xbmcgui.Dialog().yesno(kodi.ADDON_NAME, "%s is not installed on this device.\n\nOpen it in the Play Store?" % name):
             health.open_play_store(package)
         return False

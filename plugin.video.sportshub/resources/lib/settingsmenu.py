@@ -33,6 +33,23 @@ FREE_APPS = [("Pluto TV", "tv.pluto.android"), ("Plex", "com.plexapp.android"), 
              ("Tubi", "com.tubitv"), ("Xumo Play", "com.xumo.xumo.tv"), ("YouTube", "com.google.android.youtube.tv")]
 
 
+def free_apps():
+    """The free services' apps, installed or not; picking a missing one opens its Play Store page (True)."""
+    from resources.lib import health
+    rows = [(name, pkg, health.app_installed(pkg)) for name, pkg in FREE_APPS]
+    labels = ["%s  -  %s" % (n, "installed" if ok is not False else "not installed: choose to get it") for n, p, ok in rows]
+    i = xbmcgui.Dialog().select("Free apps (the same on every Shield)", labels)
+    if i >= 0 and rows[i][2] is False:
+        health.open_play_store(rows[i][1])
+        return True
+    return False
+
+
+def missing_free_apps():
+    from resources.lib import health
+    return [n for n, p in FREE_APPS if health.app_installed(p) is False]
+
+
 def _free_apps_line():
     from resources.lib import health
     missing = [n for n, p in FREE_APPS if health.app_installed(p) is False]
@@ -135,12 +152,7 @@ def show():
             _new_rediscover_day()
             changed_rows = True
         elif key == "free":
-            from resources.lib import health
-            rows = [(name, pkg, health.app_installed(pkg)) for name, pkg in FREE_APPS]
-            labels = ["%s  -  %s" % (n, "installed" if ok is not False else "not installed: choose to get it") for n, p, ok in rows]
-            i = xbmcgui.Dialog().select("Free apps (the same on every Shield)", labels)
-            if i >= 0 and rows[i][2] is False:
-                health.open_play_store(rows[i][1])
+            if free_apps():
                 break
         elif key == "trakt":
             if not trakt.signed_in():

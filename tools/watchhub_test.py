@@ -196,7 +196,7 @@ class Offline:
                     self.rep.add(A, "Click %s: %s" % (key, path), "ISSUE", "Nothing happens (no launch, no dialog)")
 
         # A4: every service filter: rows only contain that service
-        prov = self.run("action=providers&skin=1")["items"]
+        prov = [i for i in self.run("action=providers&skin=1")["items"] if i["props"].get("code") != "free"]  # "+ Free services" is All-view only
         codes = [re.search(r"code=([a-z]+)", i["url"]).group(1) for i in prov if "code=" in i["url"]]
         self.rep.add(A, "Services row lists", "INFO", ", ".join(i["label"] for i in prov))
         for code in codes:

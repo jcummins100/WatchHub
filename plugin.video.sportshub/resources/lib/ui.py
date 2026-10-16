@@ -698,6 +698,13 @@ def providers(svc=""):
                           art={"thumb": thumb, "icon": "DefaultAddonProgram.png"}, info={"title": label},
                           props={"kind": "app", "open": "1", "kicker": "OPEN APP", "code": "open:" + code,
                                  "meta": "Go to the %s app to browse its own menus" % name})
+    if not svc:
+        from resources.lib import settingsmenu
+        missing = settingsmenu.missing_free_apps()
+        if missing:  # F5: a free service this Shield could have
+            kodi.add_item("Free services", kodi.build_url(action="free_apps"), False, art={"thumb": "DefaultAddSource.png", "icon": "DefaultAddSource.png"},
+                          info={"title": "Free services"}, props={"kind": "app", "kicker": "ADD", "code": "free",
+                                                                 "meta": "Not on this Shield yet: %s - choose one to get it" % ", ".join(missing)})
     kodi.end_directory()
 
 
@@ -900,6 +907,10 @@ def apps_menu():
     kodi.log("apps: %d visible to Kodi, showing %d: %s | not visible: %s" % (len(installed), len(shown), ", ".join(shown),
              ", ".join(n for n, p in apps.LAUNCHABLE if installed and p not in installed)))
     counts = apps.launch_counts()
+    wanted = sorted(((v.get("count", 0), k[len("needed:"):]) for k, v in counts.items() if k.startswith("needed:")), reverse=True)
+    if wanted:
+        names = dict((p, n) for n, p in apps.LAUNCHABLE)
+        kodi.log("apps wanted but not installed: %s" % ", ".join("%s x%d" % (names.get(p, p), c) for c, p in wanted))
     for name, pkg in apps.LAUNCHABLE:
         if installed and pkg not in installed:
             continue
@@ -1137,6 +1148,10 @@ def dispatch(params):
         refresh()
     elif action == "status":
         status()
+    elif action == "free_apps":
+        kodi.resolve_none()
+        from resources.lib import settingsmenu
+        settingsmenu.free_apps()
     elif action == "subscriptions":
         kodi.resolve_none()
         pick_subscriptions()
