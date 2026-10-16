@@ -149,6 +149,14 @@ msgid "Official league YouTube channels"
 msgstr ""
 
 # Settings - display
+msgctxt "#30132"
+msgid "Your local stations"
+msgstr ""
+
+msgctxt "#30133"
+msgid "Comma-separated city and call letters. Channels with one of these in their name go in Local and lead the News tab."
+msgstr ""
+
 msgctxt "#30200"
 msgid "Display"
 msgstr ""

@@ -831,7 +831,7 @@ def browse_tiles():
     kodi.add_item("TV Guide", kodi.build_url(action="guide"), False, art={"icon": "DefaultPVRGuide.png"},
                   props={"kind": "guide", "color": "FF8A1F2E", "title": "TV Guide", "meta": "Every free channel - what's on now and later"})
     for cat, n, on_demand in browse.tiles():
-        meta = ", ".join(x for x in ("%d channels" % n if n else "", "shows & movies" if on_demand else "") if x)
+        meta = ", ".join(x for x in ("%d channel%s" % (n, "" if n == 1 else "s") if n else "", "shows & movies" if on_demand else "") if x)
         kodi.add_item(cat, kodi.build_url(action="browse", cat=cat), False, art={"icon": ICON_FOLDER},
                       props={"kind": "tile", "color": guide.TILE_COLORS.get(cat, "FF2A3550"), "meta": meta})
     kodi.end_directory()

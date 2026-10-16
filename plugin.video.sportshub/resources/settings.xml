@@ -50,6 +50,12 @@
           <default>false</default>
           <control type="toggle"/>
         </setting>
+        <setting id="local_market" type="string" label="30132" help="30133">
+          <level>0</level>
+          <default>Pittsburgh, KDKA, WPXI, WTAE, WPGH, WQED</default>
+          <constraints><allowempty>true</allowempty></constraints>
+          <control type="edit" format="string"><heading>30132</heading></control>
+        </setting>
         <setting id="hide_spanish" type="boolean" label="30130" help="30131">
           <level>0</level>
           <default>true</default>

@@ -37,6 +37,8 @@ def tiles():
         on_demand = has_ondemand(c)
         if counts.get(c) or on_demand:
             out.append((c, counts.get(c, 0), on_demand))
+    # your local stations lead the row (map 5.5)
+    out.sort(key=lambda t: t[0] != categories.LOCAL)
     return out
 
 

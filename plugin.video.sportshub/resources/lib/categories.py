@@ -18,17 +18,36 @@ from resources.lib import kodi
 
 # Display order; the first COMMON are shown first in Browse and the guide's Categories
 CATEGORIES = [
-    "Single Show", "Sports", "News", "Movies", "Comedy", "Drama", "Crime", "Reality", "Kids",
+    "Single Show", "Local", "Sports", "News", "Movies", "Comedy", "Drama", "Crime", "Reality", "Kids",
     "Game Shows", "Sci-Fi", "Action", "Documentary",
     "Mystery", "Horror", "Westerns", "Animation", "Nature", "Food & Home",
     "Travel", "Music", "Talk", "Cars", "Romance", "Faith", "International",
 ]
-COMMON = 13
+COMMON = 14
 
 # guide tab -> category
 TAB_CATEGORY = {"Sports": "Sports", "News": "News", "Movies": "Movies", "Game Shows": "Game Shows",
                 "Kids": "Kids", "Music": "Music"}
 SINGLE_SHOW = "Single Show"   # channels that air one show around the clock (Jeremy's idea)
+LOCAL = "Local"               # your market's stations (setting local_market), also under News (map 5.5)
+
+
+_local_rx = {"key": None, "rx": None}
+
+
+def _local_pattern():
+    from resources.lib import kodi
+    words = kodi.setting("local_market", "Pittsburgh, KDKA, WPXI, WTAE, WPGH, WQED")
+    if _local_rx["key"] != words:
+        terms = [re.escape(w.strip()) for w in words.split(",") if w.strip()]
+        _local_rx.update(key=words, rx=re.compile(r"\b(%s)\b" % "|".join(terms), re.I) if terms else None)
+    return _local_rx["rx"]
+
+
+def is_local(name):
+    """A station from the user's market: its name has the market or one of its call letters."""
+    rx = _local_pattern()
+    return bool(rx and rx.search(name or ""))
 
 
 # shows about music people that services file under Music
@@ -222,6 +241,8 @@ def for_channel(name, labels, is_sports=False):
         cats.update(from_name(name))
     if not cats:
         cats.update(from_jw(show_genres().get(_n(name)) or []))
+    if is_local(name):
+        cats.update((LOCAL, "News"))
     return cats
 
 

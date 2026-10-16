@@ -49,7 +49,7 @@ COLORS = {
 TILE_COLORS = {"Sports": "FF22543A", "Movies": "FF3E2C5A", "Kids": "FF22506E", "Game Shows": "FF544520", "News": "FF5A2A2A",
                "Comedy": "FF5E4A1E", "Drama": "FF3A2E4F", "Crime": "FF4A2626", "Reality": "FF4F2E4A", "Horror": "FF3A1E1E",
                "Sci-Fi": "FF1E3A4F", "Westerns": "FF5A3E22", "Music": "FF2A4A5A", "International": "FF3A2E55", "Nature": "FF2E4A2A",
-               "Food & Home": "FF5A3A22", "Travel": "FF22465A", "Single Show": "FF4A3A1E", OTHER: "FF2E3442"}
+               "Food & Home": "FF5A3A22", "Travel": "FF22465A", "Single Show": "FF4A3A1E", "Local": "FF1F5A4A", OTHER: "FF2E3442"}
 
 
 def category(chan, title):
@@ -327,6 +327,10 @@ def in_tab(chans, tab, favs):
     if tab == OTHER:
         return [c for c in chans if not c["cats"]]
     cat = categories.TAB_CATEGORY.get(tab, tab)
+    if cat == "News":
+        # your own stations first (map 5.5)
+        news = [c for c in chans if cat in c["cats"]]
+        return [c for c in news if categories.LOCAL in c["cats"]] + [c for c in news if categories.LOCAL not in c["cats"]]
     if cat in categories.CATEGORIES:
         return [c for c in chans if cat in c["cats"]]
     return [c for c in chans if tab in c["groups"]]
@@ -408,7 +412,8 @@ class Guide(xbmcgui.WindowXMLDialog):
         for c in self.rows:
             li = xbmcgui.ListItem(c["name"])
             li.setArt({"thumb": c["logo"]})
-            li.setProperty("service", c["service"] + (" \u00b7 opens its guide" if c["sid"] == "xumo" else "")
+            li.setProperty("service", ("[COLOR FF4CD27F]LOCAL[/COLOR] \u00b7 " if categories.LOCAL in c["cats"] else "")
+                           + c["service"] + (" \u00b7 opens its guide" if c["sid"] == "xumo" else "")
                            + (" +%d" % len(c["alts"]) if c["alts"] else "")
                            + ("  [COLOR FFFFC93D]★[/COLOR]" if c["key"] in self.favs else ""))
             row = cells(c["programs"], self.t0)
