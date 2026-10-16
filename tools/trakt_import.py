@@ -139,13 +139,16 @@ WORD_NUM.update(ORDINAL)
 SEASON_SUFFIX = re.compile(r"[:\s-]*(?:(?:The\s+Complete\s+)?(?:(%s)\s+(?:Season|Series)|(?:Season|Series)\s+(\d+|%s))|S(\d+))(?:\s*\((?:UK|US)\))?\s*$"
                            % ("|".join(ORDINAL), "|".join(WORD_NUM)), re.I)
 # Amazon sells several cuts of one film; Trakt knows just the film
-EDITION = re.compile(r"\s*[-:(\[]*\s*(4K UHD|UHD|HD|OV|Feature|The Magnum Edition|Bonus X-Ray Edition|X-Ray Edition|Unrated Version|Unrated|Extended Edition|"
+EDITION = re.compile(r"\s*[-:(\[]*\s*(4K UHD|Ultra HD|UHD|HD|OV|Feature|The Magnum Edition|Bonus X-Ray Edition|X-Ray Edition|Unrated Version|Unrated|Extended Edition|"
                      r"Extended Cut|Extended Version|Theatrical Version|Director'?s Cut|Special Edition|Plus Bonus Content)\s*[)\]]*\s*$", re.I)
 
 
 def split_season(title):
     """'MobLand S2' / 'Lanterns: Season 1' / 'The Bondsman - Season One' -> (show, season or None)."""
-    title = title.replace("\u200b", "").strip()
+    title = clean_movie(title.replace("\u200b", ""))      # 'Bosch - Season 6 (4K UHD)': label first, then the season
+    title = re.sub(r"(The Complete \w+ Season)(?=[A-Z]).*$", r"\1", title)   # 'The Complete Second SeasonTrial & Error:S2' (two names glued)
+    title = re.sub(r"\s*\((?:Uncensored|Uncut)\)\s*$", "", title, flags=re.I)
+    title = re.sub(r"[:\s-]*Volume\s+(\d+)\s*$", r" Season \1", title, flags=re.I)  # Tacoma FD: Volume 2
     m = SEASON_SUFFIX.search(title)
     if not m:
         return title, None

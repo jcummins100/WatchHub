@@ -88,6 +88,7 @@ def show_menu():
     if not entries:
         xbmc.executebuiltin("Action(ContextMenu)")
         return
+    entries = [[_fav_label(label, cmd), cmd] for label, cmd in entries]
     pick = xbmcgui.Dialog().contextmenu([e[0] for e in entries])
     if pick >= 0:
         xbmc.executebuiltin(entries[pick][1])
@@ -135,3 +136,17 @@ def remove_keymap():
             xbmc.executebuiltin("Action(reloadkeymaps)")
         except OSError:
             pass
+
+
+
+def _fav_label(label, cmd):
+    """The card was drawn before any change: say Add or Remove by what's in Favorites right now."""
+    if "action=fav" not in cmd:
+        return label
+    from resources.lib import favorites
+    try:
+        q = dict(parse_qsl(urlparse(cmd[cmd.index("plugin://"):].rstrip(")")).query))
+    except ValueError:
+        return label
+    on = favorites.has_channel(q.get("name", "")) if q.get("what") == "channel" else favorites.has(q.get("key", ""))
+    return "\u2605 Remove from Favorites" if on else "\u2605 Add to Favorites"

@@ -259,6 +259,7 @@ def services():
 
 def service(sid):
     kodi.set_content("videos")
+    from resources.lib import favorites
     now = int(time.time())
     for cid, ch in fast.channels(sid):
         p = fast._programme_at(ch.get("programs"), now)
@@ -270,7 +271,8 @@ def service(sid):
         art = {"thumb": prog["logo"] or ICON_LIVE, "fanart": prog["art"] or ""}
         info["plot"] = "%s\n%s" % (_progress(prog), info["plot"])
         kodi.add_item(label, kodi.build_url(action="play", **prog["play"]), False, art=art, info=info,
-                      context=[("%s schedule" % prog["channel"],
+                      context=[(_star(favorites.has_channel(prog["channel"])), "RunPlugin(%s)" % kodi.build_url(action="fav", what="channel", name=prog["channel"])),
+                               ("%s schedule" % prog["channel"],
                                 "ActivateWindow(Videos,%s,return)" % kodi.build_url(action="channel", src=sid, id=cid))])
     kodi.end_directory()
 
@@ -683,11 +685,15 @@ def _trakt_item(t, kicker, meta_extra=""):
         art = {"thumb": "DefaultVideo.png"}
         url = kodi.build_url(action="info", title=t["title"], year=t["year"], kind=t["type"])
         plot = ""
-    ctx = [("Trakt: mark as watched", "RunPlugin(%s)" % kodi.build_url(action="trakt_watched", title=t["title"], year=t["year"], kind=t["type"]))]
+    # same order as every other poster: Play, trailer, Trakt, Favorites
+    ctx = []
     if od and od.get("play", {}).get("pkg"):
-        ctx.insert(0, ("Play on %s" % od["service"], "RunPlugin(%s)" % kodi.build_url(action="play", **od["play"])))
+        ctx.append(("Play on %s" % od["service"], "RunPlugin(%s)" % kodi.build_url(action="play", **od["play"])))
     if tmdb.enabled():
-        ctx.insert(0, ("Watch trailer", "RunPlugin(%s)" % kodi.build_url(action="trailer", title=t["title"], year=t["year"], kind=t["type"])))
+        ctx.append(("Watch trailer", "RunPlugin(%s)" % kodi.build_url(action="trailer", title=t["title"], year=t["year"], kind=t["type"])))
+    ctx.append(("Trakt: mark as watched", "RunPlugin(%s)" % kodi.build_url(action="trakt_watched", title=t["title"], year=t["year"], kind=t["type"])))
+    ctx.append(_title_star({"title": t["title"], "year": t["year"], "type": t["type"], "poster": art.get("poster") or "",
+                            "backdrop": art.get("fanart") or "", "service": props.get("service") or ""}))
     kodi.add_item(t["title"] if PLAIN else "%s [COLOR gray](%s)[/COLOR]" % (t["title"], meta_extra or t["year"]), url, False, art=art,
                   info={"title": t["title"], "plot": plot}, props=props, context=ctx)
 
