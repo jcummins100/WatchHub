@@ -126,7 +126,7 @@
       <group id="4" label="30330">
         <setting id="subscriptions" type="string" label="30331" help="30332">
           <level>0</level>
-          <default>nfx,amp,atp,hlu,pct,app</default>
+          <default>nfx,amp,atp,hlu,pct,app,aho</default>
           <constraints><allowempty>true</allowempty></constraints>
           <control type="edit" format="string"><heading>30331</heading></control>
         </setting>
