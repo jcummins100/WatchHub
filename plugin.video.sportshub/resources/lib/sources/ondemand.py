@@ -186,7 +186,12 @@ def _offers(offers, codes):
         if code not in best or _rank(label) < _rank(best[code]["label"]):
             best[code] = {"service": name, "pkg": pkg, "url": _link(o), "code": code, "label": label, "monetization": label}
     order = {c: i for i, c in enumerate(codes)}
-    return sorted(best.values(), key=lambda o: (_rank(o["label"]), order.get(o["code"], 99)))
+    out, apps = [], set()
+    for o in sorted(best.values(), key=lambda o: (_rank(o["label"]), order.get(o["code"], 99))):
+        if o["pkg"] not in apps:  # one way per app: Included on Prime Video beats renting in Prime Video
+            apps.add(o["pkg"])
+            out.append(o)
+    return out
 
 
 def _make(node, codes, require_offer=True):
@@ -254,6 +259,74 @@ def titles(codes=None, object_types=("MOVIE", "SHOW"), first=30, sort="POPULAR",
         item = _make(edge.get("node") or {}, codes)
         if item:
             out.append(item)
+    return out
+
+
+_CLASSICS = """
+query Classics($country: Country!, $language: Language!, $first: Int!, $filter: TitleFilter, $after: String) {
+  popularTitles(country: $country, first: $first, filter: $filter, sortBy: POPULAR, after: $after) {
+    pageInfo { endCursor hasNextPage }
+    edges { node {
+      id objectType
+      content(country: $country, language: $language) {
+        title originalReleaseYear shortDescription posterUrl genres { shortName }
+        backdrops { backdropUrl }
+        scoring { imdbScore imdbVotes tmdbScore }
+        externalIds { tmdbId imdbId }
+        runtime ageCertification originalReleaseDate credits { name role characterName }
+      }
+      offers(country: $country, platform: ANDROID_TV) {
+        monetizationType retailPrice(language: $language) standardWebURL deeplinkURL: deeplinkURL(platform: ANDROID_TV)
+        package { packageId shortName clearName technicalName }
+      }
+    } }
+  }
+}
+"""
+
+
+def classic_movies(codes, year_min, year_max, pages=4, per_page=100):
+    """The most popular movies from these years on these services (Rediscover's pool), cached 24 h.
+    Each item also carries jw_id, imdb_votes, tmdb_score, tmdb_id and imdb_id."""
+    if not codes:
+        return []
+    key = "jw:classics:%s:" % QV + json.dumps([sorted(codes), year_min, year_max, pages], sort_keys=True)
+    nodes = cache.get(key, 24 * 3600)
+    if nodes is None:
+        nodes, after = [], None
+        flt = {"objectTypes": ["MOVIE"], "packages": list(codes), "releaseYear": {"min": year_min, "max": year_max},
+               "monetizationTypes": ["FLATRATE", "FREE", "ADS"]}
+        for _ in range(pages):
+            variables = {"country": kodi.setting("region", "us").upper(), "language": "en", "first": per_page,
+                         "filter": flt, "after": after}
+            body = json.dumps({"query": _CLASSICS, "variables": variables}).encode("utf-8")
+            req = urllib.request.Request(API, data=body, headers={"Content-Type": "application/json", "User-Agent": "Mozilla/5.0 (Kodi SportsHub)"})
+            try:
+                with urllib.request.urlopen(req, timeout=30) as resp:
+                    page = (json.loads(resp.read().decode("utf-8")).get("data") or {}).get("popularTitles") or {}
+            except Exception as exc:
+                kodi.log("justwatch classics failed: %s" % exc)
+                break
+            nodes += [e.get("node") or {} for e in page.get("edges") or []]
+            after = (page.get("pageInfo") or {}).get("endCursor")
+            if not (page.get("pageInfo") or {}).get("hasNextPage") or not after:
+                break
+        if nodes:
+            cache.put(key, nodes)
+        else:
+            nodes = cache.get(key, 10 * 365 * 86400) or []
+    out = []
+    for node in nodes:
+        item = _make(node, codes)
+        if not item:
+            continue
+        c = node.get("content") or {}
+        sc = c.get("scoring") or {}
+        ext = c.get("externalIds") or {}
+        item.update({"jw_id": node.get("id") or "", "imdb_votes": int(sc.get("imdbVotes") or 0),
+                     "imdb_score": float(sc.get("imdbScore") or 0), "tmdb_score": float(sc.get("tmdbScore") or 0),
+                     "tmdb_id": str(ext.get("tmdbId") or ""), "imdb_id": ext.get("imdbId") or ""})
+        out.append(item)
     return out
 
 

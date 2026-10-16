@@ -250,3 +250,24 @@ def movie_watched(title, year=""):
         return False
     hist = _call("sync/history/movies/%s?limit=1" % ids["trakt"], cache_ttl=5 * 60) or []
     return bool(hist)
+
+
+def watched_movie_ids():
+    """{"tmdb": set, "imdb": set} of every movie in the user's Trakt history (cached 6 h); empty when signed out."""
+    out = {"tmdb": set(), "imdb": set()}
+    if not signed_in():
+        return out
+    rows = []
+    for page in range(1, 41):  # Trakt pages this list (100 a page by default); 250 a page, up to 10,000 movies
+        got = _call("sync/watched/movies?page=%d&limit=250" % page, cache_ttl=6 * 3600) or []
+        rows += got
+        if len(got) < 250:
+            break
+    for row in rows:
+        ids = (row.get("movie") or {}).get("ids") or {}
+        if ids.get("tmdb"):
+            out["tmdb"].add(str(ids["tmdb"]))
+        if ids.get("imdb"):
+            out["imdb"].add(ids["imdb"])
+    return out
+

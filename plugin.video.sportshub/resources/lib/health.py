@@ -89,6 +89,11 @@ def warm_caches():
         ondemand.titles()
     except Exception as exc:
         kodi.log("warm ondemand failed: %s" % exc)
+    try:
+        from resources.lib import rediscover
+        rediscover.today()  # picks the day's row in the background (pool, TMDB collections)
+    except Exception as exc:
+        kodi.log("warm rediscover failed: %s" % exc)
     if kodi.setting_bool("src_sportsdb", False):
         try:
             sportsdb.tv_today()

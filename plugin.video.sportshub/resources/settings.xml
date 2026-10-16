@@ -201,6 +201,11 @@
           <default>false</default>
           <control type="toggle"/>
         </setting>
+        <setting id="rediscover_unseen_only" type="boolean" label="30230" help="30231">
+          <level>0</level>
+          <default>false</default>
+          <control type="toggle"/>
+        </setting>
         <setting id="cache_minutes" type="integer" label="30205" help="">
           <level>1</level>
           <default>60</default>

@@ -209,6 +209,14 @@ msgctxt "#30126"
 msgid "When a channel is on several services, the first one listed here is used; the others are on the long-press menu. Example: pluto,plex,roku"
 msgstr ""
 
+msgctxt "#30230"
+msgid "Rediscover: only movies I haven't seen"
+msgstr ""
+
+msgctxt "#30231"
+msgid "Off: movies you've watched (from Trakt) stay in the Rediscover row, marked Seen."
+msgstr ""
+
 msgctxt "#30300"
 msgid "Accounts"
 msgstr ""

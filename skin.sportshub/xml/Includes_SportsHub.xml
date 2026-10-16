@@ -27,6 +27,7 @@
 		<value condition="$EXP[SH_Focus9900] + !String.IsEmpty(Container(9900).ListItem.Art(fanart))">$INFO[Container(9900).ListItem.Art(fanart)]</value>
 		<value condition="Control.HasFocus(9951) + !String.IsEmpty(Container(9951).ListItem.Art(fanart))">$INFO[Container(9951).ListItem.Art(fanart)]</value>
 		<value condition="$EXP[SH_Focus9950] + !String.IsEmpty(Container(9950).ListItem.Art(fanart))">$INFO[Container(9950).ListItem.Art(fanart)]</value>
+		<value condition="$EXP[SH_Focus9400] + !String.IsEmpty(Container(9400).ListItem.Art(fanart))">$INFO[Container(9400).ListItem.Art(fanart)]</value>
 		<value condition="Control.HasFocus(9961) + !String.IsEmpty(Container(9961).ListItem.Art(fanart))">$INFO[Container(9961).ListItem.Art(fanart)]</value>
 		<value condition="$EXP[SH_Focus9960] + !String.IsEmpty(Container(9960).ListItem.Art(fanart))">$INFO[Container(9960).ListItem.Art(fanart)]</value>
 		<value></value>
@@ -46,7 +47,7 @@
 		<value condition="$EXP[SH_Focus9100]">$INFO[Container(9100).ListItem.Property(kicker)]</value>
 		<value condition="$EXP[SH_Focus9200]">$INFO[Container(9200).ListItem.Property(kicker)]</value>
 		<value condition="$EXP[SH_Focus9300]">$INFO[Container(9300).ListItem.Property(kicker)]</value>
-		<value condition="$EXP[SH_Focus9400]">BROWSE BY SPORT</value>
+		<value condition="$EXP[SH_Focus9400]">$INFO[Container(9400).ListItem.Property(kicker)]</value>
 		<value condition="$EXP[SH_Focus9500]">OPEN APP</value>
 		<value condition="Control.HasFocus(9801)">$INFO[Container(9801).ListItem.Property(kicker)]</value>
 		<value condition="$EXP[SH_Focus9800]">$INFO[Container(9800).ListItem.Property(kicker)]</value>
@@ -70,7 +71,7 @@
 		<value condition="$EXP[SH_Focus9100]">$INFO[Container(9100).ListItem.Property(title)]</value>
 		<value condition="$EXP[SH_Focus9200]">$INFO[Container(9200).ListItem.Property(title)]</value>
 		<value condition="$EXP[SH_Focus9300]">$INFO[Container(9300).ListItem.Property(title)]</value>
-		<value condition="$EXP[SH_Focus9400]">$INFO[Container(9400).ListItem.Label]</value>
+		<value condition="$EXP[SH_Focus9400]">$INFO[Container(9400).ListItem.Property(title)]</value>
 		<value condition="$EXP[SH_Focus9500]">$INFO[Container(9500).ListItem.Label]</value>
 		<value condition="Control.HasFocus(9801)">$INFO[Container(9801).ListItem.Property(title)]</value>
 		<value condition="$EXP[SH_Focus9800]">$INFO[Container(9800).ListItem.Property(title)]</value>
@@ -794,6 +795,26 @@
 						<textcolor>FFFFFFFF</textcolor>
 						<wrapmultiline>true</wrapmultiline>
 						<aligny>bottom</aligny>
+					</control>
+				</control>
+				<control type="group">
+					<!-- Rediscover: a movie you've watched (Trakt) -->
+					<left>118</left>
+					<top>10</top>
+					<visible>String.IsEqual(ListItem.Property(seen),1)</visible>
+					<control type="image">
+						<width>72</width>
+						<height>30</height>
+						<texture border="8" colordiffuse="E61F8A4C">sportshub/card.png</texture>
+					</control>
+					<control type="label">
+						<width>72</width>
+						<height>30</height>
+						<align>center</align>
+						<aligny>center</aligny>
+						<font>font20_title</font>
+						<label>[B]SEEN[/B]</label>
+						<textcolor>FFFFFFFF</textcolor>
 					</control>
 				</control>
 				<control type="image">

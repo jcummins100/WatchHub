@@ -39,7 +39,7 @@ FILTER_FILE = KODI_HOME + "/userdata/addon_data/plugin.video.sportshub/home_filt
 # Home rows, top to bottom, as Home.xml lays them out (id, name)
 FIXED_GUIDE_TABS = ["Favorites", "Categories", "Sports", "News", "Movies", "Game Shows", "Kids", "All"]
 ALL_ROWS = [(9050, "Services"), (9960, "Up Next"), (9100, "Live Sports Now"), (9200, "Today's Games"),
-            (9950, "New This Week"), (9800, "Trending"), (9700, "Browse"), (9300, "Sports Starting Soon"), (9600, "More")]
+            (9950, "New This Week"), (9400, "Rediscover"), (9800, "Trending"), (9700, "Browse"), (9300, "Sports Starting Soon"), (9600, "More")]
 PROVIDER_ROWS = [(9051, "Services"), (9961, "Up Next on <svc>"), (9951, "New This Week on <svc>"), (9801, "Trending on <svc>")]
 # actions the crawler must never run (they change user data, need a human, or switch the skin)
 NEVER = {"trakt_watched", "trakt_watchlist", "trakt_signout", "trakt_signin", "settings", "skin", "enable_addon", "refresh", "provider"}
@@ -113,7 +113,8 @@ class Offline:
         # A1: every home row, as the skin asks for it
         for name, q in [("Services row", "action=providers&skin=1"), ("Up Next (signed out offline)", "action=trakt&row=upnext&skin=1"),
                         ("Live Sports Now", "action=live&skin=1"), ("Today's Games", "action=games&league=all&skin=1"),
-                        ("New This Week", "action=ondemand&row=3&skin=1"), ("Trending", "action=ondemand&row=0&skin=1"),
+                        ("New This Week", "action=ondemand&row=3&skin=1"), ("Rediscover", "action=rediscover&skin=1"),
+                        ("Trending", "action=ondemand&row=0&skin=1"),
                         ("Browse", "action=browse_tiles&skin=1"), ("Starting Soon", "action=soon&skin=1"),
                         ("By sport (More)", "action=sports&skin=1"), ("Your apps (More)", "action=apps&skin=1")]:
             r = self.run(q)
@@ -129,6 +130,15 @@ class Offline:
             if empty_label:
                 self.rep.add(A, "Labels present: %s" % name, "ISSUE", "%d cards with an empty label" % len(empty_label))
 
+        # Rediscover: 1985-2015 movies, a mix of decades, nothing already in New This Week or Trending
+        red = self.run("action=rediscover&skin=1")["items"]
+        others = {i["label"] for q in ("action=ondemand&row=3&skin=1", "action=ondemand&row=0&skin=1") for i in self.run(q)["items"]}
+        years = [int(i["props"].get("year") or 0) for i in red]
+        decades = {y // 10 * 10 for y in years}
+        dup = sorted({i["label"] for i in red} & others)
+        ok = red and all(1985 <= y <= 2015 for y in years) and len(decades) >= 3 and not dup
+        self.rep.add(A, "Rediscover: 1985-2015, mixed decades, not repeating other rows", "PASS" if ok else "FAIL",
+                     "%d movies, decades %s%s" % (len(red), sorted(decades), (", also in other rows: %s" % dup) if dup else ""))
         # A2: crawl the WatchHub menu (list mode) from the root
         seen, queue, listings, plays = set(), [("action=root", "Menu", 0)], 0, {}
         while queue and listings < 250:

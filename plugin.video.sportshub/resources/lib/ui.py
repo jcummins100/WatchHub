@@ -526,9 +526,9 @@ def favorites_list():
     kodi.end_directory()
 
 
-def _add_title(t):
+def _add_title(t, extra_ctx=None):
     props = {"kind": "title", "title": t["title"], "meta": t["meta"], "kicker": t["service"].upper(), "service": t["service"],
-             "year": str(t["year"]), "type": t["type"], "state": ""}
+             "year": str(t["year"]), "type": t["type"], "state": "", "seen": "1" if t.get("seen") else ""}
     art = {"thumb": t["poster"] or "DefaultVideo.png", "poster": t["poster"], "landscape": t["backdrop"], "fanart": t["backdrop"]}
     info = {"title": t["title"], "plot": t["plot"], "genre": t["type"]}
     label = t["title"] if PLAIN else "%s [COLOR gray](%s, %s)[/COLOR]" % (t["title"], t["year"], t["service"])
@@ -541,6 +541,7 @@ def _add_title(t):
         ctx.append(("Trakt: add to watchlist", "RunPlugin(%s)" % kodi.build_url(action="trakt_watchlist", title=t["title"], year=t["year"], kind=t["type"])))
         ctx.append(("Trakt: mark as watched", "RunPlugin(%s)" % kodi.build_url(action="trakt_watched", title=t["title"], year=t["year"], kind=t["type"])))
     ctx.append(_title_star(t))
+    ctx += extra_ctx or []
     # Click = detail page (play is one button away there, or on the long-press menu)
     kodi.add_item(label, kodi.build_url(action="info", title=t["title"], year=t["year"], kind=t["type"]), False, art=art, info=info, props=props, context=ctx)
 
@@ -878,6 +879,45 @@ def pick_subscriptions():
     kodi.run_builtin("SetProperty(sh_refresh,%d,home)" % time.time())  # home rows reload with the new labels
 
 
+def rediscover_list():
+    """Home's Rediscover row: today's 1985-2015 picks; long-press adds More like this / Hide (and Undo)."""
+    from resources.lib import rediscover
+    kodi.set_content("videos")
+    undo = rediscover.undo_candidate()
+    for t in rediscover.today():
+        t = dict(t, meta=("Seen \u2022 " if t["seen"] else "") + t["meta"])
+        ctx = [("More like this", "RunPlugin(%s)" % kodi.build_url(action="rediscover_like", id=t["jw_id"])),
+               ("Hide this movie", "RunPlugin(%s)" % kodi.build_url(action="rediscover_hide", id=t["jw_id"]))]
+        if undo:
+            ctx.append(("Undo hide (%s)" % undo[1], "RunPlugin(%s)" % kodi.build_url(action="rediscover_unhide", id=undo[0])))
+        _add_title(t, ctx)
+    kodi.end_directory(view="posters")
+
+
+def rediscover_feedback(action, jw_id):
+    from resources.lib import rediscover
+    if action == "rediscover_like":
+        t = rediscover.like(jw_id)
+        kodi.notify("Rediscover: more like %s from tomorrow" % t["title"] if t else "Rediscover: movie not found")
+        return
+    if action == "rediscover_hide":
+        t = rediscover.find(jw_id)
+        rediscover.hide(jw_id)
+        kodi.notify("%s hidden. Undo: long-press a Rediscover movie" % (t["title"] if t else "Movie"), time_ms=6000)
+    else:
+        rediscover.unhide(jw_id)
+        kodi.notify("Back in Rediscover")
+    # reload the rows, then put focus back on the same row and place (the hidden card's neighbour)
+    homefilter.remember_spot()
+    spot = homefilter.pending_spot()
+    kodi.run_builtin("SetProperty(sh_refresh,%d,home)" % time.time())
+    if spot:
+        if action == "rediscover_hide":
+            spot["label"] = ""  # that card is gone: its neighbour takes the same place
+        homefilter.restore_spot(spot, timeout_s=10)
+        homefilter.forget_spot()
+
+
 # ---------------------------------------------------------------- router
 def dispatch(params):
     global PLAIN
@@ -1009,6 +1049,11 @@ def dispatch(params):
         from resources.lib import guide, uiworker
         if not uiworker.request(kodi.build_url(action="guide", tab=params.get("tab") or "")):
             guide.show(params.get("tab") or None)
+    elif action == "rediscover":
+        rediscover_list()
+    elif action in ("rediscover_like", "rediscover_hide", "rediscover_unhide"):
+        kodi.resolve_none()
+        rediscover_feedback(action, params.get("id", ""))
     elif action == "browse_tiles":
         browse_tiles()
     elif action == "browse":
