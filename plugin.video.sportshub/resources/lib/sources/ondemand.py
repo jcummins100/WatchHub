@@ -13,7 +13,7 @@ from resources.lib import cache, kodi
 API = "https://apis.justwatch.com/graphql"
 IMG = "https://images.justwatch.com"
 TTL = 6 * 3600
-QV = "v6"  # bump when the GraphQL queries change so stale cache entries are ignored
+QV = "v7"  # bump when the GraphQL queries change so stale cache entries are ignored
 
 # JustWatch package short code -> (display name, Android TV package)
 SERVICES = [
@@ -41,6 +41,13 @@ AMAZON_CHANNELS = [
 ]
 SERVICES += [(c, n, "com.amazon.amazonvideo.livingroom") for c, n in AMAZON_CHANNELS]
 BY_CODE = {c: (n, p) for c, n, p in SERVICES}
+# Free services: everything on them is included without a subscription
+FREE_CODES = {"tbv", "ptv", "rkc", "plx", "xum", "yfr"}
+# Stores that rent and sell inside an app we have (JustWatch lists them under their own codes)
+STORES = {"amz": ("Prime Video", "com.amazon.amazonvideo.livingroom"), "itu": ("Apple TV", "com.apple.atve.androidtv.appletv")}
+# Offer labels, best first (map 5.4): included in a confirmed subscription > free > free with ads >
+# a subscription you haven't confirmed > rent > buy
+RANK = {"Included": 0, "Free": 1, "Free with ads": 2, "Subscription": 3, "Rent": 4, "Buy": 5}
 BY_PACKAGE = {p: c for c, n, p in SERVICES}
 
 _QUERY = """
@@ -55,7 +62,7 @@ query Titles($country: Country!, $language: Language!, $first: Int!, $filter: Ti
         runtime ageCertification originalReleaseDate credits { name role characterName }
       }
       offers(country: $country, platform: ANDROID_TV) {
-        monetizationType standardWebURL deeplinkURL: deeplinkURL(platform: ANDROID_TV)
+        monetizationType retailPrice(language: $language) standardWebURL deeplinkURL: deeplinkURL(platform: ANDROID_TV)
         package { packageId shortName clearName technicalName }
       }
     } }
@@ -80,6 +87,29 @@ def installed_codes():
         elif not apps or p in apps:
             codes.append(c)
     return codes
+
+
+def subscriptions():
+    """JustWatch codes of the paid services the user confirmed (Settings or WatchHub menu > Your subscriptions)."""
+    return {x.strip() for x in kodi.setting("subscriptions", "nfx,amp,atp,hlu,pct,app").split(",") if x.strip()}
+
+
+def _label(offer, subs):
+    """Included / Free / Free with ads / Subscription / Rent $3.99 / Buy $14.99, or "" for offers we don't show."""
+    code = (offer.get("package") or {}).get("shortName")
+    mt = offer.get("monetizationType")
+    if mt == "FLATRATE":
+        return "Included" if code in subs or code in FREE_CODES else "Subscription"
+    if mt in ("FREE", "ADS"):
+        return "Free" if mt == "FREE" else "Free with ads"
+    if mt in ("RENT", "BUY") and code in STORES:
+        price = offer.get("retailPrice") or ""
+        return ("Rent" if mt == "RENT" else "Buy") + (" " + price if price else "")
+    return ""
+
+
+def _rank(label):
+    return RANK.get(label.split(" $")[0], 9)
 
 
 def _post(variables):
@@ -117,17 +147,19 @@ def _link(offer):
 
 
 def _best_offer(offers, codes):
-    """Prefer subscription offers on services we have; then free/ads; skip rentals."""
+    """The offer a card plays: best label first (Included > Free > Free with ads), then the user's service
+    order. A subscription the user hasn't confirmed, or a rental, never makes a card - those are only
+    listed under "Watch on..." (and Search says "Not on your services")."""
+    subs = subscriptions()
     ranked = []
     for o in offers or []:
         code = (o.get("package") or {}).get("shortName")
         if code not in codes:
             continue
-        mt = o.get("monetizationType")
-        score = {"FLATRATE": 0, "FREE": 1, "ADS": 1}.get(mt)
-        if score is None:
+        label = _label(o, subs)
+        if not label or _rank(label) > RANK["Free with ads"]:
             continue
-        ranked.append((score, codes.index(code), o))
+        ranked.append((_rank(label), codes.index(code), o))
     if not ranked:
         return None
     ranked.sort(key=lambda r: (r[0], r[1]))
@@ -135,20 +167,26 @@ def _best_offer(offers, codes):
 
 
 def _offers(offers, codes):
-    """All playable offers on the user's services, best first, one per service."""
-    seen, out = set(), []
+    """Every way to watch on the user's services (and their apps' stores), best first, one per service."""
+    subs = subscriptions()
+    best = {}
     for o in offers or []:
         code = (o.get("package") or {}).get("shortName")
-        if code not in codes or o.get("monetizationType") not in ("FLATRATE", "FREE", "ADS"):
+        if code in STORES:
+            name, pkg = STORES[code]
+            if pkg not in {BY_CODE[c][1] for c in codes if c in BY_CODE}:
+                continue  # that store's app isn't on this device
+        elif code in codes:
+            name, pkg = BY_CODE.get(code, ("", ""))
+        else:
             continue
-        name, pkg = BY_CODE.get(code, ("", ""))
-        if not pkg or code in seen:
+        label = _label(o, subs)
+        if not pkg or not label:
             continue
-        seen.add(code)
-        out.append({"service": name, "pkg": pkg, "url": _link(o), "code": code,
-                    "monetization": {"FLATRATE": "subscription", "FREE": "free", "ADS": "free with ads"}.get(o.get("monetizationType"), "")})
-    out.sort(key=lambda o: (o["monetization"] != "subscription", codes.index(o["code"])))
-    return out
+        if code not in best or _rank(label) < _rank(best[code]["label"]):
+            best[code] = {"service": name, "pkg": pkg, "url": _link(o), "code": code, "label": label, "monetization": label}
+    order = {c: i for i, c in enumerate(codes)}
+    return sorted(best.values(), key=lambda o: (_rank(o["label"]), order.get(o["code"], 99)))
 
 
 def _make(node, codes, require_offer=True):
@@ -161,9 +199,11 @@ def _make(node, codes, require_offer=True):
     offer = _best_offer(node.get("offers"), codes)
     if not offer and require_offer:
         return None
+    label = ""
     if offer:
         code = offer["package"]["shortName"]
         name, pkg = BY_CODE.get(code, (offer["package"].get("clearName", ""), ""))
+        label = _label(offer, subscriptions())
     else:
         others = sorted({(o.get("package") or {}).get("clearName", "") for o in node.get("offers") or [] if o.get("monetizationType") in ("FLATRATE", "FREE", "ADS")})
         name, pkg = ("Not on your services" + (" (on %s)" % ", ".join(x for x in others if x)[:60] if others else "")), ""
@@ -182,7 +222,7 @@ def _make(node, codes, require_offer=True):
         "plot": c.get("shortDescription") or "",
         "poster": _img(c.get("posterUrl"), "s332"),
         "backdrop": _img(backdrops[0].get("backdropUrl"), "s1440") if backdrops else "",
-        "meta": " • ".join(x for x in (name, kind, str(year), genres, ("IMDb %.1f" % imdb) if imdb else "") if x),
+        "meta": " • ".join(x for x in ((name + " · " + label) if label else name, kind, str(year), genres, ("IMDb %.1f" % imdb) if imdb else "") if x),
         "imdb": ("%.1f" % imdb) if imdb else "",
         "cast": ", ".join("%s (%s)" % (x["name"], x["characterName"]) if x.get("characterName") else x["name"]
                           for x in (c.get("credits") or []) if x.get("role") == "ACTOR")[:400],
@@ -193,6 +233,7 @@ def _make(node, codes, require_offer=True):
         "season": node.get("season_name") or "",
         "genre_codes": [g.get("shortName") for g in (c.get("genres") or []) if g.get("shortName")],
         "offers": _offers(node.get("offers"), codes),
+        "label": label,
         "playable": bool(pkg),
         "play": {"src": "ondemand", "pkg": pkg, "url": _link(offer), "name": name},
     }
@@ -222,11 +263,11 @@ query New($country: Country!, $language: Language!, $date: Date!, $first: Int!) 
     edges { node {
       __typename objectType
       content(country: $country, language: $language) { title originalReleaseYear shortDescription posterUrl genres { shortName } backdrops { backdropUrl } scoring { imdbScore } }
-      offers(country: $country, platform: ANDROID_TV) { monetizationType standardWebURL deeplinkURL: deeplinkURL(platform: ANDROID_TV) package { packageId shortName clearName technicalName } }
+      offers(country: $country, platform: ANDROID_TV) { monetizationType retailPrice(language: $language) standardWebURL deeplinkURL: deeplinkURL(platform: ANDROID_TV) package { packageId shortName clearName technicalName } }
       ... on Season {
         show { objectType
           content(country: $country, language: $language) { title originalReleaseYear shortDescription posterUrl genres { shortName } backdrops { backdropUrl } scoring { imdbScore } runtime ageCertification originalReleaseDate credits { name role characterName } }
-          offers(country: $country, platform: ANDROID_TV) { monetizationType standardWebURL deeplinkURL: deeplinkURL(platform: ANDROID_TV) package { packageId shortName clearName technicalName } }
+          offers(country: $country, platform: ANDROID_TV) { monetizationType retailPrice(language: $language) standardWebURL deeplinkURL: deeplinkURL(platform: ANDROID_TV) package { packageId shortName clearName technicalName } }
         }
       }
     } }
@@ -310,7 +351,7 @@ query Search($country: Country!, $language: Language!, $first: Int!, $filter: Ti
     edges { node {
       id objectType
       content(country: $country, language: $language) { title originalReleaseYear shortDescription posterUrl genres { shortName } backdrops { backdropUrl } scoring { imdbScore } runtime ageCertification originalReleaseDate credits { name role characterName } }
-      offers(country: $country, platform: ANDROID_TV) { monetizationType standardWebURL deeplinkURL: deeplinkURL(platform: ANDROID_TV) package { packageId shortName clearName technicalName } }
+      offers(country: $country, platform: ANDROID_TV) { monetizationType retailPrice(language: $language) standardWebURL deeplinkURL: deeplinkURL(platform: ANDROID_TV) package { packageId shortName clearName technicalName } }
     } }
   }
 }

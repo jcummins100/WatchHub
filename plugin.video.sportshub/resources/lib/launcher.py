@@ -1,4 +1,7 @@
 """Turn a programme's `play` dict into an action: launch an app, tune a PVR channel, etc."""
+import json
+import re
+
 import xbmcgui
 
 from resources.lib import apps, health, kodi
@@ -31,12 +34,35 @@ def _slug(name):
     return s.strip("-")
 
 
+_plex_slugs = None
+
+
+def _plex_slug(cid, name):
+    """Plex's own slug for a channel, from the snapshot made by tools/plex_slugs.py ('21 Jump Street' is
+    21-jump-street-2, 'ION' is ion-streaming). Not in the snapshot: guess the way Plex builds new ones."""
+    global _plex_slugs
+    if _plex_slugs is None:
+        import os
+        try:
+            with open(os.path.join(kodi.ADDON_PATH, "resources", "data", "plex_slugs.json"), encoding="utf-8") as fh:
+                _plex_slugs = json.load(fh)["slugs"]
+        except (OSError, ValueError, KeyError):
+            _plex_slugs = {}
+    slug = _plex_slugs.get(cid.rsplit("-", 1)[-1])
+    if slug:
+        return slug
+    # Plex drops apostrophes and "+", and writes a & with no spaces as "and" (A&E -> aande)
+    name = re.sub(r"['’+]", "", name)
+    return _slug(re.sub(r"(?<=\w)&(?=\w)", "and", name))
+
+
 def _launch_fast(sid, cid, name):
     svc = fast.SERVICES[sid]
     if not svc["package"]:
         kodi.notify(kodi.localized(30023, svc["name"]), icon=xbmcgui.NOTIFICATION_WARNING)
         return False
-    link = svc["deeplink"].format(id=cid, slug=_slug(name)) if svc["deeplink"] and cid else ""
+    slug = _plex_slug(cid, name) if sid == "plex" else _slug(name)
+    link = svc["deeplink"].format(id=cid, slug=slug) if svc["deeplink"] and cid else ""
     return _launch_app(svc["package"], link, name or svc["name"], fresh=True)
 
 

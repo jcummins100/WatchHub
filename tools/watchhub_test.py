@@ -103,7 +103,7 @@ class Offline:
             if line.startswith("@@JSON "):
                 items = json.loads(line[7:])
         builtins = [l.split("BUILTIN:", 1)[1].strip() for l in p.stdout.splitlines() if "BUILTIN:" in l]
-        dialogs = [l.strip() for l in p.stdout.splitlines() if l.strip().startswith(("NOTIFY:", "YESNO:", "DIALOG", "SELECT:"))]
+        dialogs = [l.strip() for l in p.stdout.splitlines() if l.strip().startswith(("NOTIFY:", "YESNO:", "DIALOG", "SELECT:", "MULTISELECT:"))]
         err = p.stderr[p.stderr.find("Traceback"):] if "Traceback" in p.stderr else ""
         return {"items": items if items is not None else [], "builtins": builtins, "dialogs": dialogs, "err": err, "took": took,
                 "log": [l for l in p.stderr.splitlines() if "LOG:" in l]}
@@ -188,8 +188,11 @@ class Offline:
             name = [i["label"] for i in prov if "code=%s" % code in i["url"]][0]
             sel = self.run("action=providers&skin=1&svc=%s" % code)["items"]
             marked = [i["label"] for i in sel if i["props"].get("selected") == "1"]
-            self.rep.add(A, "Filter %s: Services row (one tile per service, picked one reads 'Open %s')" % (name, name),
-                         "PASS" if marked == ["Open %s" % name] and len(sel) == len(prov) else "FAIL", "selected=%s, %d tiles (All view %d)" % (marked, len(sel), len(prov)))
+            at = [n for n, i in enumerate(sel) if i["props"].get("selected") == "1"]
+            nxt = sel[at[0] + 1] if at and at[0] + 1 < len(sel) else {"label": "", "props": {}}
+            ok = marked == [name] and nxt["label"] == "Open %s" % name and nxt["props"].get("open") == "1" and len(sel) == len(prov) + 1
+            self.rep.add(A, "Filter %s: Services row (picked tile marked, separate 'Open %s' card right after it)" % (name, name),
+                         "PASS" if ok else "FAIL", "selected=%s, next=%s, %d tiles (All view %d)" % (marked, nxt["label"], len(sel), len(prov)))
             up = self.run("action=trakt&row=upnext&skin=1&svc=%s" % code)
             self.rep.add(A, "Filter %s: Up Next row (signed out offline)" % name, "FAIL" if up["err"] else "INFO", ", ".join(i["label"] for i in up["items"])[:120] or "empty")
             for row, rname in ((3, "New This Week"), (0, "Trending")):

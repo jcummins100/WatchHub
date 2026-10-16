@@ -139,6 +139,10 @@ class _Dialog:
         print("  SELECT: %s -> %s" % (title, options))
         return 0
 
+    def multiselect(self, title, options, preselect=None, **k):
+        print("  MULTISELECT: %s -> %s (ticked %s)" % (title, options, preselect))
+        return None  # cancelled: nothing is saved
+
 
 class _WindowXMLDialog:
     def __init__(self, *a, **k):

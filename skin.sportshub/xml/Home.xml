@@ -265,10 +265,10 @@
 				<!-- under WATCHHUB, on the same line as the date on the right (the icons are centred above) -->
 				<left>100</left>
 				<top>96</top>
-				<width>540</width>
+				<width>1100</width>
 				<height>30</height>
 				<font>font25_title</font>
-				<label>[B]BROWSING: $INFO[Window(Home).Property(sh_provider_name)][/B]</label>
+				<label>[B]BROWSING: $INFO[Window(Home).Property(sh_provider_name)][/B]  [COLOR FF9AA4B8]·  Back clears[/COLOR]</label>
 				<textcolor>FF3D8BFF</textcolor>
 				<shadowcolor>AA000000</shadowcolor>
 				<visible>!String.IsEmpty(Window(Home).Property(sh_provider))</visible>

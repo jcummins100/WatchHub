@@ -605,6 +605,13 @@
 					<texture border="16" colordiffuse="FF1C2435">sportshub/card.png</texture>
 				</control>
 				<control type="image">
+					<!-- the "Open <service>" card: same red as the info page's Play button -->
+					<width>384</width>
+					<height>216</height>
+					<texture border="16" colordiffuse="FFE0162B">sportshub/card.png</texture>
+					<visible>String.IsEqual(ListItem.Property(open),1)</visible>
+				</control>
+				<control type="image">
 					<left>132</left>
 					<top>38</top>
 					<width>120</width>

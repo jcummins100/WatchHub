@@ -54,9 +54,12 @@ class TitleInfo(xbmcgui.WindowXMLDialog):
         self.setProperty("cast", ("Cast: " + cast) if cast else "")
         self.setProperty("director", ("Director: " + it["director"]) if it.get("director") else "")
         offers = it.get("offers") or []
-        self.setProperty("also", ("Also on: " + ", ".join(o["service"] for o in offers[1:])) if len(offers) > 1 else "")
+        self.setProperty("also", ("Also: " + ", ".join("%s (%s)" % (o["service"], o["label"]) for o in offers[1:])) if len(offers) > 1 else "")
         self.setProperty("alts", "1" if len(offers) > 1 else "")
-        self.setProperty("playlabel", ("Play on %s" % it["service"]) if it.get("play", {}).get("pkg") else "")
+        # "Included" is the usual case and the card already says it; the button only names the exceptions
+        # (a long "Play on Paramount+ (Prime) · Included" pushed Mark watched and Close off the screen)
+        extra = " · " + it["label"] if it.get("label") and it["label"] != "Included" else ""
+        self.setProperty("playlabel", ("Play on %s%s" % (it["service"], extra)) if it.get("play", {}).get("pkg") else "")
         if not it.get("play", {}).get("pkg"):
             self.setProperty("also", it.get("service") or "Not on your services")
         self.setProperty("trailer", "1")
@@ -146,7 +149,7 @@ class TitleInfo(xbmcgui.WindowXMLDialog):
             kodi.start_android_activity(youtube.PACKAGE, action="android.intent.action.VIEW", data_uri=url)
         elif control_id == BTN_ALTS:
             offers = it.get("offers") or []
-            pick = xbmcgui.Dialog().select("Watch on...", ["%s (%s)" % (o["service"], o["monetization"]) for o in offers])
+            pick = xbmcgui.Dialog().select("Watch on...", ["%s · %s" % (o["service"], o["label"]) for o in offers])
             if pick >= 0 and offers[pick].get("pkg"):
                 self.close()
                 kodi.start_android_activity(offers[pick]["pkg"], action="android.intent.action.VIEW", data_uri=offers[pick]["url"])

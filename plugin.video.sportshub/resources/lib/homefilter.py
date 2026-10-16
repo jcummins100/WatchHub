@@ -6,6 +6,7 @@ choice is also saved to a file in the add-on's profile and put back by the servi
 """
 import json
 import os
+import time
 
 import xbmc
 import xbmcgui
@@ -93,4 +94,77 @@ def focus(code, timeout_s=8.0):
             return False
         waited += 0.1
     kodi.log("home filter: gave up focusing '%s' after %.0fs" % (code, timeout_s))
+    return False
+
+
+# ---------------------------------------------------------------- back to the same card after an app
+SPOT_WINDOW = 3 * 3600  # a return this long after launching an app still goes back to its card
+
+
+def _spot_path():
+    return os.path.join(kodi.ensure_profile_dir(), "home_spot.json")
+
+
+def remember_spot():
+    """Before an app opens: note Home's focused row and card (position and label). Skipped when Home
+    isn't underneath (the guide keeps its own return), or focus is on the header."""
+    try:
+        if not xbmc.getCondVisibility("Window.IsVisible(home)"):
+            return
+        row = xbmcgui.Window(10000).getFocusId()
+    except RuntimeError:
+        return
+    if not row or row in (ALL_ROW, PROVIDER_ROW) or not xbmc.getCondVisibility("Control.IsVisible(%d)" % row):
+        return
+    pos = int(xbmc.getInfoLabel("Container(%d).CurrentItem" % row) or 0)
+    if pos < 1:
+        return
+    spot = {"at": int(time.time()), "row": row, "pos": pos, "provider": current(),
+            "label": xbmc.getInfoLabel("Container(%d).ListItem.Label" % row)}
+    try:
+        with open(_spot_path(), "w", encoding="utf-8") as fh:
+            json.dump(spot, fh)
+    except OSError as exc:
+        kodi.log("home spot not saved: %s" % exc)
+
+
+def pending_spot():
+    try:
+        with open(_spot_path(), encoding="utf-8") as fh:
+            spot = json.load(fh)
+        if isinstance(spot, dict) and time.time() - float(spot.get("at", 0)) < SPOT_WINDOW:
+            return spot
+    except (OSError, ValueError, TypeError):
+        pass
+    return None
+
+
+def forget_spot():
+    try:
+        os.remove(_spot_path())
+    except OSError:
+        pass
+
+
+def restore_spot(spot, timeout_s=30.0):
+    """Focus the remembered card once its row has loaded: by label (rows may have been rebuilt meanwhile),
+    else by position. Gives up if the user is already somewhere else on Home, or the service filter changed."""
+    row = int(spot["row"])
+    mon = xbmc.Monitor()
+    waited = 0.0
+    while waited < timeout_s:
+        if current() != spot.get("provider", ""):
+            return False
+        if xbmc.getCondVisibility("Window.IsActive(home) + Control.IsVisible(%d) + !Container(%d).IsUpdating" % (row, row)):
+            n = int(xbmc.getInfoLabel("Container(%d).NumItems" % row) or 0)
+            if n:
+                labels = [xbmc.getInfoLabel("Container(%d).ListItemAbsolute(%d).Label" % (row, i)) for i in range(n)]
+                idx = labels.index(spot["label"]) if spot.get("label") in labels else min(int(spot["pos"]), n) - 1
+                kodi.run_builtin("SetFocus(%d,%d,absolute)" % (row, idx))
+                kodi.log("home: back to row %d card %d (%s)" % (row, idx + 1, spot.get("label", "")))
+                return True
+        if mon.waitForAbort(0.25):
+            return False
+        waited += 0.25
+    kodi.log("home: row %d never loaded, card not restored" % row)
     return False

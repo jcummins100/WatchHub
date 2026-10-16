@@ -231,9 +231,9 @@ def _rebuild_in_background():
 
 
 def _build_channels():
-    """Every free channel with listings. The same channel on two services is merged into one row
-    (preferred service first, the other under "Watch on...") only when both are airing the same
-    programme right now - a same-named regional feed with its own schedule stays a separate row."""
+    """Every free channel with listings. The same channel on several services is one row: the preferred
+    service's feed, the others under "Watch on..." (even when their schedules differ - no duplicate rows).
+    Two same-named feeds on one service (regional versions) stay separate unless they air the same thing."""
     prio = {sid: i for i, sid in enumerate(fast.service_priority())}
     now = time.time()
     by_key = {}
@@ -241,7 +241,7 @@ def _build_channels():
         svc = fast.SERVICES[sid]
         for cid, ch in fast._load(sid).items():
             name = ch.get("name", "")
-            key = fast._norm(name)
+            key = _key(name)
             progs = _programs(ch.get("programs"))
             if not key or not progs:
                 continue
@@ -263,7 +263,9 @@ def _build_channels():
         feeds.sort(key=lambda f: prio.get(f["sid"], 99))
         clusters = []
         for f in feeds:
-            home = next((c for c in clusters if _same_broadcast(c[0]["current"], f["current"])), None)
+            # another service's feed joins the first row; the same service's only when it's the same broadcast
+            home = next((c for c in clusters if f["sid"] not in {x["sid"] for x in c}
+                         or _same_broadcast(c[0]["current"], f["current"])), None)
             (home.append(f) if home else clusters.append([f]))
         for c in clusters:
             row = dict(c[0])
@@ -273,6 +275,11 @@ def _build_channels():
             row["cats"] = set().union(*(f["cats"] for f in c))
             rows.append(row)
     return sorted(rows, key=lambda c: (c["name"].lower(), c["service"]))
+
+
+def _key(name):
+    """Channel identity across services: fast._norm, but "+"/"Plus" counts (ION and ION Plus are two channels)."""
+    return fast._norm(re.sub(r"\+|\bplus\b", " xplus ", name or "", flags=re.I)).replace("xplus", "plus")
 
 
 def _same_broadcast(a, b):

@@ -257,6 +257,18 @@ msgctxt "#30322"
 msgid "Comma-separated: aho=HBO Max, aep=MGM+, app=Paramount+, saz=Starz, azp=AMC+, adp=Discovery+, avl=Apple TV, acn=Cinemax, abb=BritBox, pep=Peacock"
 msgstr ""
 
+msgctxt "#30330"
+msgid "Your subscriptions"
+msgstr ""
+
+msgctxt "#30331"
+msgid "Paid services you subscribe to"
+msgstr ""
+
+msgctxt "#30332"
+msgid "Comma-separated JustWatch codes. Titles on these are labelled Included and play first. nfx=Netflix, amp=Prime Video, atp=Apple TV, hlu=Hulu, pct=Peacock, ppp=Paramount+, mxx=Max, dnp=Disney+, tcw=The CW, plus Prime channels (app=Paramount+, aho=HBO Max...). Easier: WatchHub menu > Your subscriptions."
+msgstr ""
+
 msgctxt "#30130"
 msgid "Hide Spanish-language channels"
 msgstr ""

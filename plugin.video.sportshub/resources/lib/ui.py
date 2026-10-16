@@ -167,6 +167,7 @@ def root():
         ("Your Apps", "apps", "DefaultAddonProgram.png", "Installed streaming apps"),
         ("WatchHub look (skin)", "skin", "DefaultAddonSkin.png", "Switch to the WatchHub skin"),
         (kodi.localized(30008), "refresh", "DefaultAddonsUpdates.png", "Re-download guide data"),
+        ("Your subscriptions", "subscriptions", "DefaultAddonService.png", "Which paid services you have: their titles say Included"),
         ("Status", "status", "DefaultAddonService.png", "Sources and apps"),
         (kodi.localized(30007), "settings", "DefaultAddonService.png", "Sports Hub settings"),
     ]
@@ -175,7 +176,7 @@ def root():
         if not t:
             continue
         label, action, icon, meta = t
-        folder = action not in ("refresh", "settings", "skin", "guide")
+        folder = action not in ("refresh", "settings", "skin", "guide", "subscriptions")
         kodi.add_item(label, kodi.build_url(action=action), folder, art={"icon": icon, "thumb": icon},
                       props={"kind": "tile", "color": MENU_COLORS[i % len(MENU_COLORS)], "meta": meta})
         i += 1
@@ -533,7 +534,7 @@ def _add_title(t):
     label = t["title"] if PLAIN else "%s [COLOR gray](%s, %s)[/COLOR]" % (t["title"], t["year"], t["service"])
     ctx = [("Play on %s" % t["service"], "RunPlugin(%s)" % kodi.build_url(action="play", **t["play"]))]
     for o in (t.get("offers") or [])[1:]:
-        ctx.append(("Watch on %s" % o["service"], "RunPlugin(%s)" % kodi.build_url(action="play", src="ondemand", pkg=o["pkg"], url=o["url"], name=o["service"])))
+        ctx.append(("Watch on %s · %s" % (o["service"], o["label"]), "RunPlugin(%s)" % kodi.build_url(action="play", src="ondemand", pkg=o["pkg"], url=o["url"], name=o["service"])))
     if tmdb.enabled():
         ctx.append(("Watch trailer", "RunPlugin(%s)" % kodi.build_url(action="trailer", title=t["title"], year=t["year"], kind=t["type"])))
     if trakt.signed_in():
@@ -618,29 +619,33 @@ def ondemand_list(row, svc=""):
 
 
 def providers(svc=""):
-    """The home screen's Services row: All + each installed service. `svc` = the one selected now."""
+    """The home screen's Services row: All + each installed service. `svc` = the one selected now; it's
+    marked SHOWING and a separate "Open <service>" card follows it (map 3: no "press again to open")."""
     kodi.set_content("videos")
     items = [("", "All services", "", "DefaultVideo.png")] + [
         (c, ondemand.short_name(c), ondemand.BY_CODE[c][1], "androidapp://sources/apps/%s.png" % ondemand.BY_CODE[c][1]) for c in ondemand.installed_codes()]
     for code, name, pkg, thumb in items:
         selected = code == svc
-        if selected and code:
-            # the picked service's own tile becomes its "open" button: one tile per service, nothing shifts
-            label, kicker, meta = "Open %s" % name, "SHOWING", "Showing only %s - press OK again to open the app" % name
-        elif selected:
-            label, kicker, meta = name, "SHOWING", "Showing everything - pick a service to narrow the rows"
+        if selected:
+            kicker = "SHOWING"
+            meta = ("Showing only %s - Open %s is right next to it" % (name, name)) if code else "Showing everything - pick a service to narrow the rows"
         else:
-            label, kicker, meta = name, "SERVICES", "Show only %s" % name if code else "Show everything again"
-        kodi.add_item(label, kodi.build_url(action="provider", code=code), False, art={"thumb": thumb, "icon": "DefaultAddonProgram.png"},
-                      info={"title": label}, props={"kind": "app", "meta": meta, "kicker": kicker, "selected": "1" if selected else "", "code": code})
+            kicker = "SERVICES"
+            meta = ("Show only %s" % name) if code else "Clear: show every service again"
+        kodi.add_item(name, kodi.build_url(action="provider", code=code), False, art={"thumb": thumb, "icon": "DefaultAddonProgram.png"},
+                      info={"title": name}, props={"kind": "app", "meta": meta, "kicker": kicker, "selected": "1" if selected else "", "code": code})
+        if selected and code:
+            label = "Open %s" % name
+            kodi.add_item(label, kodi.build_url(action="play", src="app", id=pkg, name=name), False,
+                          art={"thumb": thumb, "icon": "DefaultAddonProgram.png"}, info={"title": label},
+                          props={"kind": "app", "open": "1", "kicker": "OPEN APP", "code": "open:" + code,
+                                 "meta": "Go to the %s app to browse its own menus" % name})
     kodi.end_directory()
 
 
 def pick_provider(code):
-    """Services row click: narrow the home rows to one service (or back to All); the selected one again opens its app.
-
-    (The selected tile is labelled "Open <service>", so the second press is spelled out on screen.)
-    """
+    """Services row click: narrow the home rows to one service (or back to All). Pressing the selected one
+    again still opens its app (the Open card next to it is the visible way)."""
     if code and code == homefilter.current():
         launcher.play({"src": "app", "id": ondemand.BY_CODE[code][1], "name": ondemand.short_name(code)})
         return
@@ -855,6 +860,24 @@ def status():
     kodi.end_directory()
 
 
+def pick_subscriptions():
+    """Tick the paid services you have; titles on them are labelled Included and play first."""
+    codes = [c for c in ondemand.installed_codes() if c not in ondemand.FREE_CODES]
+    if not codes:
+        kodi.notify("No paid streaming apps on this device")
+        return
+    have = ondemand.subscriptions()
+    names = [ondemand.short_name(c) for c in codes]
+    picked = xbmcgui.Dialog().multiselect("Your subscriptions", names, preselect=[i for i, c in enumerate(codes) if c in have])
+    if picked is None:
+        return
+    # keep confirmed services whose app isn't on this device (another Shield may have it)
+    keep = sorted(c for c in have if c not in codes)
+    kodi.ADDON.setSetting("subscriptions", ",".join(keep + [codes[i] for i in picked]))
+    kodi.notify("Subscriptions saved")
+    kodi.run_builtin("SetProperty(sh_refresh,%d,home)" % time.time())  # home rows reload with the new labels
+
+
 # ---------------------------------------------------------------- router
 def dispatch(params):
     global PLAIN
@@ -978,6 +1001,9 @@ def dispatch(params):
         refresh()
     elif action == "status":
         status()
+    elif action == "subscriptions":
+        kodi.resolve_none()
+        pick_subscriptions()
     elif action == "guide":
         kodi.resolve_none()
         from resources.lib import guide, uiworker

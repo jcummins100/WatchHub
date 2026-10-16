@@ -123,6 +123,14 @@
           <control type="edit" format="string"><heading>30305</heading></control>
         </setting>
       </group>
+      <group id="4" label="30330">
+        <setting id="subscriptions" type="string" label="30331" help="30332">
+          <level>0</level>
+          <default>nfx,amp,atp,hlu,pct,app</default>
+          <constraints><allowempty>true</allowempty></constraints>
+          <control type="edit" format="string"><heading>30331</heading></control>
+        </setting>
+      </group>
       <group id="3" label="30320">
         <setting id="amazon_channels" type="string" label="30321" help="30322">
           <level>0</level>

@@ -129,6 +129,9 @@ def start_android_activity(package, action="", data_uri="", data_type="", class_
     parts = [q(package), q(""), q(data_type), q(data_uri), q(flags), extras or q(""), q(action), q(""), q(class_name)]
     while len(parts) > 4 and parts[-1] == q(""):
         parts.pop()
+    if package != "com.android.vending":
+        from resources.lib import homefilter
+        homefilter.remember_spot()  # come back to this row and card (map 3), even if Android kills Kodi
     run_builtin("StartAndroidActivity(%s)" % ",".join(parts))
 
 

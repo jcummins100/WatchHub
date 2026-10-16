@@ -60,8 +60,19 @@ def main():
             for _ in range(60):
                 if xbmc.getCondVisibility("Window.IsActive(home)") or monitor.waitForAbort(0.5):
                     break
-            if code:
+            if code and not homefilter.pending_spot():
                 homefilter.focus(code, timeout_s=30)
+
+    # Kodi was killed while an app launched from a Home card was open: back to that row and card.
+    if xbmc.getSkinDir() == "skin.sportshub":
+        from resources.lib import guide
+        spot = homefilter.pending_spot()
+        if spot and guide.pending_return() is None:
+            for _ in range(60):
+                if xbmc.getCondVisibility("Window.IsActive(home)") or monitor.waitForAbort(0.5):
+                    break
+            if homefilter.restore_spot(spot):
+                homefilter.forget_spot()
 
     pending_guide = ""
     # Kodi was killed while a channel launched from the TV Guide was playing: put the guide back.
@@ -99,6 +110,11 @@ def main():
                                or now - reload_pending > 15 * 60):
             home.setProperty("sh_refresh", str(int(time.time())))
             reload_pending = 0
+            # the reload puts every row back on its first card: someone off in an app comes back to theirs
+            # (only while no key has been pressed in Kodi since that app was launched)
+            spot = homefilter.pending_spot()
+            if spot and xbmc.getCondVisibility("System.IdleTime(%d)" % max(1, int(time.time() - spot["at"]) - 5)):
+                homefilter.restore_spot(spot, timeout_s=20)
         if now >= next_refresh:
             try:
                 health.warm_caches()
