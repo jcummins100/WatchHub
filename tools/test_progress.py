@@ -33,7 +33,7 @@ PHASES = [  # (name, area, case prefixes) in the order the test runner works thr
     ("Every kind of click (off-device)", "A", ("Click",)),
     ("Service filters (off-device)", "A", ("Services row", "Filter")),
     ("Settings matrix (off-device)", "A", ("Setting", "Game cards")),
-    ("TV Guide data (off-device)", "A", ("Guide data", "Guide:")),
+    ("TV Guide data + Favorites (off-device)", "A", ("Guide data", "Guide:", "Favorites")),
     ("Setup: version, apps, Kodi start", "B", ("Installed", "Third-party", "Kodi started")),
     ("Startup screen", "B", ("Startup",)),
     ("Home rows on the TV", "B", ("All view row", "Down on last row", "Up from", "Row end", "Right at end")),

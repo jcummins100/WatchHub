@@ -270,6 +270,20 @@ class Offline:
 
 # ====================================================================== part B: on-device
 
+    def favorites_check(self):
+        """A7: the \u2605 Favorites screen: add a title, see it listed, remove it again (off-device profile only)."""
+        A = "A Logic"
+        key = "title:wh-test-show:2020"
+        add = self.run("action=fav&what=title&key=%s&label=WH Test Show&year=2020&kind=Show" % key)
+        listed = self.run("action=favorites&skin=1")
+        has = any("WH Test Show" in i["label"] for i in listed["items"])
+        self.run("action=fav&what=title&key=%s&label=WH Test Show" % key)
+        after = self.run("action=favorites&skin=1")
+        gone = not any("WH Test Show" in i["label"] for i in after["items"])
+        ok = has and gone and not (add["err"] or listed["err"] or after["err"])
+        self.rep.add(A, "Favorites: add a title, list it, remove it", "PASS" if ok else "FAIL",
+                     "listed=%s removed=%s %s" % (has, gone, (add["err"] or listed["err"] or after["err"])[-200:]))
+
     def guide_data(self):
         """A6: the TV Guide's tabs as the Shield would build them (Game Shows, Plex/Roku genres, Spanish filter)."""
         A = "A Logic"
@@ -1161,6 +1175,7 @@ def main():
         off = Offline(rep, env)
         off.suite()
         off.guide_data()
+        off.favorites_check()
     if args.only != "A":
         OnDevice(rep, dev, args.keep_rpc).suite()
     rep.save()

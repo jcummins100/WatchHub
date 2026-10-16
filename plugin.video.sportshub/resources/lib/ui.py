@@ -118,6 +118,9 @@ def _add_programme(p, show_time=False, show_channel=True):
     ctx = []
     for alt in p.get("alts") or []:
         ctx.append(("Watch on %s" % alt["service"], "RunPlugin(%s)" % kodi.build_url(action="play", **alt["play"])))
+    if p["source"] in fast.SERVICES and p.get("channel"):
+        from resources.lib import favorites
+        ctx.append((_star(favorites.has_channel(p["channel"])), "RunPlugin(%s)" % kodi.build_url(action="fav", what="channel", name=p["channel"])))
     if p["source"] in fast.SERVICES or p["source"] == "pvr":
         ctx.append(("%s schedule" % p["channel"],
                     "ActivateWindow(Videos,%s,return)" % kodi.build_url(action="channel", src=p["source"], id=p["channel_id"])))
@@ -152,6 +155,7 @@ def root():
         ("What's Streaming", "ondemand", "DefaultMovies.png", "Trending, new this week, newest releases"),
         ("My Shows & Movies (Trakt)", "trakt", "DefaultTVShows.png", "Up next, new episodes, watchlist"),
         ("TV Guide", "guide", "DefaultPVRGuide.png", "Free live channels: what's on now and later"),
+        ("\u2605 Favorites", "favorites", "DefaultFavourites.png", "Your favorite channels, shows, movies and games"),
         ("Free Live TV", "tvgroups", "DefaultTVShows.png", "News, movies, kids and more"),
         ("By Service", "services", "DefaultNetwork.png", "Pluto, Plex, Roku..."),
         (kodi.localized(30004), "pvr", "DefaultTVShows.png", "Kodi Live TV") if pvr_has_channels() else None,
@@ -363,6 +367,10 @@ def _add_game(g, show_league=True):
     if seen_pkgs and not any(health.app_installed(p) is not False for p in seen_pkgs):
         props["network"] = "%s • needs %s app" % (props["network"], need)
         props["meta"] = "%s • needs the %s app" % (props["meta"], need)
+    from resources.lib import favorites
+    gkey = favorites.game_key(g["title"])
+    ctx.append((_star(favorites.has(gkey)), "RunPlugin(%s)" % kodi.build_url(action="fav", what="game", key=gkey, label=g["short"] or g["title"],
+                                                                               league=g["league"], logo=g["logo"] or "")))
     if PLAIN:
         label = g["short"] or g["title"]
     if g["playable"]:
@@ -430,6 +438,86 @@ def youtube_menu():
     kodi.end_directory()
 
 
+def _star(on):
+    return "\u2605 Remove from Favorites" if on else "\u2605 Add to Favorites"
+
+
+def _title_star(t):
+    from resources.lib import favorites
+    key = favorites.title_key(t["title"], t["year"])
+    return (_star(favorites.has(key)), "RunPlugin(%s)" % kodi.build_url(action="fav", what="title", key=key, label=t["title"], year=t["year"],
+                                                                        kind=t["type"], poster=t.get("poster") or "", backdrop=t.get("backdrop") or "",
+                                                                        service=t.get("service") or ""))
+
+
+def toggle_favorite(params):
+    from resources.lib import favorites
+    what = params.get("what")
+    if what == "channel":
+        added = favorites.toggle_channel(params.get("name", ""))
+        name = params.get("name", "")
+    else:
+        item = {"kind": what, "key": params.get("key", ""), "label": params.get("label", "")}
+        for k in ("year", "kind", "poster", "backdrop", "service", "league", "logo"):
+            if params.get(k):
+                item["type" if k == "kind" else k] = params[k]
+        item["kind"] = what
+        added = favorites.toggle(item)
+        name = item["label"]
+    kodi.notify(("Added %s to Favorites" if added else "Removed %s from Favorites") % name, time_ms=2500)
+    xbmc.executebuiltin("Container.Refresh")
+
+
+def favorites_list():
+    """The \u2605 screen: favorite channels with what's on now, then shows/movies, games, and Kodi's own favourites."""
+    from resources.lib import favorites, guide
+    kodi.set_content("videos")
+    kodi.set_category("Favorites")
+    count = 0
+    keys = favorites.channel_keys()
+    if keys:
+        now = time.time()
+        rows = sorted((c for c in guide.channels() if c["key"] in keys), key=lambda c: keys.index(c["key"]))
+        shown = set()
+        for c in rows:
+            if c["key"] in shown:
+                continue
+            shown.add(c["key"])
+            cur, end = None, 0
+            for i, (st, title) in enumerate(c["programs"]):
+                if st <= now:
+                    cur, end = (st, title), (c["programs"][i + 1][0] if i + 1 < len(c["programs"]) else 0)
+            p = {"title": cur[1] if cur else c["name"], "start": cur[0] if cur else 0, "end": end, "logo": c["logo"], "art": "",
+                 "source": c["sid"], "channel": c["name"], "channel_id": c["play"]["id"], "service": c["service"], "play": c["play"],
+                 "alts": c.get("alts") or [], "sport": "", "plot": ""}
+            _add_programme(p)
+            count += 1
+    for it in favorites.items():
+        star = (_star(True), "RunPlugin(%s)" % kodi.build_url(action="fav", what=it["kind"], key=it["key"], label=it.get("label", "")))
+        if it["kind"] == "title":
+            props = {"kind": "title", "title": it["label"], "meta": " \u2022 ".join(x for x in (it.get("service"), it.get("type"), it.get("year")) if x),
+                     "kicker": "FAVORITE", "service": it.get("service") or "", "year": it.get("year") or "", "type": it.get("type") or "", "state": ""}
+            art = {"thumb": it.get("poster") or "DefaultVideo.png", "poster": it.get("poster") or "", "fanart": it.get("backdrop") or "",
+                   "landscape": it.get("backdrop") or ""}
+            kodi.add_item(it["label"], kodi.build_url(action="info", title=it["label"], year=it.get("year", ""), kind=it.get("type", "")), False,
+                          art=art, info={"title": it["label"]}, props=props, context=[star])
+        else:
+            kodi.add_item(it["label"], kodi.build_url(action="games"), True, art={"thumb": it.get("logo") or ICON_LIVE, "icon": it.get("logo") or ICON_LIVE},
+                          props={"kind": "tile", "color": "FF22543A", "title": it["label"], "meta": it.get("league") or "Game", "kicker": "FAVORITE GAME"},
+                          context=[star])
+        count += 1
+    for f in favorites.kodi_favourites():
+        kodi.add_item(f.get("title") or "Favourite", kodi.build_url(action="exec", cmd=f.get("path") or ""), False,
+                      art={"thumb": f.get("thumbnail") or ""}, props={"kind": "tile", "color": "FF3B3F4A", "title": f.get("title") or "",
+                                                                       "meta": "From Kodi's favourites"})
+        count += 1
+    if not count:
+        kodi.add_item("No favorites yet", kodi.build_url(action="guide"), False,
+                      props={"kind": "tile", "color": "FF3B3F4A", "title": "No favorites yet",
+                             "meta": "Long-press a channel, show, movie or game and choose \u2605 Add to Favorites"})
+    kodi.end_directory()
+
+
 def _add_title(t):
     props = {"kind": "title", "title": t["title"], "meta": t["meta"], "kicker": t["service"].upper(), "service": t["service"],
              "year": str(t["year"]), "type": t["type"], "state": ""}
@@ -444,6 +532,7 @@ def _add_title(t):
     if trakt.signed_in():
         ctx.append(("Trakt: add to watchlist", "RunPlugin(%s)" % kodi.build_url(action="trakt_watchlist", title=t["title"], year=t["year"], kind=t["type"])))
         ctx.append(("Trakt: mark as watched", "RunPlugin(%s)" % kodi.build_url(action="trakt_watched", title=t["title"], year=t["year"], kind=t["type"])))
+    ctx.append(_title_star(t))
     # Click = detail page (play is one button away there, or on the long-press menu)
     kodi.add_item(label, kodi.build_url(action="info", title=t["title"], year=t["year"], kind=t["type"]), False, art=art, info=info, props=props, context=ctx)
 
@@ -458,6 +547,7 @@ def _add_upcoming(t, kicker):
     ctx = [("Watch trailer", "RunPlugin(%s)" % kodi.build_url(action="trailer", title=t["title"], year=t["year"], kind=t["type"]))]
     if trakt.signed_in():
         ctx.append(("Trakt: add to watchlist", "RunPlugin(%s)" % kodi.build_url(action="trakt_watchlist", title=t["title"], year=t["year"], kind=t["type"])))
+    ctx.append(_title_star(t))
     kodi.add_item(t["title"] if PLAIN else "%s [COLOR gray](%s)[/COLOR]" % (t["title"], nice), kodi.build_url(action="info", title=t["title"], year=t["year"], kind=t["type"]), False,
                   art=art, info={"title": t["title"], "plot": t["plot"]}, props=props, context=ctx)
 
@@ -802,6 +892,16 @@ def dispatch(params):
             infodialog.show_by_title(params.get("title", ""), params.get("year", ""), params.get("kind", ""))
     elif action == "search":
         search(params.get("q"))
+    elif action == "favorites":
+        favorites_list()
+    elif action == "fav":
+        kodi.resolve_none()
+        toggle_favorite(params)
+    elif action == "exec":
+        kodi.resolve_none()
+        cmd = params.get("cmd", "")
+        if cmd.startswith(("RunPlugin(", "ActivateWindow(", "PlayMedia(", "RunAddon(", "StartAndroidActivity(")):
+            xbmc.executebuiltin(cmd)
     elif action == "enable_addon":
         kodi.resolve_none()
         res = kodi.jsonrpc("Addons.SetAddonEnabled", {"addonid": params.get("id", ""), "enabled": True})

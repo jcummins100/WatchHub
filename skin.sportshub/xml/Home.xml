@@ -294,9 +294,9 @@
 				<textcolor>B0FFFFFF</textcolor>
 			</control>
 			<control type="grouplist" id="700">
-				<left>970</left>
+				<left>860</left>
 				<top>26</top>
-				<width>440</width>
+				<width>550</width>
 				<height>80</height>
 				<orientation>horizontal</orientation>
 				<itemgap>0</itemgap>
@@ -310,6 +310,13 @@
 					<param name="onclick" value="SetProperty(sh_ui_request,plugin://plugin.video.sportshub/?action=guide,home)"/>
 					<param name="icon" value="icons/submenu/guide.png"/>
 					<param name="label" value="TV Guide"/>
+				</include>
+				<include content="IconButton">
+					<param name="control_id" value="806"/>
+					<param name="height" value="80"/>
+					<param name="onclick" value="ActivateWindow(Videos,plugin://plugin.video.sportshub/?action=favorites,return)"/>
+					<param name="icon" value="icons/sidemenu/favourites.png"/>
+					<param name="label" value="Favorites"/>
 				</include>
 				<include content="IconButton">
 					<param name="control_id" value="801"/>
