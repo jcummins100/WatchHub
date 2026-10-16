@@ -35,6 +35,16 @@
           <default>true</default>
           <control type="toggle"/>
         </setting>
+        <setting id="src_tubi" type="boolean" label="30140" help="">
+          <level>0</level>
+          <default>true</default>
+          <control type="toggle"/>
+        </setting>
+        <setting id="src_xumo" type="boolean" label="30141" help="">
+          <level>0</level>
+          <default>true</default>
+          <control type="toggle"/>
+        </setting>
         <setting id="src_samsung" type="boolean" label="30113" help="30114">
           <level>0</level>
           <default>false</default>

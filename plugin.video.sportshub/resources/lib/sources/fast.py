@@ -3,6 +3,7 @@
 Guide data comes from the public channel/EPG JSON published at i.mjh.nz (metadata only,
 no stream URLs). Playback is done by launching the service's official Android TV app.
 """
+import json
 import re
 import time
 
@@ -35,6 +36,25 @@ SERVICES = {
         "deeplink": "roku://trc/watch/{id}",  # verified on the Shield (FOX Sports, ALF)
         "setting": "src_roku",
         "color": "FF6F1AB1",
+    },
+    "tubi": {
+        "name": "Tubi",
+        "url": "tubi:",            # lineup shipped in resources/data/tubi_channels.json; schedules fetched live
+        "layout": "tubi",
+        "package": "com.tubitv",
+        "deeplink": "https://tubitv.com/live/{id}",  # verified on the Shield: tunes the channel (NFL Channel)
+        "setting": "src_tubi",
+        "color": "FFFA382F",
+    },
+    "xumo": {
+        "name": "Xumo Play",
+        "url": "xumo:",
+        "layout": "xumo",
+        "package": "com.xumo.xumo.tv",
+        # Xumo's app has no channel link: this opens its Live guide, so Xumo ranks after every other service
+        "deeplink": "https://www.xumo.tv/free-live-channels/{slug}/{id}",
+        "setting": "src_xumo",
+        "color": "FF7B2FF7",
     },
     "samsung": {
         "name": "Samsung TV Plus",
@@ -112,8 +132,99 @@ def _mirrors(url):
     return [url + ".gz"]
 
 
+TUBI_EPG = "https://epg-cdn.production-public.tubi.io/content/epg/programming?platform=web&lookahead=1&content_id="
+
+
+def _load_tubi():
+    """Tubi's live channels in the same shape as the i.mjh.nz files: {id: {name, logo, groups, programs}}.
+
+    Tubi's channel list needs a signed-in browser session, so WatchHub ships the lineup (ids, names,
+    Tubi's categories) and refreshes it with each release; the schedules come from Tubi's public EPG,
+    25 channels per request, cached like every other guide file."""
+    import calendar
+    import os
+    try:
+        with open(os.path.join(kodi.ADDON_PATH, "resources", "data", "tubi_channels.json"), encoding="utf-8") as fh:
+            lineup = json.load(fh).get("channels") or []
+    except (OSError, ValueError):
+        return {}
+    out = {}
+    ids = [c["id"] for c in lineup if not c.get("needs_login")]
+    meta = {c["id"]: c for c in lineup}
+    for k in range(0, len(ids), 25):
+        data = cache.fetch_json(TUBI_EPG + ",".join(ids[k:k + 25]), _cache_ttl()) or {}
+        for row in data.get("rows") or []:
+            cid = str(row.get("content_id") or "")
+            if cid not in meta:
+                continue
+            progs = []
+            for p in row.get("programs") or []:
+                try:
+                    start = calendar.timegm(time.strptime(p["start_time"][:19], "%Y-%m-%dT%H:%M:%S"))
+                except (KeyError, ValueError, TypeError):
+                    continue
+                progs.append([start, p.get("title") or ""])
+            imgs = row.get("images") or {}
+            logo = next((v[0] if isinstance(v, list) else v for k2 in ("custom", "landscape", "hero") for v in [imgs.get(k2)] if v), "")
+            out[cid] = {"name": meta[cid]["name"], "logo": logo, "groups": meta[cid].get("groups") or [], "programs": progs}
+    return out
+
+
+XUMO_API = "https://valencia-app-mds.xumo.com/v2/"
+XUMO_GEO = "10006"   # Xumo's US lineup
+
+
+def _load_xumo():
+    """Xumo Play's channels with the next ~12 hours: channel list (names, genres) + the EPG grid in 6-hour blocks,
+    50 channels per page, titles included (f=asset.title)."""
+    import calendar
+    lst = cache.fetch_json(XUMO_API + "proxy/channels/list/%s.json?geoId=unknown" % XUMO_GEO, 6 * 3600) or {}
+    chans = ((lst.get("channel") or {}).get("item")) or []
+    out = {}
+    for c in chans:
+        cid = str((c.get("guid") or {}).get("value") or "")
+        if not cid or (c.get("properties") or {}).get("is_live") == "false":
+            continue
+        out[cid] = {"name": c.get("title") or "", "groups": [g.get("value") for g in (c.get("genre") or []) if g.get("value")],
+                    "logo": "https://image.xumo.com/v1/channels/channel/%s/168x168.png?type=color_onBlack" % cid, "programs": []}
+    if not out:
+        return {}
+    now = time.time()
+    total = len(chans)
+    for block_start in (now - now % 21600, now - now % 21600 + 21600):        # this 6-hour block and the next
+        day = time.strftime("%Y%m%d", time.gmtime(block_start))
+        block = int(time.gmtime(block_start).tm_hour // 6)
+        for offset in range(0, max(total, 50), 50):
+            url = XUMO_API + "epg/%s/%s/%d.json?limit=50&offset=%d&f=asset.title" % (XUMO_GEO, day, block, offset)
+            data = cache.fetch_json(url, _cache_ttl()) or {}
+            assets = data.get("assets") or {}
+            for row in data.get("channels") or []:
+                ch = out.get(str(row.get("channelId")))
+                if ch is None:
+                    continue
+                for slot in row.get("schedule") or []:
+                    try:
+                        start = calendar.timegm(time.strptime(slot["start"][:19], "%Y-%m-%dT%H:%M:%S"))
+                    except (KeyError, ValueError, TypeError):
+                        continue
+                    ch["programs"].append([start, (assets.get(slot.get("assetId")) or {}).get("title") or ch["name"]])
+    for ch in out.values():
+        ch["programs"] = sorted({p[0]: p for p in ch["programs"]}.values())
+    return {cid: ch for cid, ch in out.items() if ch["programs"]}
+
+
 def _load(sid):
     svc = SERVICES[sid]
+    if svc["layout"] == "xumo":
+        out = _load_xumo()
+        if kodi.setting_bool("hide_spanish", True):
+            out = {cid: ch for cid, ch in out.items() if not is_spanish(ch)}
+        return out
+    if svc["layout"] == "tubi":
+        out = _load_tubi()
+        if kodi.setting_bool("hide_spanish", True):
+            out = {cid: ch for cid, ch in out.items() if not is_spanish(ch)}
+        return out
     data = cache.fetch_json(svc["url"], _cache_ttl(), mirrors=_mirrors(svc["url"]))
     if not data:
         return {}

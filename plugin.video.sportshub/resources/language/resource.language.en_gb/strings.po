@@ -264,3 +264,11 @@ msgstr ""
 msgctxt "#30131"
 msgid "Leaves out Spanish-language free channels (Pluto's En Español genre, Telemundo, Univision, Azteca, \"en Español\" channels...) everywhere: rows, lists and the TV Guide."
 msgstr ""
+
+msgctxt "#30140"
+msgid "Tubi (official app)"
+msgstr ""
+
+msgctxt "#30141"
+msgid "Xumo Play (official app; opens its own guide)"
+msgstr ""
