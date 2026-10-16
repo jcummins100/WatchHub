@@ -97,7 +97,12 @@ def run_builtin(cmd):
     xbmc.executebuiltin(cmd)
 
 
-def start_android_activity(package, action="", data_uri="", data_type="", class_name=""):
+# Verified on the Shield Pro (2026-10-15): with Netflix already open, a plain title link leaves it where it
+# was; NEW_TASK | RESET_TASK_IF_NEEDED | CLEAR_TOP (0x10808000) plus extra source=30 lands on the title.
+TITLE_INTENTS = {"com.netflix.ninja": (0x10808000, {"source": "30"})}
+
+
+def start_android_activity(package, action="", data_uri="", data_type="", class_name="", fresh=False):
     """Launch an Android app, optionally with a VIEW intent to a deep link.
 
     Kodi signature (Kodi 21): StartAndroidActivity(package,[intent,dataType,dataURI,flags,extras,action,category,className])
@@ -108,10 +113,20 @@ def start_android_activity(package, action="", data_uri="", data_type="", class_
 
     # Verified on the Shield (Kodi 21): the action must go in the dedicated 'action' slot; putting it in
     # the 'intent' slot opens the app but never delivers the data URI.
-    # FLAG_ACTIVITY_NEW_TASK | FLAG_ACTIVITY_CLEAR_TOP: a target app left on a dialog or deep in its UI
-    # otherwise ignores the new link and just comes to the front.
-    flags = "0x14000000" if data_uri else ""
-    parts = [q(package), q(""), q(data_type), q(data_uri), q(flags), q(""), q(action), q(""), q(class_name)]
+    # fresh=True: FLAG_ACTIVITY_NEW_TASK | FLAG_ACTIVITY_CLEAR_TASK (0x10008000). A live-TV app already
+    # running in the background otherwise comes to the front and drops the channel link (Plex opened on
+    # its home page). Not used for the on-demand apps: restarting them stops at "Who's watching?".
+    # Kodi reads this slot with atoi(), so it must be decimal - a "0x..." string silently becomes 0.
+    flags = str(0x10008000) if data_uri and fresh else ""
+    extras = ""
+    if data_uri and package in TITLE_INTENTS:
+        # Apps that drop a title link while already open unless the intent carries their own flags/extras.
+        app_flags, app_extras = TITLE_INTENTS[package]
+        flags = str(app_flags)
+        # Kodi 21 wants extras as a JSON array of {key,type,value}; quotes are escaped for the builtin parser.
+        extras = '"%s"' % json.dumps([{"key": k, "type": "string", "value": v} for k, v in app_extras.items()],
+                                     separators=(",", ":")).replace('"', '\\"')
+    parts = [q(package), q(""), q(data_type), q(data_uri), q(flags), extras or q(""), q(action), q(""), q(class_name)]
     while len(parts) > 4 and parts[-1] == q(""):
         parts.pop()
     run_builtin("StartAndroidActivity(%s)" % ",".join(parts))

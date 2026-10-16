@@ -13,7 +13,7 @@ from resources.lib import cache, kodi
 API = "https://apis.justwatch.com/graphql"
 IMG = "https://images.justwatch.com"
 TTL = 6 * 3600
-QV = "v5"  # bump when the GraphQL queries change so stale cache entries are ignored
+QV = "v6"  # bump when the GraphQL queries change so stale cache entries are ignored
 
 # JustWatch package short code -> (display name, Android TV package)
 SERVICES = [
@@ -55,7 +55,7 @@ query Titles($country: Country!, $language: Language!, $first: Int!, $filter: Ti
         runtime ageCertification originalReleaseDate credits { name role characterName }
       }
       offers(country: $country, platform: ANDROID_TV) {
-        monetizationType standardWebURL
+        monetizationType standardWebURL deeplinkURL: deeplinkURL(platform: ANDROID_TV)
         package { packageId shortName clearName technicalName }
       }
     } }
@@ -106,6 +106,16 @@ def _img(template, profile):
     return IMG + template.replace("{profile}", profile).replace("{format}", "jpg")
 
 
+def _link(offer):
+    """Deep link for an offer. Peacock's app ignores its web URLs (lands on its home page, cold or warm)
+    but honours JustWatch's peacocktv.com/deeplink form, which arrives wrapped as an intent:// URI."""
+    offer = offer or {}
+    dl = offer.get("deeplinkURL") or ""
+    if (offer.get("package") or {}).get("shortName") == "pct" and dl.startswith("intent://"):
+        return "https://" + dl[len("intent://"):].split("#Intent;", 1)[0]
+    return offer.get("standardWebURL") or ""
+
+
 def _best_offer(offers, codes):
     """Prefer subscription offers on services we have; then free/ads; skip rentals."""
     ranked = []
@@ -135,7 +145,7 @@ def _offers(offers, codes):
         if not pkg or code in seen:
             continue
         seen.add(code)
-        out.append({"service": name, "pkg": pkg, "url": o.get("standardWebURL") or "", "code": code,
+        out.append({"service": name, "pkg": pkg, "url": _link(o), "code": code,
                     "monetization": {"FLATRATE": "subscription", "FREE": "free", "ADS": "free with ads"}.get(o.get("monetizationType"), "")})
     out.sort(key=lambda o: (o["monetization"] != "subscription", codes.index(o["code"])))
     return out
@@ -183,7 +193,7 @@ def _make(node, codes, require_offer=True):
         "season": node.get("season_name") or "",
         "offers": _offers(node.get("offers"), codes),
         "playable": bool(pkg),
-        "play": {"src": "ondemand", "pkg": pkg, "url": (offer or {}).get("standardWebURL") or "", "name": name},
+        "play": {"src": "ondemand", "pkg": pkg, "url": _link(offer), "name": name},
     }
 
 
@@ -207,11 +217,11 @@ query New($country: Country!, $language: Language!, $date: Date!, $first: Int!) 
     edges { node {
       __typename objectType
       content(country: $country, language: $language) { title originalReleaseYear shortDescription posterUrl genres { shortName } backdrops { backdropUrl } scoring { imdbScore } }
-      offers(country: $country, platform: ANDROID_TV) { monetizationType standardWebURL package { packageId shortName clearName technicalName } }
+      offers(country: $country, platform: ANDROID_TV) { monetizationType standardWebURL deeplinkURL: deeplinkURL(platform: ANDROID_TV) package { packageId shortName clearName technicalName } }
       ... on Season {
         show { objectType
           content(country: $country, language: $language) { title originalReleaseYear shortDescription posterUrl genres { shortName } backdrops { backdropUrl } scoring { imdbScore } runtime ageCertification originalReleaseDate credits { name role characterName } }
-          offers(country: $country, platform: ANDROID_TV) { monetizationType standardWebURL package { packageId shortName clearName technicalName } }
+          offers(country: $country, platform: ANDROID_TV) { monetizationType standardWebURL deeplinkURL: deeplinkURL(platform: ANDROID_TV) package { packageId shortName clearName technicalName } }
         }
       }
     } }

@@ -37,10 +37,10 @@ def _launch_fast(sid, cid, name):
         kodi.notify(kodi.localized(30023, svc["name"]), icon=xbmcgui.NOTIFICATION_WARNING)
         return False
     link = svc["deeplink"].format(id=cid, slug=_slug(name)) if svc["deeplink"] and cid else ""
-    return _launch_app(svc["package"], link, name or svc["name"])
+    return _launch_app(svc["package"], link, name or svc["name"], fresh=True)
 
 
-def _launch_app(package, link, name):
+def _launch_app(package, link, name, fresh=False):
     if not kodi.is_android():
         kodi.notify(kodi.localized(30025), icon=xbmcgui.NOTIFICATION_WARNING)
         return False
@@ -50,7 +50,7 @@ def _launch_app(package, link, name):
         return False
     kodi.notify(kodi.localized(30022, name), time_ms=2000)
     if link:
-        kodi.start_android_activity(package, action="android.intent.action.VIEW", data_uri=link)
+        kodi.start_android_activity(package, action="android.intent.action.VIEW", data_uri=link, fresh=fresh)
     else:
         kodi.start_android_activity(package)
     return True
