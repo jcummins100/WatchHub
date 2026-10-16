@@ -81,3 +81,47 @@ LAUNCHABLE = [
     ("Fubo", "com.fubo.firetv.screen"), ("Sling TV", "com.sling"), ("F1 TV", "com.formulaone.production"),
     ("Steam Link", "com.valvesoftware.steamlink"), ("UniFi Protect", "com.ubnt.unifi.protect"),
 ]
+
+
+# ---------------------------------------------------------------- launch counts (to pick the lean app set later)
+def _launch_path():
+    import os
+    from resources.lib import kodi
+    return os.path.join(kodi.ensure_profile_dir(), "launches.json")
+
+
+def launch_counts():
+    """{package: {"count": n, "first": epoch, "last": epoch}} for every app WatchHub has opened."""
+    import json
+    try:
+        with open(_launch_path(), encoding="utf-8") as fh:
+            data = json.load(fh)
+        return data if isinstance(data, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def count_launch(package):
+    import json
+    import os
+    import time
+    marker = os.path.join(os.path.dirname(_launch_path()), "testing")
+    try:
+        if time.time() - os.path.getmtime(marker) < 3 * 3600:
+            return  # tools/watchhub_test.py is driving the Shield: not real use
+    except OSError:
+        pass
+    data = launch_counts()
+    now = int(time.time())
+    row = data.get(package) or {"count": 0, "first": now}
+    row["count"] = int(row.get("count", 0)) + 1
+    row["last"] = now
+    data[package] = row
+    path = _launch_path()
+    try:
+        with open(path + ".tmp", "w", encoding="utf-8") as fh:
+            json.dump(data, fh)
+        os.replace(path + ".tmp", path)
+    except OSError:
+        pass
+

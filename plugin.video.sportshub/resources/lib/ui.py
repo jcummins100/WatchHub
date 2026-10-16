@@ -533,13 +533,13 @@ def favorites_list():
 
 
 def _add_title(t, extra_ctx=None):
-    props = {"kind": "title", "title": t["title"], "meta": t["meta"], "kicker": t["service"].upper(), "service": t["service"],
+    props = {"kind": "title", "title": t["title"], "meta": t["meta"], "kicker": t.get("kicker") or t["service"].upper(), "service": t["service"],
              "year": str(t["year"]), "type": t["type"], "state": "", "seen": "1" if t.get("seen") else ""}
     art = {"thumb": t["poster"] or "DefaultVideo.png", "poster": t["poster"], "landscape": t["backdrop"], "fanart": t["backdrop"]}
     info = {"title": t["title"], "plot": t["plot"], "genre": t["type"]}
     label = t["title"] if PLAIN else "%s [COLOR gray](%s, %s)[/COLOR]" % (t["title"], t["year"], t["service"])
-    ctx = [("Play on %s" % t["service"], "RunPlugin(%s)" % kodi.build_url(action="play", **t["play"]))]
-    for o in (t.get("offers") or [])[1:]:
+    ctx = [("Play on %s" % t["service"], "RunPlugin(%s)" % kodi.build_url(action="play", **t["play"]))] if t["play"].get("pkg") else []
+    for o in (t.get("offers") or [])[(1 if t["play"].get("pkg") else 0):]:
         ctx.append(("Watch on %s · %s" % (o["service"], o["label"]), "RunPlugin(%s)" % kodi.build_url(action="play", src="ondemand", pkg=o["pkg"], url=o["url"], name=o["service"])))
     if tmdb.enabled():
         ctx.append(("Watch trailer", "RunPlugin(%s)" % kodi.build_url(action="trailer", title=t["title"], year=t["year"], kind=t["type"])))
@@ -689,11 +689,19 @@ def search(query=None):
         # show the results right here: ending this listing as "failed" and re-entering with
         # Container.Update sent Kodi back to its generic Videos page when Search was opened from home
     q = query.lower()
+    # Live now, then shows and movies you can watch, then the ones that aren't on your services (map 2: Search)
     for p in fast.live_now():
         if q in p["channel"].lower() or q in p["title"].lower():
             _add_programme(p)
-    for t in ondemand.search(query):
+    found = ondemand.search(query)
+    mine = [t for t in found if t["playable"]]
+    for t in [t for t in mine if t["type"] == "Show"] + [t for t in mine if t["type"] != "Show"]:
         _add_title(t)
+    for t in [t for t in found if not t["playable"]]:
+        rent = next((o for o in t.get("offers") or [] if o["label"].startswith(("Rent", "Buy"))), None)
+        where = ("%s \u00b7 %s" % (rent["label"], rent["service"]) if rent else
+                 "On %s" % ", ".join(t["where"][:2]) if t.get("where") else "Not on your services")
+        _add_title(dict(t, service=where, kicker="NOT ON YOUR SERVICES"))
     kodi.end_directory(view="posters")
 
 
@@ -857,12 +865,16 @@ def apps_menu():
     shown = [n for n, p in apps.LAUNCHABLE if not installed or p in installed]
     kodi.log("apps: %d visible to Kodi, showing %d: %s | not visible: %s" % (len(installed), len(shown), ", ".join(shown),
              ", ".join(n for n, p in apps.LAUNCHABLE if installed and p not in installed)))
+    counts = apps.launch_counts()
     for name, pkg in apps.LAUNCHABLE:
         if installed and pkg not in installed:
             continue
+        n = (counts.get(pkg) or {}).get("count", 0)
+        used = ("Opened from WatchHub %d time%s, last %s" % (n, "" if n == 1 else "s", time.strftime("%b %d", time.localtime(counts[pkg]["last"])).replace(" 0", " "))
+                if n else "Not opened from WatchHub yet")
         kodi.add_item(name, kodi.build_url(action="play", src="app", id=pkg, name=name), False,
                       art={"thumb": "androidapp://sources/apps/%s.png" % pkg, "icon": "DefaultAddonProgram.png"},
-                      info={"title": name, "plot": "Open %s" % name}, props={"kind": "app", "meta": "Open %s" % name, "package": pkg})
+                      info={"title": name, "plot": "Open %s" % name}, props={"kind": "app", "meta": "Open %s - %s" % (name, used), "package": pkg})
     kodi.end_directory()
 
 

@@ -215,6 +215,7 @@ def _make(node, codes, require_offer=True):
     offer = _best_offer(node.get("offers"), codes)
     if not offer and require_offer:
         return None
+    where = []
     label = ""
     if offer:
         code = offer["package"]["shortName"]
@@ -223,6 +224,7 @@ def _make(node, codes, require_offer=True):
     else:
         others = sorted({(o.get("package") or {}).get("clearName", "") for o in node.get("offers") or [] if o.get("monetizationType") in ("FLATRATE", "FREE", "ADS")})
         name, pkg = ("Not on your services" + (" (on %s)" % ", ".join(x for x in others if x)[:60] if others else "")), ""
+        where = [x for x in others if x]
     year = c.get("originalReleaseYear") or ""
     kind = "Movie" if node.get("objectType") == "MOVIE" else "Show"
     genres = ", ".join(genre_name(g.get("shortName", "")) for g in (c.get("genres") or [])[:2])
@@ -251,6 +253,7 @@ def _make(node, codes, require_offer=True):
         "genre_codes": [g.get("shortName") for g in (c.get("genres") or []) if g.get("shortName")],
         "offers": _offers(node.get("offers"), codes),
         "label": label,
+        "where": where,  # not on your services: where it streams instead
         "playable": bool(pkg),
         "play": {"src": "ondemand", "pkg": pkg, "url": _link(offer), "name": name},
     }
@@ -452,10 +455,10 @@ def search(title, kind=""):
     flt = {"searchQuery": title}
     if kind in ("Movie", "Show"):
         flt["objectTypes"] = ["MOVIE" if kind == "Movie" else "SHOW"]
-    key = "jw:search:%s:" % QV + json.dumps(flt, sort_keys=True)
+    key = "jw:search16:%s:" % QV + json.dumps(flt, sort_keys=True)
     data = cache.get(key, TTL)
     if data is None:
-        body = json.dumps({"query": _SEARCH, "variables": {"country": kodi.setting("region", "us").upper(), "language": "en", "first": 8, "filter": flt}}).encode("utf-8")
+        body = json.dumps({"query": _SEARCH, "variables": {"country": kodi.setting("region", "us").upper(), "language": "en", "first": 16, "filter": flt}}).encode("utf-8")
         req = urllib.request.Request(API, data=body, headers={"Content-Type": "application/json", "User-Agent": "Mozilla/5.0 (Kodi SportsHub)"})
         try:
             with urllib.request.urlopen(req, timeout=20) as resp:

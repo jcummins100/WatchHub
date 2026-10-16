@@ -130,8 +130,9 @@ def start_android_activity(package, action="", data_uri="", data_type="", class_
     while len(parts) > 4 and parts[-1] == q(""):
         parts.pop()
     if package != "com.android.vending":
-        from resources.lib import homefilter
+        from resources.lib import apps, homefilter
         homefilter.remember_spot()  # come back to this row and card (map 3), even if Android kills Kodi
+        apps.count_launch(package)  # which apps are really used (Sprint D: the lean app set)
     run_builtin("StartAndroidActivity(%s)" % ",".join(parts))
 
 

@@ -1205,7 +1205,13 @@ def main():
         off.guide_data()
         off.favorites_check()
     if args.only != "A":
-        OnDevice(rep, dev, args.keep_rpc).suite()
+        # app launches during a test run don't count toward WatchHub's usage counts (the lean app set)
+        marker = KODI_HOME + "/userdata/addon_data/plugin.video.sportshub/testing"
+        dev.sh("touch %s" % marker)
+        try:
+            OnDevice(rep, dev, args.keep_rpc).suite()
+        finally:
+            dev.sh("rm -f %s" % marker)
     rep.save()
     print("\nReport: %s" % os.path.join(args.out, "report.md"))
 
