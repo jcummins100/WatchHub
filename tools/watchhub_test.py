@@ -38,7 +38,7 @@ FILTER_FILE = KODI_HOME + "/userdata/addon_data/plugin.video.sportshub/home_filt
 
 # Home rows, top to bottom, as Home.xml lays them out (id, name)
 FIXED_GUIDE_TABS = ["Favorites", "Categories", "Sports", "News", "Movies", "Game Shows", "Kids", "All"]
-ALL_ROWS = [(9050, "Services"), (9960, "Up Next"), (9100, "Live Sports Now"), (9200, "Today's Games"),
+ALL_ROWS = [(9050, "Services"), (9960, "Up Next"), (9100, "Live Now"), (9200, "Today's Games"),
             (9950, "New This Week"), (9400, "Rediscover"), (9800, "Trending"), (9700, "Browse"), (9300, "Sports Starting Soon"), (9600, "More")]
 PROVIDER_ROWS = [(9051, "Services"), (9961, "Up Next on <svc>"), (9951, "New This Week on <svc>"), (9801, "Trending on <svc>")]
 # actions the crawler must never run (they change user data, need a human, or switch the skin)

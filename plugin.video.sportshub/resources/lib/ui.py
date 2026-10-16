@@ -190,15 +190,49 @@ def live(home=False):
         kodi.add_item("TV Guide", kodi.build_url(action="guide"), False, art={"icon": "DefaultPVRGuide.png"},
                       props={"kind": "guide", "color": "FF8A1F2E", "title": "TV Guide", "kicker": "ALL FREE CHANNELS",
                              "meta": "What's on now and later on every free channel"})
+    favs = _favorite_channels_now() if home else []
+    for p in favs:
+        _add_programme(p, kicker="\u2605 " + (p.get("service") or "").upper())
+    fav_keys = {fast._norm(p["channel"]) for p in favs}
     items = fast.live_now()
     if kodi.setting_bool("src_pvr", True) and pvr.available():
         items += pvr.live_now()
-    items = _filter_games(items)
-    if not items:
+    items = [p for p in _filter_games(items) if fast._norm(p["channel"]) not in fav_keys]
+    if not items and not favs:
         kodi.add_item(kodi.localized(30020), kodi.build_url(action="root"), False, props={"kind": "tile", "color": "FF3B3F4A"})
     for p in _sorted_live(items):
         _add_programme(p)
     kodi.end_directory()
+
+
+def _favorite_channels_now():
+    """Your ★ channels (any kind, from the TV Guide's list) with what they're showing now, A-Z (Sprint D)."""
+    from resources.lib import favorites, guide
+    keys = set(favorites.channel_keys())
+    if not keys:
+        return []
+    now = time.time()
+    out = []
+    for c in guide.channels():
+        if fast._norm(c["name"]) not in keys:
+            continue
+        progs = c["programs"]
+        cur = next((i for i in range(len(progs) - 1, -1, -1) if progs[i][0] <= now), None)
+        if cur is None:
+            continue
+        start, title = progs[cur]
+        end = progs[cur + 1][0] if cur + 1 < len(progs) else 0
+        out.append({"source": c["sid"], "service": c["service"], "channel_id": c["play"].get("id", ""), "channel": c["name"],
+                    "title": title, "start": start, "end": end, "sport": "", "logo": c["logo"], "art": c["logo"],
+                    "plot": "", "playable": True, "play": c["play"], "alts": c.get("alts") or []})
+    keys_seen = set()
+    uniq = []
+    for p in sorted(out, key=lambda p: p["channel"].lower()):
+        k = fast._norm(p["channel"])
+        if k not in keys_seen:  # same-named regional feeds: the first is enough here
+            keys_seen.add(k)
+            uniq.append(p)
+    return uniq
 
 
 def soon():

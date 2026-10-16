@@ -28,6 +28,17 @@ def _team_names():
     return _teams
 
 
+# the free services WatchHub uses; the agreed app set for every Shield (Oct 15) has the first three
+FREE_APPS = [("Pluto TV", "tv.pluto.android"), ("Plex", "com.plexapp.android"), ("The Roku Channel", "com.roku.web.trc"),
+             ("Tubi", "com.tubitv"), ("Xumo Play", "com.xumo.xumo.tv"), ("YouTube", "com.google.android.youtube.tv")]
+
+
+def _free_apps_line():
+    from resources.lib import health
+    missing = [n for n, p in FREE_APPS if health.app_installed(p) is False]
+    return ("All %d installed" % len(FREE_APPS)) if not missing else "Missing: %s" % ", ".join(missing)
+
+
 def _names(codes):
     return ", ".join(ondemand.short_name(c) for c in codes) or "none"
 
@@ -56,6 +67,7 @@ def show():
             ("local", "Your local stations", kodi.setting("local_market", "") or "none"),
             ("teams", "Your teams (first in Today's Games)", ", ".join(n for lid, a, n in _team_names() if (lid, a) in set(espn.my_teams())) or "none"),
             ("unseen", "Rediscover: only movies I haven't seen", _on(kodi.setting_bool("rediscover_unseen_only", False))),
+            ("free", "Free apps on this Shield", _free_apps_line()),
             ("trakt", "Trakt", "Signed in" if trakt.signed_in() else "Not signed in - choose to sign in"),
             ("all", "All settings", "Kodi's full settings screen for WatchHub"),
         ]
@@ -122,6 +134,14 @@ def show():
             kodi.ADDON.setSetting("rediscover_unseen_only", "false" if kodi.setting_bool("rediscover_unseen_only", False) else "true")
             _new_rediscover_day()
             changed_rows = True
+        elif key == "free":
+            from resources.lib import health
+            rows = [(name, pkg, health.app_installed(pkg)) for name, pkg in FREE_APPS]
+            labels = ["%s  -  %s" % (n, "installed" if ok is not False else "not installed: choose to get it") for n, p, ok in rows]
+            i = xbmcgui.Dialog().select("Free apps (the same on every Shield)", labels)
+            if i >= 0 and rows[i][2] is False:
+                health.open_play_store(rows[i][1])
+                break
         elif key == "trakt":
             if not trakt.signed_in():
                 kodi.run_builtin("RunPlugin(%s)" % kodi.build_url(action="trakt_signin"))

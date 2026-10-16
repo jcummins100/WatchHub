@@ -61,7 +61,7 @@
 				<param name="row_top" value="752"/>
 				<param name="prev1" value="9960"/><param name="prev2" value="9050"/><param name="prev3" value="700"/>
 				<param name="next1" value="9200"/><param name="next2" value="9950"/><param name="next3" value="9400"/>
-				<param name="header" value="LIVE SPORTS NOW"/>
+				<param name="header" value="LIVE NOW"/>
 				<param name="content_path" value="plugin://plugin.video.sportshub/?action=live&amp;skin=1&amp;r=$INFO[Window(Home).Property(sh_refresh)]"/>
 				<param name="onclick" value="RunPlugin($INFO[ListItem.FileNameAndPath])"/>
 				<param name="layout" value="SH_CardChannelAny"/>
