@@ -307,7 +307,7 @@
 				<include content="IconButton">
 					<param name="control_id" value="805"/>
 					<param name="height" value="80"/>
-					<param name="onclick" value="RunPlugin(plugin://plugin.video.sportshub/?action=guide)"/>
+					<param name="onclick" value="SetProperty(sh_ui_request,plugin://plugin.video.sportshub/?action=guide,home)"/>
 					<param name="icon" value="icons/submenu/guide.png"/>
 					<param name="label" value="TV Guide"/>
 				</include>

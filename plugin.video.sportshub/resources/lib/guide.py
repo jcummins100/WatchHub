@@ -13,8 +13,10 @@ import difflib
 import json
 import os
 import re
+import threading
 import time
 
+import xbmc
 import xbmcgui
 
 from resources.lib import kodi, launcher, sports
@@ -197,7 +199,34 @@ def _programs(raw):
     return out
 
 
-def channels():
+_BUILT = {"at": 0.0, "rows": None}
+_BUILD_LOCK = threading.Lock()
+BUILT_MAX_AGE = 20 * 60   # the service rebuilds after every data refresh (~10 min); this is a backstop
+
+
+def channels(rebuild=False):
+    """The guide's rows, kept built in memory by the service (building them takes ~1 s on a Shield).
+    The first caller after Kodi starts waits for listings that are still downloading instead of
+    showing an empty guide."""
+    with _BUILD_LOCK:
+        if rebuild or _BUILT["rows"] is None or time.time() - _BUILT["at"] > BUILT_MAX_AGE:
+            t = time.time()
+            rows = _build_channels()
+            if not rows:
+                # right after a restart the listings may still be downloading: give them a little time
+                mon = xbmc.Monitor()
+                for _ in range(10):
+                    if mon.waitForAbort(2):
+                        break
+                    rows = _build_channels()
+                    if rows:
+                        break
+            _BUILT.update(at=time.time(), rows=rows)
+            kodi.log("guide: %d channel rows built in %.2fs" % (len(rows), time.time() - t))
+        return _BUILT["rows"]
+
+
+def _build_channels():
     """Every free channel with listings. The same channel on two services is merged into one row
     (preferred service first, the other under "Watch on...") only when both are airing the same
     programme right now - a same-named regional feed with its own schedule stays a separate row."""
@@ -310,16 +339,18 @@ class Guide(xbmcgui.WindowXMLDialog):
         self.chans = [c for c in self.all_chans if c["key"] not in self.hidden]
         self.loaded = time.time()
         self.favs = favorites()
-        self.tab = start_tab or ("Favorites" if self.favs else "Sports")
+        self.tab = start_tab or "Favorites"   # always opens on Favorites (a restart returns to the tab you were on)
         self.rows = []
         self.t0 = _now_slot()
 
     def onInit(self):
+        t = time.time()
         if self.tab == GENRES_TAB or (self.tab not in FIXED_TABS and self.tab not in genres(self.chans)):
-            self.tab = "Favorites" if self.favs else "Sports"
+            self.tab = "Favorites"
         self._tabs()
         self._fill()
         self.setFocusId(GRID if self.rows else TABS)
+        kodi.log("guide: %s tab drawn (%d rows) in %.2fs" % (self.tab, len(self.rows), time.time() - t))
 
     # ---- drawing
     def _tabs(self):

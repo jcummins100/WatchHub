@@ -131,6 +131,31 @@ MONTHS = {m: i for i, m in enumerate(["January", "February", "March", "April", "
 PRIME_DATE = re.compile(r"^(January|February|March|April|May|June|July|August|September|October|November|December) (\d+), (20\d\d)$")
 
 
+WORD_NUM = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10,
+            "eleven": 11, "twelve": 12}
+SEASON_SUFFIX = re.compile(r"[:\s-]*(?:(?:Season|Series)\s+(\d+|%s)|S(\d+))\s*$" % "|".join(WORD_NUM), re.I)
+# Amazon sells several cuts of one film; Trakt knows just the film
+EDITION = re.compile(r"\s*[-:(\[]*\s*(4K UHD|UHD|HD|Bonus X-Ray Edition|X-Ray Edition|Unrated Version|Unrated|Extended Edition|"
+                     r"Extended Cut|Extended Version|Theatrical Version|Director'?s Cut|Special Edition|Plus Bonus Content)\s*[)\]]*\s*$", re.I)
+
+
+def split_season(title):
+    """'MobLand S2' / 'Lanterns: Season 1' / 'The Bondsman - Season One' -> (show, season or None)."""
+    m = SEASON_SUFFIX.search(title)
+    if not m:
+        return title.strip(), None
+    num = m.group(1) or m.group(2)
+    return title[:m.start()].strip(), int(num) if num.isdigit() else WORD_NUM.get(num.lower())
+
+
+def clean_movie(title):
+    prev = None
+    while prev != title:
+        prev, title = title, EDITION.sub("", title).strip()
+    return title
+
+
+
 def parse_prime(path):
     """Prime watch-history page text: date lines, then titles; 'Episodes watched' blocks list 'Season N, Ep. M Title'."""
     rows, date = [], None
@@ -157,17 +182,17 @@ def parse_prime(path):
                 j += 1
             if eps:
                 for sn, en, et in eps:
-                    rows.append({"kind": "episode", "show": re.sub(r"[:\s-]*(Season \d+|S\d+)$", "", title).strip(), "season": sn,
+                    show, title_sn = split_season(title)
+                    rows.append({"kind": "episode", "show": show, "season": sn if sn is not None else title_sn,
                                  "episode": en, "episode_title": et, "watched_at": date, "raw": "%s / %s" % (title, et)})
                 i = j
                 continue
             if i + 1 < len(lines) and lines[i + 1].startswith("Delete movie"):
-                rows.append({"kind": "movie", "title": title, "watched_at": date, "raw": title})
+                rows.append({"kind": "movie", "title": clean_movie(title), "watched_at": date, "raw": title})
             elif i + 1 < len(lines) and lines[i + 1] == "Episodes watched":
                 # collapsed: we know the show and the day but not which episodes
-                sm = re.search(r"(?:Season (\d+)|S(\d+))\s*$", title)
-                rows.append({"kind": "show_day", "show": re.sub(r"[:\s-]*(Season \d+|S\d+)$", "", title).strip(),
-                             "season": int(sm.group(1) or sm.group(2)) if sm else None, "watched_at": date, "raw": title})
+                show, title_sn = split_season(title)
+                rows.append({"kind": "show_day", "show": show, "season": title_sn, "watched_at": date, "raw": title})
         i += 1
     return rows
 
@@ -266,6 +291,10 @@ class Matcher:
         res = self.t.get("search/movie?query=%s&limit=5" % urllib.parse.quote(row["title"])) or []
         cands = {norm(r["movie"]["title"]): r["movie"] for r in res if r.get("movie")}
         m = best_match(row["title"], cands, cutoff=0.85) if cands else None
+        if not m:
+            # same words, different order or case: "BALLERINA: FROM THE WORLD OF JOHN WICK"
+            words = sorted(norm(row["title"]).split())
+            m = next((c for k, c in cands.items() if sorted(k.split()) == words), None)
         self.movies[key] = m["ids"] if m else None
         return self.movies[key], None if m else "movie not found"
 

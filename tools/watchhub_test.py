@@ -347,6 +347,13 @@ class Device:
         except Exception:
             return {}
 
+    def builtin(self, cmd):
+        """Run a Kodi builtin through WatchHub's service (its dev hook: <profile>/cmd, picked up within ~2 s)."""
+        local = os.path.join(self.out, "_cmd.txt")
+        with open(local, "w", encoding="utf-8") as fh:
+            fh.write(cmd + "\n")
+        self.adb("push", local, KODI_HOME + "/userdata/addon_data/plugin.video.sportshub/cmd")
+
     def key(self, name, times=1):
         for _ in range(times):
             try:
@@ -499,7 +506,12 @@ class OnDevice:
         time.sleep(2)
         xml, local = self._pull(SETTINGS)
         for k, v in self.changed_settings.items():
-            xml = self._set(xml, k, v if v is not None else "")
+            if v is None:
+                # the key wasn't in the file before the test: take it out again (an empty value makes Kodi
+                # log "failed to load value" for it on every start)
+                xml = re.sub(r'\s*<setting id="%s"[^>]*?(?:/>|>[^<]*</setting>)' % re.escape(k), "", xml, count=1)
+            else:
+                xml = self._set(xml, k, v)
         self._push(SETTINGS, xml, local)
         self.changed_settings = {}
 
@@ -807,8 +819,17 @@ class OnDevice:
                 "%s | %s" % (json.dumps(lab), json.dumps(st)), d.shot("guide-from-live-row"))
         if not ok:
             return
-        rep.add(B, "Guide: opens on Sports with channels and tabs", "PASS" if st.get("Window(13000).Property(tab)") == "Sports" and int(st.get("Container(500).NumItems") or 0) > 20
+        rep.add(B, "Guide: opens on Favorites with tabs", "PASS" if st.get("Window(13000).Property(tab)") == "Favorites"
                 and int(st.get("Container(300).NumItems") or 0) > 3 else "FAIL", json.dumps(st))
+        # the rest needs a tab full of channels: reopen on Sports the way the service does after a restart
+        d.key("Back"); time.sleep(1.5)
+        d.builtin("SetProperty(sh_ui_request,plugin://plugin.video.sportshub/?action=guide&tab=Sports,home)")
+        ok = opened(); time.sleep(2)
+        st = d.info("Window(13000).Property(tab)", "Container(500).NumItems", "Window(13000).Property(slot0)", "Container(300).NumItems")
+        rep.add(B, "Guide: opens on a given tab (Sports) with channels", "PASS" if ok and st.get("Window(13000).Property(tab)") == "Sports"
+                and int(st.get("Container(500).NumItems") or 0) > 20 else "FAIL", json.dumps(st))
+        if not ok:
+            return
         tabs = [d.info("Container(300).ListItemAbsolute(%d).Label" % k).get("Container(300).ListItemAbsolute(%d).Label" % k) for k in range(int(st.get("Container(300).NumItems") or 0))]
         rep.add(B, "Guide: no Spanish tab (hide_spanish on)", "PASS" if not any("espa" in (t or "").lower() for t in tabs) else "FAIL", ", ".join(t or "" for t in tabs))
         # 2. time: Right x2 = +1 hour, then Left back (never before now)

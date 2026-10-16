@@ -164,8 +164,9 @@
 					<ondown condition="!Control.IsVisible($PARAM[next1]) + !Control.IsVisible($PARAM[next2])">$PARAM[next3]</ondown>
 					<visible>Integer.IsGreater(Container($PARAM[list_id]).NumItems,0) | Container($PARAM[list_id]).IsUpdating</visible>
 					<!-- Kodi appends its own "More..." item (no card kind) when a row hits its limit: open the full list -->
-					<onclick condition="!String.IsEmpty(ListItem.Property(kind)) + !String.IsEqual(ListItem.Property(kind),guide)">$PARAM[onclick]</onclick>
-					<onclick condition="String.IsEqual(ListItem.Property(kind),guide)">RunPlugin($INFO[ListItem.FileNameAndPath])</onclick>
+					<!-- info pages and the TV Guide: hand the request straight to WatchHub's service (no Python start-up per click) -->
+					<onclick condition="String.Contains(ListItem.FileNameAndPath,action=info) | String.Contains(ListItem.FileNameAndPath,action=guide)">SetProperty(sh_ui_request,$INFO[ListItem.FileNameAndPath],home)</onclick>
+					<onclick condition="!String.IsEmpty(ListItem.Property(kind)) + !String.IsEqual(ListItem.Property(kind),guide) + !String.Contains(ListItem.FileNameAndPath,action=info)">$PARAM[onclick]</onclick>
 					<onclick condition="String.IsEmpty(ListItem.Property(kind))">ActivateWindow(Videos,$INFO[ListItem.FolderPath],return)</onclick>
 					<onback>$PARAM[onback]</onback>
 					<scrolltime tween="cubic" easing="out">300</scrolltime>
@@ -705,7 +706,7 @@
 							<label>TV Guide</label>
 							<property name="meta">Every free channel - what's on now and later</property>
 							<property name="color">FF8A1F2E</property>
-							<onclick>RunPlugin(plugin://plugin.video.sportshub/?action=guide)</onclick>
+							<onclick>SetProperty(sh_ui_request,plugin://plugin.video.sportshub/?action=guide,home)</onclick>
 						</item>
 						<item>
 							<label>By sport</label>

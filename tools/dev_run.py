@@ -47,6 +47,36 @@ class _Player:
 xbmc.Player = _Player
 
 
+class _Monitor:
+    def abortRequested(self):
+        return False
+
+    def waitForAbort(self, secs=0):
+        import time as _t
+        _t.sleep(min(secs or 0, 0.01))
+        return False
+
+
+xbmc.Monitor = _Monitor
+
+
+class _Window:
+    """Window properties (Home's sh_* flags). No service runs outside Kodi, so windows open in-process."""
+    _props = {}
+
+    def __init__(self, wid=0):
+        self.wid = wid
+
+    def getProperty(self, key):
+        return self._props.get((self.wid, key), "")
+
+    def setProperty(self, key, value):
+        self._props[(self.wid, key)] = value
+
+    def clearProperty(self, key):
+        self._props.pop((self.wid, key), None)
+
+
 class _Addon:
     def __init__(self, *a, **k):
         pass
@@ -127,6 +157,7 @@ class _WindowXMLDialog:
 xbmcgui = types.ModuleType("xbmcgui")
 xbmcgui.ListItem, xbmcgui.Dialog = _ListItem, _Dialog
 xbmcgui.WindowXMLDialog = _WindowXMLDialog
+xbmcgui.Window = _Window
 xbmcgui.ACTION_PREVIOUS_MENU, xbmcgui.ACTION_NAV_BACK, xbmcgui.INPUT_ALPHANUM = 10, 92, 0
 xbmcgui.NOTIFICATION_INFO = xbmcgui.NOTIFICATION_WARNING = xbmcgui.NOTIFICATION_ERROR = "info"
 

@@ -26,7 +26,9 @@
 			<onclick>Action(close)</onclick>
 		</control>
 		<control type="group">
-			<animation effect="slide" end="0,175" time="0" condition="Window.IsActive(home)">conditional</animation>
+			<!-- Estuary slid this menu 175 px down on Home, off the bottom of WatchHub's low poster rows.
+			     WatchHub lifts it instead, so the last entry never sits at the screen edge. -->
+			<animation effect="slide" end="0,-140" time="0" condition="Window.IsActive(home)">conditional</animation>
 			<control type="image" id="999">
 				<description>background image</description>
 				<left>0</left>
@@ -55,8 +57,9 @@
 			<left>0</left>
 			<top></top>
 			<width>450</width>
-			<height>65</height>
+			<height>52</height>
 			<align>center</align>
+			<font>font27</font>
 			<texturefocus colordiffuse="button_focus">lists/focus.png</texturefocus>
 			<texturenofocus />
 		</control>

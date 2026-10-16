@@ -796,13 +796,10 @@ def dispatch(params):
         pick_provider(params.get("code", ""))
     elif action == "info":
         kodi.resolve_none()
-        req = {"title": params.get("title", ""), "year": params.get("year", ""), "kind": params.get("kind", "")}
-        home = xbmcgui.Window(10000)
-        if home.getProperty("sh_service_alive"):
-            # the always-running service shows the card: no per-click Python start-up/shut-down
-            home.setProperty("sh_info_request", json.dumps(req))
-        else:
-            infodialog.show_by_title(**req)
+        # the always-running service shows the page (the skin's poster rows ask it directly, without this step)
+        from resources.lib import uiworker
+        if not uiworker.request(kodi.build_url(action="info", title=params.get("title", ""), year=params.get("year", ""), kind=params.get("kind", ""))):
+            infodialog.show_by_title(params.get("title", ""), params.get("year", ""), params.get("kind", ""))
     elif action == "search":
         search(params.get("q"))
     elif action == "enable_addon":
@@ -859,8 +856,9 @@ def dispatch(params):
         status()
     elif action == "guide":
         kodi.resolve_none()
-        from resources.lib import guide
-        guide.show(params.get("tab") or None)
+        from resources.lib import guide, uiworker
+        if not uiworker.request(kodi.build_url(action="guide", tab=params.get("tab") or "")):
+            guide.show(params.get("tab") or None)
     elif action == "settings":
         kodi.resolve_none()
         kodi.open_settings()

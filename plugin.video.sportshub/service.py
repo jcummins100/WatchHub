@@ -63,6 +63,7 @@ def main():
             if code:
                 homefilter.focus(code, timeout_s=30)
 
+    pending_guide = ""
     # Kodi was killed while a channel launched from the TV Guide was playing: put the guide back.
     if xbmc.getSkinDir() == "skin.sportshub":
         from resources.lib import guide
@@ -73,11 +74,16 @@ def main():
                     break
             kodi.log("reopening the TV Guide after a restart (tab %s)" % (tab or "default"))
             from urllib.parse import quote_plus
-            xbmc.executebuiltin("RunPlugin(plugin://%s/?action=guide&tab=%s)" % (ADDON_ID, quote_plus(tab)))
+            pending_guide = "plugin://%s/?action=guide&tab=%s" % (ADDON_ID, quote_plus(tab))
 
+    # Info pages and the TV Guide open from here, on their own thread (see uiworker).
+    from resources.lib import uiworker
+    uiworker.Worker(monitor).start()
     # Refresh a little before the cache expires so the UI never has to wait on the network.
     home = xbmcgui.Window(10000)
     home.setProperty("sh_service_alive", "1")
+    if pending_guide:
+        uiworker.request(pending_guide)
     next_refresh = 0
     reload_pending = 0  # time the fresh data became ready, 0 = nothing waiting
     while not monitor.abortRequested():
@@ -92,6 +98,7 @@ def main():
         if now >= next_refresh:
             try:
                 health.warm_caches()
+                uiworker.warm_guide()
                 reload_pending = reload_pending or time.time()
                 pruned = health.prune_cache()
                 if pruned:
@@ -111,18 +118,8 @@ def main():
                     xbmc.executebuiltin(ln)
             except Exception as exc:
                 kodi.log("cmd failed: %s" % exc)
-        # Poll quickly for info-card requests from the add-on; the slower work above runs on its own schedule.
-        for _ in range(8):
-            req = home.getProperty("sh_info_request")
-            if req:
-                home.clearProperty("sh_info_request")
-                try:
-                    from resources.lib import infodialog
-                    infodialog.show_by_title(**json.loads(req))
-                except Exception as exc:
-                    kodi.log("info card failed: %s" % exc)
-            if monitor.waitForAbort(0.25):
-                return
+        if monitor.waitForAbort(2):
+            return
 
 
 if __name__ == "__main__":

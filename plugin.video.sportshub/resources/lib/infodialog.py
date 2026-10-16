@@ -1,5 +1,6 @@
 """Detail page for a movie or show: artwork, synopsis, rating, cast, and the actions
 (play on the service that has it, trailer, other services, Trakt watchlist / watched, episodes)."""
+import threading
 import time
 
 import xbmc
@@ -16,12 +17,22 @@ class TitleInfo(xbmcgui.WindowXMLDialog):
         self.item = kwargs.pop("item")
         self.details = kwargs.pop("details", None) or {}
         self.episodes = []
+        self.progress = {}
+        self.seasons = None            # filled in the background after the page opens
+        self.season_eps = {}           # season number -> episodes, prefetched for the likely pick
+        self.enriched = threading.Event()
         super().__init__(*args)
+        # Everything that decides the button row comes from the card itself, so the buttons are in place
+        # from the first frame and never appear late or push each other along.
+        self._fill_props()
 
-    def onInit(self):
+    def _fill_props(self):
         it, d = self.item, self.details
         self.setProperty("title", it["title"])
         self.setProperty("kicker", "%s • %s" % (it["type"].upper(), it["year"]) if it.get("year") else it["type"].upper())
+        rel = it.get("released") or ""
+        if rel:
+            self.setProperty("kicker", "%s \u2022 %s %s" % (it["type"].upper(), "PREMIERED" if it["type"] == "Show" else "RELEASED", _nice_date(rel)))
         self.setProperty("poster", d.get("poster") or it.get("poster") or "")
         self.setProperty("backdrop", d.get("backdrop") or it.get("backdrop") or "")
         self.setProperty("plot", d.get("overview") or it.get("plot") or "")
@@ -48,11 +59,24 @@ class TitleInfo(xbmcgui.WindowXMLDialog):
             self.setProperty("also", it.get("service") or "Not on your services")
         self.setProperty("trailer", "1")
         self.setProperty("trakt", "1" if trakt.signed_in() else "")
-        self.progress = {}
-        if trakt.signed_in():
-            try:
+        self.setProperty("episodes", "1" if it["type"] == "Show" else "")
+
+    def onInit(self):
+        kodi.log("info: page on screen")
+        self.getControl(LIST_EPISODES).reset()
+        threading.Thread(target=self._enrich, name="sh-info-enrich", daemon=True).start()
+
+    def _enrich(self):
+        """After the page is up: TMDB extras, Trakt progress, then the seasons and the likely season's
+        episodes, so pressing Episodes is instant."""
+        it, t = self.item, time.time()
+        try:
+            if tmdb.enabled() and not self.details:
+                self.details = tmdb.details(it["title"], it.get("year", ""), it["type"]) or {}
+                self._fill_props()
+            if trakt.signed_in():
                 if it["type"] == "Show":
-                    self.progress = trakt.show_progress(it["title"], it.get("year", ""))
+                    self.progress = trakt.show_progress(it["title"], it.get("year", "")) or {}
                     pr = self.progress
                     if pr.get("aired"):
                         full = sum(1 for sn in pr["seasons"].values() if sn["aired"] and sn["completed"] >= sn["aired"])
@@ -62,13 +86,40 @@ class TitleInfo(xbmcgui.WindowXMLDialog):
                             self.setProperty("watched", "Watched %d of %d episodes - %d of %d seasons complete" % (pr["completed"], pr["aired"], full, len(pr["seasons"])))
                 elif trakt.movie_watched(it["title"], it.get("year", "")):
                     self.setProperty("watched", "Watched")
-            except Exception as exc:
-                kodi.log("trakt progress failed: %s" % exc)
-        self.setProperty("episodes", "1" if it["type"] == "Show" else "")
-        rel = it.get("released") or ""
-        if rel:
-            self.setProperty("kicker", "%s \u2022 %s %s" % (it["type"].upper(), "PREMIERED" if it["type"] == "Show" else "RELEASED", _nice_date(rel)))
-        self.getControl(LIST_EPISODES).reset()
+            kodi.log("info: details + Trakt filled in %.2fs" % (time.time() - t))
+            if it["type"] == "Show":
+                self.seasons = self._fetch_seasons()
+                pre = self._preselect(self.seasons)
+                if self.seasons:
+                    sn = self.seasons[pre]
+                    self.season_eps[sn["number"]] = self._fetch_episodes(sn)
+                kodi.log("info: seasons prefetched in %.2fs" % (time.time() - t))
+        except Exception as exc:
+            kodi.log("info enrich failed: %s" % exc)
+        finally:
+            self.enriched.set()
+
+    def _fetch_seasons(self):
+        it, d = self.item, self.details
+        seasons = []
+        if d.get("tmdb_id"):
+            seasons = [dict(x, episodes=None) for x in tmdb.seasons(d.get("tmdb_id"))]
+        if not seasons:
+            seasons = ondemand.seasons(it["title"], it.get("year", ""))
+        seasons.sort(key=lambda x: x["number"], reverse=True)
+        return seasons
+
+    def _fetch_episodes(self, sn):
+        return sn.get("episodes") if sn.get("episodes") is not None else tmdb.episodes(self.details.get("tmdb_id"), sn["number"])
+
+    def _preselect(self, seasons):
+        """The first season that isn't finished, else the newest (index into the newest-first list)."""
+        prog = (self.progress or {}).get("seasons", {})
+        for i, sn in enumerate(sorted(seasons, key=lambda x: x["number"])):
+            p = prog.get(sn["number"])
+            if not p or p["completed"] < p["aired"]:
+                return len(seasons) - 1 - i
+        return 0
 
     def onClick(self, control_id):
         it = self.item
@@ -108,17 +159,24 @@ class TitleInfo(xbmcgui.WindowXMLDialog):
                 self.close()
                 kodi.start_android_activity(it["play"]["pkg"], action="android.intent.action.VIEW", data_uri=it["play"]["url"])
 
+    def _busy(self, fn):
+        """Run fn with Kodi's spinner showing, so a slow fetch never looks like a dead button."""
+        xbmc.executebuiltin("ActivateWindow(busydialognocancel)")
+        try:
+            return fn()
+        finally:
+            xbmc.executebuiltin("Dialog.Close(busydialognocancel)")
+
     def _load_episodes(self):
         it, d = self.item, self.details
-        seasons = []
-        if d.get("tmdb_id"):
-            seasons = [dict(x, episodes=None) for x in tmdb.seasons(d.get("tmdb_id"))]
-        if not seasons:
-            seasons = ondemand.seasons(it["title"], it.get("year", ""))
+        t = time.time()
+        if not self.enriched.is_set():
+            self._busy(lambda: self.enriched.wait(20))
+        seasons = self.seasons if self.seasons is not None else self._busy(self._fetch_seasons)
         if not seasons:
             kodi.notify("No episode data")
             return
-        seasons.sort(key=lambda x: x["number"], reverse=True)
+        kodi.log("info: %d seasons ready in %.2fs" % (len(seasons), time.time() - t))
         prog = (getattr(self, "progress", {}) or {}).get("seasons", {})
         labels = []
         for sn in seasons:
@@ -131,18 +189,16 @@ class TitleInfo(xbmcgui.WindowXMLDialog):
                 elif p["completed"]:
                     mark = "   [COLOR FFFFD166]%d of %d watched[/COLOR]" % (p["completed"], p["aired"])
             labels.append("Season %s  (%s episodes%s)%s" % (sn["number"], sn.get("count", "?"), ", from %s" % when if when else "", mark))
-        # preselect the first season that isn't finished, else the newest
-        pre = 0
-        for i, sn in enumerate(sorted(seasons, key=lambda x: x["number"])):
-            p = prog.get(sn["number"])
-            if not p or p["completed"] < p["aired"]:
-                pre = len(seasons) - 1 - i
-                break
+        pre = self._preselect(seasons)
         pick = xbmcgui.Dialog().select("Season", labels, preselect=pre)
         if pick < 0:
             return
         sn = seasons[pick]
-        self.episodes = sn.get("episodes") if sn.get("episodes") is not None else tmdb.episodes(d.get("tmdb_id"), sn["number"])
+        t = time.time()
+        self.episodes = self.season_eps.get(sn["number"])
+        if self.episodes is None:
+            self.episodes = self.season_eps[sn["number"]] = self._busy(lambda: self._fetch_episodes(sn))
+        kodi.log("info: season %s episodes (%d) in %.2fs" % (sn["number"], len(self.episodes or []), time.time() - t))
         seen_map = (prog.get(sn["number"]) or {}).get("episodes") or {}
         p = prog.get(sn["number"])
         status = ""
@@ -181,14 +237,15 @@ def _nice_date(iso):
 
 def show(item):
     """Open the detail page for an on-demand item (dict from sources.ondemand)."""
-    details = tmdb.details(item["title"], item.get("year", ""), item["type"]) if tmdb.enabled() else {}
-    dlg = TitleInfo("TitleInfo.xml", kodi.ADDON_PATH, "Default", "1080i", item=item, details=details)
+    dlg = TitleInfo("TitleInfo.xml", kodi.ADDON_PATH, "Default", "1080i", item=item)
     dlg.doModal()
     del dlg
 
 
 def show_by_title(title, year="", kind=""):
+    t = time.time()
     item = ondemand.lookup(title, year, kind)
+    kodi.log("info: JustWatch lookup for %s in %.2fs" % (title, time.time() - t))
     if item:
         show(item)
     else:
