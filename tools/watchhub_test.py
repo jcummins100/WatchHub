@@ -39,7 +39,7 @@ FILTER_FILE = KODI_HOME + "/userdata/addon_data/plugin.video.sportshub/home_filt
 # Home rows, top to bottom, as Home.xml lays them out (id, name)
 FIXED_GUIDE_TABS = ["Favorites", "Categories", "Sports", "News", "Movies", "Game Shows", "Kids", "All"]
 ALL_ROWS = [(9050, "Services"), (9960, "Up Next"), (9100, "Live Sports Now"), (9200, "Today's Games"),
-            (9950, "New This Week"), (9800, "Trending"), (9700, "Free Live TV"), (9300, "Sports Starting Soon"), (9600, "More")]
+            (9950, "New This Week"), (9800, "Trending"), (9700, "Browse"), (9300, "Sports Starting Soon"), (9600, "More")]
 PROVIDER_ROWS = [(9051, "Services"), (9961, "Up Next on <svc>"), (9951, "New This Week on <svc>"), (9801, "Trending on <svc>")]
 # actions the crawler must never run (they change user data, need a human, or switch the skin)
 NEVER = {"trakt_watched", "trakt_watchlist", "trakt_signout", "trakt_signin", "settings", "skin", "enable_addon", "refresh", "provider"}
@@ -114,7 +114,7 @@ class Offline:
         for name, q in [("Services row", "action=providers&skin=1"), ("Up Next (signed out offline)", "action=trakt&row=upnext&skin=1"),
                         ("Live Sports Now", "action=live&skin=1"), ("Today's Games", "action=games&league=all&skin=1"),
                         ("New This Week", "action=ondemand&row=3&skin=1"), ("Trending", "action=ondemand&row=0&skin=1"),
-                        ("Free Live TV", "action=tvgroups&skin=1"), ("Starting Soon", "action=soon&skin=1"),
+                        ("Browse", "action=browse_tiles&skin=1"), ("Starting Soon", "action=soon&skin=1"),
                         ("By sport (More)", "action=sports&skin=1"), ("Your apps (More)", "action=apps&skin=1")]:
             r = self.run(q)
             n = len(r["items"])
@@ -672,17 +672,8 @@ class OnDevice:
         row_clicks(9950, "New This Week", 2, lambda l, s, dl: "Window.IsActive(TitleInfo.xml)" in dl)
         row_clicks(9800, "Trending", 2, lambda l, s, dl: "Window.IsActive(TitleInfo.xml)" in dl)
         row_clicks(9300, "Sports Starting Soon", 4, launched_ok)
-        row_clicks(9700, "Free Live TV genre", 3, lambda l, s, dl: "Window.IsActive(videos)" in dl, first=2)  # card 1 = TV Guide
-        # inside a Free Live TV genre: click two channels
-        d.home(); d.goto_row(9700, ALL_ROWS); d.goto_item(9700, 2); d.key("Select"); time.sleep(4)
-        if d.is_("Window.IsActive(videos)").get("Window.IsActive(videos)"):
-            for k in (1, 2):
-                d.key("Down") if k > 1 else None
-                lab = d.info("ListItem.Label").get("ListItem.Label", "")
-                launched, _, _ = self.click(B, "Free Live TV > channel: %s" % lab[:50], launched_ok, back=False)
-                if launched:
-                    d.sh("am force-stop %s" % launched)
-                    d.kodi_front()
+        row_clicks(9700, "Browse category", 3, lambda l, s, dl: "Window.IsActive(Browse.xml)" in dl, first=2)  # card 1 = TV Guide
+        self._browse(B, 2)
         d.home()
 
         self._guide_tests(B)
@@ -794,17 +785,7 @@ class OnDevice:
 
     def _free_tv_and_power(self, B):
         d, rep = self.d, self.rep
-        d.home(); d.goto_row(9700, ALL_ROWS); d.goto_item(9700, 2)
-        self.click(B, "Free Live TV genre #1", lambda l, s, dl: "Window.IsActive(videos)" in dl, back=False)
-        for k in (1, 2, 3):
-            if not d.is_("Window.IsActive(videos)").get("Window.IsActive(videos)"):
-                d.home(); d.goto_row(9700, ALL_ROWS); d.goto_item(9700, 2); d.key("Select"); time.sleep(4)
-            d.key("Down", k)
-            lab = d.info("ListItem.Label").get("ListItem.Label", "")
-            launched, _, _ = self.click(B, "Free Live TV > genre 1 > channel: %s" % lab[:50], lambda l, s, dl: bool(l), back=False)
-            if launched:
-                d.sh("am force-stop %s" % launched)
-            d.kodi_front()
+        self._browse(B, 3)
         d.home(); d.goto_row(9050, ALL_ROWS); d.key("Up")
         for _ in range(4):
             if d.focus() == 803 or d.info("Control.GetLabel(%d)" % d.focus()):
@@ -963,23 +944,47 @@ class OnDevice:
         row_clicks(9950, "New This Week", 3, info_ok)
         row_clicks(9800, "Trending", 3, info_ok)
         row_clicks(9300, "Sports Starting Soon", 4, lambda l, s, dl: bool(l))
-        row_clicks(9700, "Free Live TV genre", 3, lambda l, s, dl: "Window.IsActive(videos)" in dl, first=2)  # card 1 = TV Guide
-        d.home(); d.goto_row(9700, ALL_ROWS); d.goto_item(9700, 2); d.key("Select"); time.sleep(4)
-        if d.is_("Window.IsActive(videos)").get("Window.IsActive(videos)"):
-            for k in (1, 2, 3):
-                if k > 1:
-                    d.key("Down")
-                lab = d.info("ListItem.Label").get("ListItem.Label", "")
-                launched, _, _ = self.click(B, "Free Live TV > Entertainment > channel: %s" % lab[:50], lambda l, s, dl: bool(l), back=False)
-                if launched:
-                    d.sh("am force-stop %s" % launched)
-                d.kodi_front()
-                if not d.is_("Window.IsActive(videos)").get("Window.IsActive(videos)"):
-                    d.home(); d.goto_row(9700, ALL_ROWS); d.goto_item(9700, 2); d.key("Select"); time.sleep(4)
-                    d.key("Down", k)
+        row_clicks(9700, "Browse category", 3, lambda l, s, dl: "Window.IsActive(Browse.xml)" in dl, first=2)  # card 1 = TV Guide
+        self._browse(B, 3)
         rep.add(B, "Kodi cold starts after returning from an app (this run)", "INFO", "%d" % getattr(d, "restarts", 0))
         self._filters(B)
         rep.add(B, "Kodi cold starts after returning from an app (incl. filters)", "INFO", "%d" % getattr(d, "restarts", 0))
+
+    def _browse(self, B, channels=2):
+        """Browse row: a category tile (Comedy) opens the Browse screen; its live channels tune in, a show opens its info page."""
+        d = self.d
+
+        def open_tile():
+            d.home(); d.goto_row(9700, ALL_ROWS)
+            n = int(d.info("Container(9700).NumItems").get("Container(9700).NumItems") or 0)
+            for k in range(1, n + 1):
+                d.goto_item(9700, k)
+                if d.info("Container(9700).ListItem.Label").get("Container(9700).ListItem.Label") == "Comedy":
+                    break
+            d.key("Select"); time.sleep(5)
+            return d.is_("Window.IsActive(Browse.xml)").get("Window.IsActive(Browse.xml)")
+
+        for k in range(channels):
+            if not open_tile():
+                self.rep.add(B, "Browse: Comedy opens the Browse screen", "FAIL", "", d.shot("browse-missing"))
+                return
+            if k:
+                d.key("Right", k)
+            lab = d.info("Container(100).ListItem.Label").get("Container(100).ListItem.Label", "")
+            launched, _, _ = self.click(B, "Browse > Comedy > live: %s" % lab[:50], lambda l, s, dl: bool(l), back=False, settle=14)
+            if launched:
+                d.sh("am force-stop %s" % launched)
+            d.kodi_front()
+        if open_tile():
+            time.sleep(4)
+            st = d.info("Container(100).NumItems", "Container(200).NumItems", "Container(300).NumItems")
+            self.rep.add(B, "Browse: Comedy has live, shows and movies rows", "PASS" if all(int(v or 0) > 0 for v in st.values()) else "FAIL",
+                         json.dumps(st), d.shot("browse-comedy"))
+            d.key("Down")
+            lab = d.info("Container(200).ListItem.Label").get("Container(200).ListItem.Label", "")
+            self.click(B, "Browse > Comedy > show: %s" % lab[:50], lambda l, s, dl: "Window.IsActive(TitleInfo.xml)" in dl, back=False)
+            d.key("Back"); time.sleep(1); d.key("Back"); time.sleep(1)
+        d.home()
 
     def _filters(self, B):
         d, rep = self.d, self.rep

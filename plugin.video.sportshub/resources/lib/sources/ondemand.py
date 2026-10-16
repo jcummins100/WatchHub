@@ -198,12 +198,16 @@ def _make(node, codes, require_offer=True):
     }
 
 
-def titles(codes=None, object_types=("MOVIE", "SHOW"), first=30, sort="POPULAR"):
+def titles(codes=None, object_types=("MOVIE", "SHOW"), first=30, sort="POPULAR", genres=None):
+    """Popular titles on these services; genres = JustWatch genre codes (any of them) for Browse."""
     codes = codes or installed_codes()
     if not codes:
         return []
+    flt = {"packages": codes, "objectTypes": list(object_types)}
+    if genres:
+        flt["genres"] = list(genres)
     data = _post({"country": kodi.setting("region", "us").upper(), "language": "en", "first": first, "sort": sort,
-                  "filter": {"packages": codes, "objectTypes": list(object_types)}})
+                  "filter": flt})
     out = []
     for edge in ((data.get("popularTitles") or {}).get("edges") or []):
         item = _make(edge.get("node") or {}, codes)

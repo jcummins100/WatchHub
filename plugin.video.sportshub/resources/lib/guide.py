@@ -211,8 +211,15 @@ def _rebuild_now():
         _BUILD_LOCK.release()
 
 
+COUNTS_PROP = "sh_category_counts"  # Home window property: channels per category, for the home Browse row
+
+
 def _publish(rows, t=None):
     _BUILT.update(at=time.time(), rows=rows)
+    try:
+        xbmcgui.Window(10000).setProperty(COUNTS_PROP, json.dumps(genre_counts(rows)))
+    except Exception as exc:  # no GUI (off-device tools)
+        kodi.debug("category counts not published: %s" % exc)
     if t:
         kodi.log("guide: %d channel rows built in %.2fs" % (len(rows), time.time() - t))
     else:

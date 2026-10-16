@@ -1,4 +1,4 @@
-"""WatchHub's own windows (info page, TV Guide), opened by the always-running service.
+"""WatchHub's own windows (info page, TV Guide, Browse), opened by the always-running service.
 
 A click sets the Home window property sh_ui_request to the item's plugin URL (the skin does it directly,
 the add-on does it for menu entries). A worker thread here picks it up within ~50 ms and opens the window:
@@ -58,6 +58,9 @@ class Worker(threading.Thread):
         elif action == "guide":
             from resources.lib import guide
             guide.show(params.get("tab") or None)
+        elif action == "browse":
+            from resources.lib import browse
+            browse.show(params.get("cat") or "Comedy")
         else:
             kodi.log("unknown window request: %s" % req)
             return

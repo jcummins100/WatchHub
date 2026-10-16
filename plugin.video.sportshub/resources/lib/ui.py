@@ -775,6 +775,19 @@ def tvgroups():
     kodi.end_directory()
 
 
+def browse_tiles():
+    """Home row BROWSE: the TV Guide, then one tile per category (Browse screen: live now + on your services)."""
+    kodi.set_content("videos")
+    from resources.lib import browse, guide
+    kodi.add_item("TV Guide", kodi.build_url(action="guide"), False, art={"icon": "DefaultPVRGuide.png"},
+                  props={"kind": "guide", "color": "FF8A1F2E", "title": "TV Guide", "meta": "Every free channel - what's on now and later"})
+    for cat, n, on_demand in browse.tiles():
+        meta = ", ".join(x for x in ("%d channels" % n if n else "", "shows & movies" if on_demand else "") if x)
+        kodi.add_item(cat, kodi.build_url(action="browse", cat=cat), False, art={"icon": ICON_FOLDER},
+                      props={"kind": "tile", "color": guide.TILE_COLORS.get(cat, "FF2A3550"), "meta": meta})
+    kodi.end_directory()
+
+
 def tvgroup(name):
     kodi.set_content("videos")
     for p in fast.live_now_group(name):
@@ -970,6 +983,13 @@ def dispatch(params):
         from resources.lib import guide, uiworker
         if not uiworker.request(kodi.build_url(action="guide", tab=params.get("tab") or "")):
             guide.show(params.get("tab") or None)
+    elif action == "browse_tiles":
+        browse_tiles()
+    elif action == "browse":
+        kodi.resolve_none()
+        from resources.lib import browse, uiworker
+        if not uiworker.request(kodi.build_url(action="browse", cat=params.get("cat", ""))):
+            browse.show(params.get("cat", ""))
     elif action == "settings":
         kodi.resolve_none()
         kodi.open_settings()

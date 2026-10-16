@@ -104,8 +104,8 @@
 				<param name="row_top" value="2256"/>
 				<param name="prev1" value="9800"/><param name="prev2" value="9950"/><param name="prev3" value="9200"/>
 				<param name="next1" value="9300"/><param name="next2" value="9600"/><param name="next3" value="9600"/>
-				<param name="header" value="FREE LIVE TV"/>
-				<param name="content_path" value="plugin://plugin.video.sportshub/?action=tvgroups&amp;skin=1&amp;r=$INFO[Window(Home).Property(sh_refresh)]"/>
+				<param name="header" value="BROWSE"/>
+				<param name="content_path" value="plugin://plugin.video.sportshub/?action=browse_tiles&amp;skin=1&amp;r=$INFO[Window(Home).Property(sh_refresh)]"/>
 				<param name="onclick" value="ActivateWindow(Videos,$INFO[ListItem.FolderPath],return)"/>
 				<param name="layout" value="SH_CardSport"/>
 				<param name="item_width" value="416"/>
