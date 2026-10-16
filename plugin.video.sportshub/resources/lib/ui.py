@@ -498,7 +498,10 @@ def ondemand_menu():
 def _empty_service_tile(svc, what):
     """A provider-view row with nothing in it says so and offers the app, instead of 'Nothing right now'."""
     name = ondemand.short_name(svc)
-    kodi.add_item("%s[CR]on %s" % (what, name), kodi.build_url(action="play", src="app", id=ondemand.BY_CODE[svc][1], name=name), False,
+    pkg = ondemand.BY_CODE[svc][1]
+    # the card itself is narrow: "Nothing here / Open Peacock"; the hero above spells out "Nothing to resume on Peacock"
+    kodi.add_item("Nothing here[CR]Open %s" % name, kodi.build_url(action="play", src="app", id=pkg, name=name), False,
+                  art={"thumb": "androidapp://sources/apps/%s.png" % pkg},
                   props={"kind": "tile", "color": "FF3B3F4A", "title": "%s on %s" % (what, name), "meta": "Open %s to browse it yourself" % name})
 
 

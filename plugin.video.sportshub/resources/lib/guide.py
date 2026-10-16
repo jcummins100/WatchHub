@@ -12,6 +12,7 @@ flagged "+1 more" rather than silently dropped (a proportional grid isn't possib
 import difflib
 import json
 import os
+import re
 import time
 
 import xbmcgui
@@ -28,7 +29,7 @@ ACTION_LEFT, ACTION_RIGHT, ACTION_CONTEXT, ACTION_BACK, ACTION_NAV_BACK = 1, 2, 
 
 # Fixed tabs (a D-pad can't browse 39 shifting genre tabs); every channel is in Shows/News/... by
 # its genres, and "Genres..." opens the full list of specific genres.
-FIXED_TABS = ["Favorites", "Sports", "News", "Movies", "Shows", "Kids", "Music", "All"]
+FIXED_TABS = ["Favorites", "Sports", "News", "Movies", "Shows", "Game Shows", "Kids", "Music", "All"]
 GENRES_TAB = "Genres..."
 _CATEGORY_WORDS = (
     ("News", ("news", "opinion", "weather", "politic", "business")),
@@ -37,12 +38,30 @@ _CATEGORY_WORDS = (
     ("Music", ("music", "vevo", "concert", "karaoke")),
 )
 
-# Cell colours, the familiar cable-guide convention: green sports, purple movies, light blue kids,
+# Game shows go by name only: Pluto's "Daytime + Game Shows" group also holds talk/judge/shopping channels
+# (Dr. Phil, Judge Judy, QVC) and Roku tags America's Got Talent "Game Show". Phrases, not "game", so
+# Game & Fish TV, GameTVGO, XITE Rap Game and pocket.watch Game-On stay out.
+_GAME_SHOWS = re.compile(r"price is right|\btpir\b|family feud|deal or no deal|let'?s make a deal|buzzr|game show"
+                         r"|quiz show|supermarket sweep|name game|jeopardy|wheel of fortune|match game|press your luck"
+                         r"|card sharks|newlywed|wipeout|hollywood squares|weakest link|minute to win it|to tell the truth")
+# Plex (and some Roku) channels come without genres, so their names decide - checked against the full
+# channel list ('FilmRise Comedy' is a distributor, not a movie channel; 'Family Handyman' is not kids).
+_NAME_WORDS = (
+    ("News", re.compile(r"\bnews|weather|local now|bloomberg|cheddar|france 24|reuters|usa today|livenow|\bcnn\b")),
+    ("Movies", re.compile(r"movie(?! music)|cinema|\bfilms\b|flix\b|western|pel[ií]culas|mgm presents|miramax|at the movies")),
+    ("Kids", re.compile(r"\bkid(?!s in the hall)|toon|cartoon|\bbaby|teletubbies|wiggles|little pony|sonic|super mario|power rangers"
+                        r"|beyblade|yu-gi-oh|transformers|strawberry shortcake|moonbug|like nastya|pocket\.watch|garfield")),
+    ("Music", re.compile(r"music|\bhits\b|stingray|\bxite\b|vevo|karaoke|jazz|classic rock|k-pop|concert|\btrace\b"
+                         r"|metal\.rocks|easy listening|hip-hop/r&b|country\b|soul storm")),
+)
+
+# Cell colours, the familiar cable-guide convention: green sports, purple movies, light blue kids, gold game shows,
 # dark blue everything else. (normal, on now, focused row, focused row + on now)
 COLORS = {
     "sports": ("FF1B3A2A", "FF22543A", "FF22482F", "FF2B6A47"),
     "movies": ("FF2E2140", "FF3E2C5A", "FF3A2A52", "FF4D3772"),
     "kids":   ("FF1C3A4F", "FF22506E", "FF23485F", "FF2A6386"),
+    "gameshows": ("FF3A311A", "FF544520", "FF4A3E1F", "FF6A5726"),
     "":       ("FF1A2233", "FF22314F", "FF243150", "FF2E4472"),
 }
 
@@ -51,6 +70,8 @@ def category(chan, title):
     """sports / movies / kids / '' for one programme on one channel (the cell colour)."""
     if chan["sports"] or sports.classify(title):
         return "sports"
+    if "Game Shows" in chan["cats"]:
+        return "gameshows"
     if "Kids" in chan["cats"]:
         return "kids"
     if "Movies" in chan["cats"]:
@@ -58,12 +79,18 @@ def category(chan, title):
     return ""
 
 
-def _categories(groups, is_sports):
+def _categories(groups, is_sports, name=""):
+    """The fixed tabs a channel belongs in: its genre groups, else its name; "Shows" when nothing fits."""
+    name = name.lower()
     cats = {"Sports"} if is_sports else set()
+    if _GAME_SHOWS.search(name):
+        cats.add("Game Shows")
     text = " ".join(groups).lower()
     for cat, words in _CATEGORY_WORDS:
         if any(w in text for w in words):
             cats.add(cat)
+    if not cats - {"Sports"}:
+        cats.update(cat for cat, rx in _NAME_WORDS if rx.search(name))
     return cats or {"Shows"}
 
 
@@ -190,8 +217,13 @@ def channels():
             current = next((t for s, t in reversed(progs) if s <= now), "")
             by_key.setdefault(key, []).append({
                 "key": key, "name": name, "logo": ch.get("logo") or "", "programs": progs, "groups": groups,
-                "sports": is_sports, "cats": _categories(groups, is_sports), "service": svc["name"], "sid": sid,
+                "sports": is_sports, "cats": _categories(groups, is_sports, name), "service": svc["name"], "sid": sid,
                 "play": {"src": sid, "id": cid, "name": name}, "current": fast._norm(current)})
+    for feeds in by_key.values():
+        known = set().union(*(f["cats"] for f in feeds if f["groups"])) - {"Shows"}
+        for f in feeds:
+            if not f["groups"] and known and f["cats"] <= {"Shows"}:
+                f["cats"] = set(known)
     rows = []
     for key, feeds in by_key.items():
         feeds.sort(key=lambda f: prio.get(f["sid"], 99))

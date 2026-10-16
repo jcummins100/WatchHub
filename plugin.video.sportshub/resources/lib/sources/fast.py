@@ -54,7 +54,8 @@ SPANISH_NAME = re.compile(r"espa[nñ]ol|\blatino|telemundo|univisi[oó]n|unim[a�
                           r"|\bnoticias\b|\bdeportes\b|\bnovelas?\b|telenovela|\bcine\b|\ben vivo\b|\bn\+", re.I)
 
 
-SPANISH_NAME_EXTRA = re.compile(r"\bvix\b", re.I)
+SPANISH_NAME_EXTRA = re.compile(r"\bvix\b|\ben alerta\b|cr[ií]menes|pel[ií]culas|cl[aá]sicos?\b|misterios|\bseries gratis\b|\bconcursos\b"
+                                r"|\bacci[oó]n\b|\bcorazón\b|\bnaturaleza\b|\bverdaderos\b|\bsalvaje\b", re.I)
 # words that are common in Spanish titles and rare in English ones; accents/ñ/¿¡ count too
 # (é is left out: English uses it too - Pokémon, café; so are lone "el"/"de"/"la")
 SPANISH_WORDS = re.compile(r"[ñ¿¡]|[áíóú]\w|\b(del|los|las|y|con|para|una|por|que|en vivo|cuando|familia|historia|noche)\b", re.I)
@@ -67,6 +68,9 @@ def is_spanish(ch):
         return True
     name = ch.get("name", "")
     if SPANISH_NAME.search(name) or SPANISH_NAME_EXTRA.search(name):
+        return True
+    # Plex has no genres, so a name in Spanish ("Crímenes Verdaderos", "Historias de Corazón") is the best sign
+    if SPANISH_WORDS.search(SPANISH_NAMES_IN_ENGLISH.sub("", name)):
         return True
     # no label at all (Plex/Roku): judge by what it airs from now on - but only with enough evidence
     # (3+ different titles, 60%+ clearly Spanish); when unsure, the channel stays visible

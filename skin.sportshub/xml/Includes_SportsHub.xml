@@ -839,6 +839,16 @@
 					<height>276</height>
 					<texture border="16" colordiffuse="FF2C3E66">sportshub/card.png</texture>
 				</control>
+				<!-- an app's own logo at the top (e.g. "Nothing to resume on Peacock"), so the card reads even when the row only peeks in -->
+				<control type="image">
+					<left>60</left>
+					<top>24</top>
+					<width>80</width>
+					<height>80</height>
+					<aspectratio>keep</aspectratio>
+					<texture background="true">$INFO[ListItem.Art(thumb)]</texture>
+					<visible>!String.IsEmpty(ListItem.Art(thumb)) + !ListItem.IsParentFolder</visible>
+				</control>
 				<control type="label">
 					<left>16</left>
 					<width>168</width>
@@ -847,7 +857,19 @@
 					<font>font27</font>
 					<label>[B]$INFO[ListItem.Label][/B]</label>
 					<wrapmultiline>true</wrapmultiline>
-					<visible>!ListItem.IsParentFolder</visible>
+					<visible>String.IsEmpty(ListItem.Art(thumb)) + !ListItem.IsParentFolder</visible>
+				</control>
+				<control type="label">
+					<left>6</left>
+					<top>118</top>
+					<width>188</width>
+					<height>140</height>
+					<aligny>top</aligny>
+					<align>center</align>
+					<font>font23_narrow</font>
+					<label>[B]$INFO[ListItem.Label][/B]</label>
+					<wrapmultiline>true</wrapmultiline>
+					<visible>!String.IsEmpty(ListItem.Art(thumb)) + !ListItem.IsParentFolder</visible>
 				</control>
 				<control type="label">
 					<left>16</left>

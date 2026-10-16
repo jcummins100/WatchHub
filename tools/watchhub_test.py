@@ -37,7 +37,7 @@ LOG = KODI_HOME + "/temp/kodi.log"
 FILTER_FILE = KODI_HOME + "/userdata/addon_data/plugin.video.sportshub/home_filter.json"
 
 # Home rows, top to bottom, as Home.xml lays them out (id, name)
-FIXED_GUIDE_TABS = ["Favorites", "Sports", "News", "Movies", "Shows", "Kids", "Music", "All", "Genres..."]
+FIXED_GUIDE_TABS = ["Favorites", "Sports", "News", "Movies", "Shows", "Game Shows", "Kids", "Music", "All", "Genres..."]
 ALL_ROWS = [(9050, "Services"), (9960, "Up Next"), (9100, "Live Sports Now"), (9200, "Today's Games"),
             (9950, "New This Week"), (9800, "Trending"), (9700, "Free Live TV"), (9300, "Sports Starting Soon"), (9600, "More")]
 PROVIDER_ROWS = [(9051, "Services"), (9961, "Up Next on <svc>"), (9951, "New This Week on <svc>"), (9801, "Trending on <svc>")]
@@ -54,8 +54,9 @@ class Report:
     def add(self, area, case, result, detail="", shot=""):
         """result: PASS / FAIL / ISSUE (works, but something is wrong or odd) / INFO / SKIP"""
         self.rows.append({"id": "%s-%03d" % (area.split()[0][:3].upper(), len(self.rows) + 1), "area": area, "case": case,
-                          "result": result, "detail": detail, "shot": shot})
+                          "result": result, "detail": detail, "shot": shot, "t": round(time.time(), 1)})
         print("[%-5s] %s | %s | %s" % (result, area, case, detail[:150]), flush=True)
+        print("  @%d" % time.time(), flush=True)  # read by the board's progress panel for stage times
         self.save()
 
     def note(self, kind, text):
@@ -268,6 +269,35 @@ class Offline:
 
 
 # ====================================================================== part B: on-device
+
+    def guide_data(self):
+        """A6: the TV Guide's tabs as the Shield would build them (Game Shows, Plex/Roku genres, Spanish filter)."""
+        A = "A Logic"
+        env = dict(os.environ, **self.env)
+        p = subprocess.run([sys.executable, os.path.join(ROOT, "tools/guide_report.py")], capture_output=True, text=True, env=env, timeout=300)
+        try:
+            g = json.loads(p.stdout.strip().splitlines()[-1])
+        except (ValueError, IndexError):
+            self.rep.add(A, "Guide data builds", "FAIL", (p.stderr or p.stdout)[-300:])
+            return
+        tabs = g["tabs"]
+        self.rep.add(A, "Guide data builds", "PASS", "%d rows; %s" % (g["rows"], ", ".join("%s %d" % (t, v["total"]) for t, v in tabs.items())))
+        gs = " | ".join(g["game_shows"]).lower()
+        want = ["price is right", "family feud", "make a deal"]
+        bad = [n for n in g["game_shows"] if any(w in n.lower() for w in ("dr. phil", "judge", "qvc", "hsn", "game & fish", "gametv", "rap game", "game-on"))]
+        missing = [w for w in want if w not in gs]
+        self.rep.add(A, "Guide: Game Shows tab", "FAIL" if missing or bad else "PASS",
+                     "%d channels%s%s: %s" % (len(g["game_shows"]), "; missing " + ", ".join(missing) if missing else "",
+                                              "; should not be there: " + ", ".join(bad) if bad else "", ", ".join(g["game_shows"])[:250]))
+        plex = {t: v["by_service"].get("Plex", 0) for t, v in tabs.items()}
+        plex_total = sum(plex.values()) or 1
+        ok = plex.get("News", 0) >= 8 and plex.get("Movies", 0) >= 15 and plex.get("Kids", 0) >= 10 and plex.get("Shows", 0) / plex_total < 0.7
+        self.rep.add(A, "Guide: Plex channels sorted into genres", "PASS" if ok else "ISSUE", ", ".join("%s %d" % kv for kv in plex.items()))
+        self.rep.add(A, "Guide: no Spanish channels by name", "FAIL" if g["spanish_shown"] else "PASS",
+                     ", ".join(g["spanish_shown"])[:250] or "none shown")
+
+
+
 class Device:
     def __init__(self, ip, adb, out):
         self.ip, self.adb_bin, self.out, self.serial = ip, adb, out, "%s:5555" % ip
@@ -420,6 +450,7 @@ class Device:
         # rows finished loading
         self.wait(lambda: not any(self.is_(*["Container(%d).IsUpdating" % i for i, _ in ALL_ROWS[:-1]]).values()), 60, 1)
         return time.time() - t if ok else None
+
 
 
 class OnDevice:
@@ -1106,7 +1137,9 @@ def main():
         if m:
             env["SH_" + k] = m.group(1)
     if args.only != "B":
-        Offline(rep, env).suite()
+        off = Offline(rep, env)
+        off.suite()
+        off.guide_data()
     if args.only != "A":
         OnDevice(rep, dev, args.keep_rpc).suite()
     rep.save()
