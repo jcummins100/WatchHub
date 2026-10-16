@@ -354,7 +354,8 @@ def _add_game(g, show_league=True):
         "kind": "game",
         "title": g["short"] or g["title"], "score": g["score"], "detail": g["detail"], "league": g["league"],
         "network": g["channel"] or "No broadcast listed", "state": state, "when": when,
-        "kicker": {"live": g["league"].upper(), "final": "FINAL \u2022 %s" % g["league"].upper(), "upcoming": "%s \u2022 STARTS %s" % (g["league"].upper(), when.upper())}[state],
+        "kicker": ("YOUR TEAM \u2022 " if g.get("my_team") else "") + {"live": g["league"].upper(), "final": "FINAL \u2022 %s" % g["league"].upper(), "upcoming": "%s \u2022 STARTS %s" % (g["league"].upper(), when.upper())}[state],
+        "my_team": "1" if g.get("my_team") else "",
         "away": g.get("away_abbr") or "", "home": g.get("home_abbr") or "",
         "meta": " \u2022 ".join(x for x in (g["league"], g["channel"], g["detail"] if g["state"] != "pre" else "") if x),
         "league_logo": g.get("league_logo") or "",
@@ -411,6 +412,11 @@ def games_list(league):
         kodi.end_directory()
         return
     items = espn.games(None if league == "all" else [league])
+    if league == "all":
+        # your teams lead the row, with their next game even when it isn't today (Sprint D: My teams)
+        mine = espn.my_games()
+        ids = {g["channel_id"] for g in mine}
+        items = mine + [g for g in items if g["channel_id"] not in ids]
     if not items:
         kodi.add_item("No games scheduled", kodi.build_url(action="games"), False,
                       props={"kind": "tile", "color": "FF3B3F4A", "title": "No games scheduled", "meta": "Nothing on today in the leagues WatchHub follows"})

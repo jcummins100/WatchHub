@@ -10,9 +10,22 @@ import time
 import xbmcgui
 
 from resources.lib import kodi
-from resources.lib.sources import fast, ondemand, trakt
+from resources.lib.sources import espn, fast, ondemand, trakt
 
 LIVE_SERVICES = [sid for sid in fast.SERVICES if fast.SERVICES[sid]["package"]]
+
+
+BY_LEAGUE = {"nfl": "NFL", "nba": "NBA", "mlb": "MLB", "nhl": "NHL"}
+_teams = []
+
+
+def _team_names():
+    if not _teams:
+        try:
+            _teams.extend(espn.all_teams())
+        except Exception as exc:
+            kodi.log("settings: team list failed: %s" % exc)
+    return _teams
 
 
 def _names(codes):
@@ -41,6 +54,7 @@ def show():
             ("order", "When a channel is on several services, play it on", " → ".join(fast.SERVICES[s]["name"] for s in order if s in LIVE_SERVICES)),
             ("spanish", "Hide Spanish-language channels", _on(kodi.setting_bool("hide_spanish", True))),
             ("local", "Your local stations", kodi.setting("local_market", "") or "none"),
+            ("teams", "Your teams (first in Today's Games)", ", ".join(n for lid, a, n in _team_names() if (lid, a) in set(espn.my_teams())) or "none"),
             ("unseen", "Rediscover: only movies I haven't seen", _on(kodi.setting_bool("rediscover_unseen_only", False))),
             ("trakt", "Trakt", "Signed in" if trakt.signed_in() else "Not signed in - choose to sign in"),
             ("all", "All settings", "Kodi's full settings screen for WatchHub"),
@@ -96,6 +110,14 @@ def show():
             if text is not None and text != kodi.setting("local_market", ""):
                 kodi.ADDON.setSetting("local_market", text)
                 changed_guide = True
+        elif key == "teams":
+            teams = _team_names()
+            mine = set(espn.my_teams())
+            sel = xbmcgui.Dialog().multiselect("Your teams", ["%s (%s)" % (n, BY_LEAGUE.get(lid, lid)) for lid, a, n in teams],
+                                               preselect=[i for i, (lid, a, n) in enumerate(teams) if (lid, a) in mine])
+            if sel is not None:
+                kodi.ADDON.setSetting("my_teams", ",".join("%s:%s" % (teams[i][0], teams[i][1].lower()) for i in sel))
+                changed_rows = True
         elif key == "unseen":
             kodi.ADDON.setSetting("rediscover_unseen_only", "false" if kodi.setting_bool("rediscover_unseen_only", False) else "true")
             _new_rediscover_day()

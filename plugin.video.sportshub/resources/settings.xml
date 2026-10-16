@@ -66,6 +66,12 @@
           <default>true</default>
           <control type="toggle"/>
         </setting>
+        <setting id="my_teams" type="string" label="30134" help="30135">
+          <level>0</level>
+          <default>nfl:pit,nfl:cle,nhl:pit,mlb:pit,mlb:bos</default>
+          <constraints><allowempty>true</allowempty></constraints>
+          <control type="edit" format="string"><heading>30134</heading></control>
+        </setting>
         <setting id="src_scores" type="boolean" label="30120" help="30121">
           <level>0</level>
           <default>true</default>

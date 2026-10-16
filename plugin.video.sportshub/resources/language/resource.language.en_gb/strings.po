@@ -157,6 +157,14 @@ msgctxt "#30133"
 msgid "Comma-separated city and call letters. Channels with one of these in their name go in Local and lead the News tab."
 msgstr ""
 
+msgctxt "#30134"
+msgid "Your teams"
+msgstr ""
+
+msgctxt "#30135"
+msgid "league:team, comma-separated (nfl:pit, nhl:pit, mlb:bos). Their games lead Today's Games, with the next one even when it isn't today. Easier: the gear icon > Your teams."
+msgstr ""
+
 msgctxt "#30200"
 msgid "Display"
 msgstr ""

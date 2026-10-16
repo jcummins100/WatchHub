@@ -52,7 +52,8 @@ def _fetch(slug):
 def _networks(comp):
     names = []
     for b in comp.get("broadcasts") or []:
-        for n in b.get("names") or []:
+        # scoreboard: {"names": [...]}; a team's schedule: {"media": {"shortName": ...}}
+        for n in (b.get("names") or []) + [((b.get("media") or {}).get("shortName"))]:
             if n and n not in names:
                 names.append(n)
     for g in comp.get("geoBroadcasts") or []:
@@ -62,9 +63,14 @@ def _networks(comp):
     return names
 
 
+def _logo(t):
+    team = (t or {}).get("team") or {}
+    return team.get("logo") or ((team.get("logos") or [{}])[0].get("href")) or ""  # schedule: a "logos" list
+
+
 def _make(lid, name, sport, ev):
     comp = (ev.get("competitions") or [{}])[0]
-    status = (ev.get("status") or {}).get("type") or {}
+    status = (ev.get("status") or comp.get("status") or {}).get("type") or {}
     state = status.get("state") or "pre"  # pre | in | post
     start = _epoch(ev.get("date", ""))
     networks = _networks(comp)
@@ -72,10 +78,13 @@ def _make(lid, name, sport, ev):
     home = next((t for t in teams if t.get("homeAway") == "home"), teams[0] if teams else {})
     away = next((t for t in teams if t.get("homeAway") == "away"), teams[1] if len(teams) > 1 else {})
     title = ev.get("name") or ev.get("shortName") or ""
+    def pts(t):  # a plain value on the scoreboard, {"displayValue": ...} in a team's schedule
+        v = t.get("score")
+        return v.get("displayValue") if isinstance(v, dict) else v
     score = ""
-    if state != "pre" and home.get("score") not in (None, "") and away.get("score") not in (None, ""):
-        score = "%s - %s" % (away.get("score"), home.get("score"))
-    logo = (away.get("team") or {}).get("logo") or (home.get("team") or {}).get("logo")
+    if state != "pre" and pts(home) not in (None, "") and pts(away) not in (None, ""):
+        score = "%s - %s" % (pts(away), pts(home))
+    logo = _logo(away) or _logo(home)
     detail = status.get("shortDetail") or status.get("detail") or ""
     end = start + 3 * 3600 if start else 0
     if state == "post":
@@ -89,10 +98,10 @@ def _make(lid, name, sport, ev):
         "channel": ", ".join(networks),
         "title": title,
         "short": ev.get("shortName") or "",
-        "away_logo": (away.get("team") or {}).get("logo") or "",
+        "away_logo": _logo(away),
         "away_abbr": (away.get("team") or {}).get("abbreviation") or "",
         "home_abbr": (home.get("team") or {}).get("abbreviation") or "",
-        "home_logo": (home.get("team") or {}).get("logo") or "",
+        "home_logo": _logo(home),
         "league_logo": "",
         "start": start,
         "end": end,
@@ -101,7 +110,7 @@ def _make(lid, name, sport, ev):
         "score": score,
         "sport": sports.classify(name, title) or sport,
         "logo": logo,
-        "art": (home.get("team") or {}).get("logo"),
+        "art": _logo(home),
         "plot": "%s\n%s\nOn: %s\n%s" % (name, detail, ", ".join(networks) or "no broadcast listed",
                                         ((comp.get("venue") or {}).get("fullName") or "")),
         "playable": bool(networks),
@@ -136,3 +145,69 @@ def counts():
         name, total, live = res.get(g["league_id"], (g["league"], 0, 0))
         res[g["league_id"]] = (name, total + 1, live + (1 if g["state"] == "in" else 0))
     return res
+
+
+# ---------------------------------------------------------------- your teams (Sprint D: My teams)
+SCHEDULE = "https://site.api.espn.com/apis/site/v2/sports/%s/teams/%s/schedule"
+NEXT_WITHIN_S = 10 * 86400
+
+
+def my_teams():
+    """[(league id, team abbreviation)] from the my_teams setting ("nfl:pit, nhl:pit, ...")."""
+    raw = kodi.setting("my_teams", "nfl:pit,nfl:cle,nhl:pit,mlb:pit,mlb:bos")
+    out = []
+    for part in raw.split(","):
+        lid, _, abbr = part.strip().partition(":")
+        if lid in BY_ID and abbr:
+            out.append((lid, abbr.strip().upper()))
+    return out
+
+
+def my_games():
+    """Each of your teams' game that's on now or next (within 10 days), soonest first, marked my_team.
+    Today's come from the scoreboard (live scores); later ones from the team's schedule."""
+    teams = my_teams()
+    if not teams:
+        return []
+    now = time.time()
+    board = games([lid for lid in {l for l, _ in teams}])
+    out, ids = [], set()
+
+    def next_from_schedule(lid, abbr):
+        slug, _, name, sport = BY_ID[lid]
+        data = cache.fetch_json(SCHEDULE % (slug, abbr.lower()), 3600) or {}
+        for ev in data.get("events") or []:
+            g = _make(lid, name, sport, ev)
+            if g["state"] == "in" or (g["start"] and now - PAST_S <= g["start"] <= now + NEXT_WITHIN_S and g["state"] != "post"):
+                return g
+        return None
+
+    for lid, abbr in teams:
+        g = next((x for x in board if x["league_id"] == lid and abbr in (x["home_abbr"].upper(), x["away_abbr"].upper())
+                  and x["state"] != "post"), None)
+        if not g:
+            try:
+                g = next_from_schedule(lid, abbr)
+            except Exception as exc:
+                kodi.log("my teams: %s %s schedule failed: %s" % (lid, abbr, exc))
+        if g and g["channel_id"] not in ids:
+            ids.add(g["channel_id"])
+            out.append(dict(g, my_team=True))
+    order = {"in": 0, "pre": 1, "post": 2}
+    out.sort(key=lambda g: (order.get(g["state"], 1), g["start"]))
+    return out
+
+
+def all_teams(leagues=("nfl", "nba", "mlb", "nhl")):
+    """[(league id, abbreviation, "Pittsburgh Steelers")] for the team picker, cached a week."""
+    out = []
+    for lid in leagues:
+        slug = BY_ID[lid][0]
+        data = cache.fetch_json("https://site.api.espn.com/apis/site/v2/sports/%s/teams" % slug, 7 * 86400) or {}
+        for lg in ((data.get("sports") or [{}])[0].get("leagues") or []):
+            for t in lg.get("teams") or []:
+                team = t.get("team") or {}
+                if team.get("abbreviation") and team.get("displayName"):
+                    out.append((lid, team["abbreviation"].upper(), team["displayName"]))
+    return sorted(out, key=lambda x: x[2])
+

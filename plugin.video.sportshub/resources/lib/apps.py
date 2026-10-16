@@ -46,8 +46,22 @@ def for_network(name):
         return None, None
     for rx, pkg, friendly in APPS:
         if rx.search(name):
+            if pkg == "com.cbs.ott":
+                return _paramount_via_prime(pkg, friendly)
             return pkg, friendly
     return None, None
+
+
+def _paramount_via_prime(pkg, friendly):
+    """CBS / Paramount+: no Paramount+ app, but Paramount+ comes through Prime Video (Prime channel 'app')
+    -> Prime Video, where the channel's live CBS station is under Live TV."""
+    try:
+        from resources.lib import health, kodi
+        if health.app_installed(pkg) is False and "app" in [x.strip() for x in kodi.setting("amazon_channels").split(",")]:
+            return "com.amazon.amazonvideo.livingroom", "Paramount+ (Prime Video)"
+    except Exception:
+        pass
+    return pkg, friendly
 
 
 # Apps worth a tile on the home screen, in display order (only shown when installed).
