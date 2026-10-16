@@ -59,6 +59,9 @@ class Worker(threading.Thread):
         elif action == "guide":
             from resources.lib import guide
             guide.show(params.get("tab") or None)
+        elif action == "wh_settings":
+            from resources.lib import settingsmenu
+            settingsmenu.show()
         elif action == "browse":
             from resources.lib import browse
             browse.show(params.get("cat") or "Comedy")

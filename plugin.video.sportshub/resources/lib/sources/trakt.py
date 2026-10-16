@@ -212,6 +212,18 @@ def mark_watched(kind, ids):
     return _call("sync/history", {key: [{"ids": ids}]}) is not None
 
 
+def mark_episode_watched(title, year, season, number):
+    """Mark one episode watched (the user said they finished it); Up Next moves on at its next load."""
+    ids = search_ids(title, year, "Show")
+    if not ids:
+        return False
+    ok = _call("sync/history", {"shows": [{"ids": ids, "seasons": [{"number": int(season), "episodes": [{"number": int(number)}]}]}]}) is not None
+    if ok and ids.get("trakt"):
+        cache.forget("trakt:" + API + "shows/%s/progress/watched?hidden=false&specials=false" % ids["trakt"])
+        cache.forget("trakt:" + API + "sync/watched/shows?extended=noseasons")
+    return ok
+
+
 def add_watchlist(kind, ids):
     key = "movies" if kind == "Movie" else "shows"
     return _call("sync/watchlist", {key: [{"ids": ids}]}) is not None

@@ -40,7 +40,7 @@ def main():
         if skin != "skin.sportshub":
             xbmc.executebuiltin("ActivateWindow(Videos,plugin://%s/,return)" % ADDON_ID)
 
-    from resources.lib import health, homefilter, kodi
+    from resources.lib import finish, health, homefilter, kodi
 
     cmd_file = os.path.join(kodi.ensure_profile_dir(), "cmd")
 
@@ -128,6 +128,11 @@ def main():
                 kodi.log("background refresh failed: %s" % exc)
             # Channel guides are hourly-ish; scores need a few minutes. Refresh at the faster cadence.
             next_refresh = now + min(10, max(3, _int_setting(xbmcaddon.Addon(ADDON_ID), "cache_minutes", 60) - 5)) * 60
+        # Back from an app after an episode: "Did you finish S02E04?" (asks once, on the next key press)
+        try:
+            finish.check()
+        except Exception as exc:
+            kodi.log("finish check failed: %s" % exc)
         # Developer hook: builtins written to <profile>/cmd (e.g. "ReloadSkin()") are run and the file removed.
         if os.path.exists(cmd_file):
             try:

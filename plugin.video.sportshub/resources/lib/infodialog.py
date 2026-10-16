@@ -7,6 +7,7 @@ import xbmc
 import xbmcgui
 
 from resources.lib import kodi
+from resources.lib import finish
 from resources.lib.sources import ondemand, tmdb, trakt, youtube
 
 BTN_PLAY, BTN_TRAILER, BTN_EPISODES, BTN_WATCHLIST, BTN_WATCHED, BTN_ALTS, BTN_CLOSE, LIST_EPISODES = 101, 102, 103, 104, 105, 106, 199, 200
@@ -16,6 +17,8 @@ class TitleInfo(xbmcgui.WindowXMLDialog):
     def __init__(self, *args, **kwargs):
         self.item = kwargs.pop("item")
         self.focus_ep = kwargs.pop("focus_ep", None)  # (season, episode): open on that episode (Up Next)
+        self.focus_name = ""                          # that episode's title, once the season is loaded
+        self.season_shown = None                      # season number in the episode list
         self.details = kwargs.pop("details", None) or {}
         self.episodes = []
         self.progress = {}
@@ -143,6 +146,8 @@ class TitleInfo(xbmcgui.WindowXMLDialog):
         it = self.item
         if control_id == BTN_PLAY:
             self.close()
+            if self.focus_ep:  # opened from Up Next: that's the episode being watched
+                finish.remember(it["title"], it.get("year", ""), self.focus_ep[0], self.focus_ep[1], self.focus_name)
             kodi.start_android_activity(it["play"]["pkg"], action="android.intent.action.VIEW", data_uri=it["play"]["url"])
         elif control_id == BTN_TRAILER:
             url = tmdb.trailer_url(it["title"], it.get("year", ""), it["type"]) if tmdb.enabled() else ""
@@ -175,6 +180,8 @@ class TitleInfo(xbmcgui.WindowXMLDialog):
             if 0 <= pos < len(self.episodes) and it.get("play", {}).get("pkg"):
                 # Apps rarely deep-link to a specific episode; open the show and let the user pick.
                 self.close()
+                e = self.episodes[pos]
+                finish.remember(it["title"], it.get("year", ""), self.season_shown, e["number"], e.get("name", ""))
                 kodi.start_android_activity(it["play"]["pkg"], action="android.intent.action.VIEW", data_uri=it["play"]["url"])
 
     def _busy(self, fn):
@@ -243,10 +250,12 @@ class TitleInfo(xbmcgui.WindowXMLDialog):
             li.setProperty("upcoming", "1" if aired > today else "")
             lst.addItem(li)
         self.setFocusId(LIST_EPISODES)
+        self.season_shown = sn["number"]
         if focus_episode:
             pos = next((i for i, e in enumerate(self.episodes or []) if str(e["number"]) == str(focus_episode)), None)
             if pos is not None:
                 lst.selectItem(pos)
+                self.focus_name = self.episodes[pos].get("name") or ""
 
     def onAction(self, action):
         if action.getId() in (xbmcgui.ACTION_PREVIOUS_MENU, xbmcgui.ACTION_NAV_BACK):

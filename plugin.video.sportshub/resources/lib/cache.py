@@ -36,6 +36,14 @@ def put(key, value):
     return value
 
 
+def forget(key):
+    """Drop one cached entry (e.g. Trakt progress right after marking an episode)."""
+    try:
+        os.remove(_path(key))
+    except OSError:
+        pass
+
+
 def clear():
     d = os.path.join(kodi.ensure_profile_dir(), "cache")
     if not os.path.isdir(d):

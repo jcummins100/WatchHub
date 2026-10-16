@@ -1107,7 +1107,11 @@ def dispatch(params):
             browse.show(params.get("cat", ""))
     elif action == "settings":
         kodi.resolve_none()
-        kodi.open_settings()
+        # WatchHub's own settings (plain words); its last entry opens Kodi's full settings screen
+        from resources.lib import uiworker
+        if not uiworker.request(kodi.build_url(action="wh_settings")):
+            from resources.lib import settingsmenu
+            settingsmenu.show()
     else:
         kodi.notify("Unknown action %s" % action, icon=xbmcgui.NOTIFICATION_WARNING)
         root()

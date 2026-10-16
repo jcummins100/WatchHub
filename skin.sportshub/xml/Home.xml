@@ -342,7 +342,7 @@
 				<include content="IconButton">
 					<param name="control_id" value="802"/>
 					<param name="height" value="80"/>
-					<param name="onclick" value="Addon.OpenSettings(plugin.video.sportshub)"/>
+					<param name="onclick" value="SetProperty(sh_ui_request,plugin://plugin.video.sportshub/?action=wh_settings,home)"/>
 					<param name="icon" value="icons/settings.png"/>
 					<param name="label" value="$LOCALIZE[21417]"/>
 				</include>

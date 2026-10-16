@@ -747,6 +747,9 @@ class OnDevice:
                     rep.add(B, "Info %s: button %s" % (name, bname), "ISSUE", "could not focus it (focus=%s)" % d.focus())
                     continue
                 self.click(B, "Info %s: %s" % (name, bname), back=bid in (101, 102))
+                if bid == 101:
+                    # Play from Up Next notes the episode for "Did you finish?"; a test run mustn't get that question
+                    d.sh("rm -f %s/userdata/addon_data/plugin.video.sportshub/watching.json" % KODI_HOME)
                 if bid in (103, 106):
                     rep.add(B, "Info %s: after %s" % (name, bname), "INFO", "episodes list items=%s" % d.info("Container(200).NumItems").get("Container(200).NumItems"), d.shot("info-after-%s" % bname))
                     d.key("Back")
