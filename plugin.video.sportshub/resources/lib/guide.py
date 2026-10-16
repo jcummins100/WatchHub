@@ -31,7 +31,9 @@ ACTION_LEFT, ACTION_RIGHT, ACTION_CONTEXT, ACTION_BACK, ACTION_NAV_BACK = 1, 2, 
 
 # Fixed tabs (a D-pad can't browse 39 shifting genre tabs); every channel is in Shows/News/... by
 # its genres, and "Genres..." opens the full list of specific genres.
-FIXED_TABS = ["Favorites", "Sports", "News", "Movies", "Shows", "Game Shows", "Kids", "Music", "All"]
+FIXED_TABS = ["Favorites", "Sports", "News", "Movies", "Shows", "Game Shows", "Music", "All"]
+# WatchHub's own categories (from _categories): Kids lives under "Genres..." to keep the tab row to one screen
+CATEGORY_TABS = set(FIXED_TABS) | {"Kids"}
 GENRES_TAB = "Genres..."
 _CATEGORY_WORDS = (
     ("News", ("news", "opinion", "weather", "politic", "business")),
@@ -206,24 +208,52 @@ BUILT_MAX_AGE = 20 * 60   # the service rebuilds after every data refresh (~10 m
 
 def channels(rebuild=False):
     """The guide's rows, kept built in memory by the service (building them takes ~1 s on a Shield).
-    The first caller after Kodi starts waits for listings that are still downloading instead of
+
+    A rebuild happens beside the current list: callers keep getting the previous rows until the new ones
+    are ready, so opening the guide never waits on a refresh. Only the very first build (right after Kodi
+    starts) is waited for, and it gives listings that are still downloading a little time instead of
     showing an empty guide."""
+    rows = _BUILT["rows"]
+    if rows is not None:
+        if rebuild:
+            _rebuild_now()                      # the service's refresh thread: build, then swap
+            return _BUILT["rows"]
+        if time.time() - _BUILT["at"] > BUILT_MAX_AGE:
+            _rebuild_in_background()            # stale: serve it this time, refresh behind it
+        return rows
     with _BUILD_LOCK:
-        if rebuild or _BUILT["rows"] is None or time.time() - _BUILT["at"] > BUILT_MAX_AGE:
+        if _BUILT["rows"] is None:              # first build: wait for it (another thread may have finished meanwhile)
             t = time.time()
-            rows = _build_channels()
-            if not rows:
-                # right after a restart the listings may still be downloading: give them a little time
-                mon = xbmc.Monitor()
-                for _ in range(10):
-                    if mon.waitForAbort(2):
-                        break
-                    rows = _build_channels()
-                    if rows:
-                        break
-            _BUILT.update(at=time.time(), rows=rows)
-            kodi.log("guide: %d channel rows built in %.2fs" % (len(rows), time.time() - t))
+            new = _build_channels()
+            mon = xbmc.Monitor()
+            for _ in range(10):
+                if new or mon.waitForAbort(2):
+                    break
+                new = _build_channels()
+            _publish(new, t)
         return _BUILT["rows"]
+
+
+def _rebuild_now():
+    """Build a new list and swap it in; skipped if another build is already running."""
+    if not _BUILD_LOCK.acquire(blocking=False):
+        return
+    try:
+        _publish(_build_channels())
+    finally:
+        _BUILD_LOCK.release()
+
+
+def _publish(rows, t=None):
+    _BUILT.update(at=time.time(), rows=rows)
+    if t:
+        kodi.log("guide: %d channel rows built in %.2fs" % (len(rows), time.time() - t))
+    else:
+        kodi.log("guide: %d channel rows rebuilt" % len(rows))
+
+
+def _rebuild_in_background():
+    threading.Thread(target=_rebuild_now, name="sh-guide-rebuild", daemon=True).start()
 
 
 def _build_channels():
@@ -241,7 +271,7 @@ def _build_channels():
             progs = _programs(ch.get("programs"))
             if not key or not progs:
                 continue
-            groups = fast._group_names(ch)
+            groups = list(dict.fromkeys(GENRE_ALIASES.get(g, g) for g in fast._group_names(ch)))
             is_sports = sports.is_sports_channel(name, groups)
             current = next((t for s, t in reversed(progs) if s <= now), "")
             by_key.setdefault(key, []).append({
@@ -280,17 +310,34 @@ def _same_broadcast(a, b):
     return a in b or b in a or difflib.SequenceMatcher(None, a, b).ratio() >= 0.8
 
 
-def genres(chans):
+# the services' biggest categories, listed first under "Genres..." (the rest follow A-Z)
+FEATURED_GENRES = ("Kids", "Reality", "Comedy", "True Crime", "Crime", "Classic TV", "Westerns")
+# one name per category across services (Pluto says "Sci-Fi", Roku "Science Fiction")
+GENRE_ALIASES = {"Western": "Westerns", "Science Fiction": "Sci-Fi", "Wrestling": "Pro Wrestling", "Animals + Nature": "Animals",
+                 "Nature": "Animals", "Mixed Martial Arts": "MMA", "Martial Arts": "MMA", "Bicycle": "Cycling", "Bicycle Racing": "Cycling"}
+
+
+def genre_counts(chans):
     counts = {}
     for c in chans:
         for g in c["groups"]:
             counts[g] = counts.get(g, 0) + 1
-    return sorted((g for g, n in counts.items() if n >= 2), key=str.lower)
+    # WatchHub's Kids category (names + Pluto/Roku groups) replaces the services' smaller "Kids" groups
+    counts["Kids"] = sum(1 for c in chans if "Kids" in c["cats"])
+    return counts
+
+
+def genres(chans):
+    """Every category any channel is in (the services' own: Reality, Anime, Cooking, Poker...)."""
+    counts = genre_counts(chans)
+    featured = [g for g in FEATURED_GENRES if g in counts]
+    return featured + sorted((g for g in counts if g not in featured), key=str.lower)
 
 
 def tabs(tab):
-    """The tab strip: the fixed tabs, the specific genre in use (if any), then Genres..."""
-    return FIXED_TABS + ([tab] if tab not in FIXED_TABS and tab != GENRES_TAB else []) + [GENRES_TAB]
+    """The tab strip, one screen wide: Favorites, Genres..., the genre picked from it (if any), then the rest."""
+    picked = [tab] if tab not in FIXED_TABS and tab != GENRES_TAB else []
+    return FIXED_TABS[:1] + [GENRES_TAB] + picked + FIXED_TABS[1:]
 
 
 def in_tab(chans, tab, favs):
@@ -298,7 +345,7 @@ def in_tab(chans, tab, favs):
         return [c for c in chans if c["key"] in favs]
     if tab == "All":
         return list(chans)
-    if tab in FIXED_TABS:
+    if tab in CATEGORY_TABS:
         return [c for c in chans if tab in c["cats"]]
     return [c for c in chans if tab in c["groups"]]
 
@@ -345,7 +392,7 @@ class Guide(xbmcgui.WindowXMLDialog):
 
     def onInit(self):
         t = time.time()
-        if self.tab == GENRES_TAB or (self.tab not in FIXED_TABS and self.tab not in genres(self.chans)):
+        if self.tab == GENRES_TAB or (self.tab not in CATEGORY_TABS and self.tab not in genres(self.chans)):
             self.tab = "Favorites"
         self._tabs()
         self._fill()
@@ -452,9 +499,10 @@ class Guide(xbmcgui.WindowXMLDialog):
                 return
             pick = names[pos]
             if pick == GENRES_TAB:
-                all_genres = genres(self.chans)
+                all_genres, counts = genres(self.chans), genre_counts(self.chans)
                 extra = ["Hidden channels (%d)" % len(self.hidden)] if self.hidden else []
-                choice = xbmcgui.Dialog().select("Genres", all_genres + extra)
+                labels = ["%s  (%d)" % (g, counts[g]) for g in all_genres]
+                choice = xbmcgui.Dialog().select("Genres", labels + extra)
                 if choice < 0:
                     return
                 if choice >= len(all_genres):

@@ -22,7 +22,7 @@ from resources.lib.sources import fast  # noqa: E402
 
 chans = guide.channels()
 tabs = {}
-for tab in guide.FIXED_TABS:
+for tab in guide.FIXED_TABS + ["Kids"]:
     if tab in ("Favorites", "All"):
         continue
     rows = guide.in_tab(chans, tab, [])

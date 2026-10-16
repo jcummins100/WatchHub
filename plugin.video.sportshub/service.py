@@ -127,4 +127,8 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    finally:
+        # clicks fall back to opening windows themselves once no service is listening
+        xbmcgui.Window(10000).clearProperty("sh_service_alive")

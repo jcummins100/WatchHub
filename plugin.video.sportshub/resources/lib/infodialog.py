@@ -21,6 +21,8 @@ class TitleInfo(xbmcgui.WindowXMLDialog):
         self.seasons = None            # filled in the background after the page opens
         self.season_eps = {}           # season number -> episodes, prefetched for the likely pick
         self.enriched = threading.Event()
+        self.closed = threading.Event()   # set when the page closes: background work stops touching it
+        self.season_lock = threading.Lock()
         super().__init__(*args)
         # Everything that decides the button row comes from the card itself, so the buttons are in place
         # from the first frame and never appear late or push each other along.
@@ -73,8 +75,10 @@ class TitleInfo(xbmcgui.WindowXMLDialog):
         try:
             if tmdb.enabled() and not self.details:
                 self.details = tmdb.details(it["title"], it.get("year", ""), it["type"]) or {}
+                if self.closed.is_set():
+                    return
                 self._fill_props()
-            if trakt.signed_in():
+            if trakt.signed_in() and not self.closed.is_set():
                 if it["type"] == "Show":
                     self.progress = trakt.show_progress(it["title"], it.get("year", "")) or {}
                     pr = self.progress
@@ -87,12 +91,11 @@ class TitleInfo(xbmcgui.WindowXMLDialog):
                 elif trakt.movie_watched(it["title"], it.get("year", "")):
                     self.setProperty("watched", "Watched")
             kodi.log("info: details + Trakt filled in %.2fs" % (time.time() - t))
-            if it["type"] == "Show":
+            if it["type"] == "Show" and not self.closed.is_set():
                 self.seasons = self._fetch_seasons()
                 pre = self._preselect(self.seasons)
-                if self.seasons:
-                    sn = self.seasons[pre]
-                    self.season_eps[sn["number"]] = self._fetch_episodes(sn)
+                if self.seasons and not self.closed.is_set():
+                    self._episodes_for(self.seasons[pre])
                 kodi.log("info: seasons prefetched in %.2fs" % (time.time() - t))
         except Exception as exc:
             kodi.log("info enrich failed: %s" % exc)
@@ -108,6 +111,13 @@ class TitleInfo(xbmcgui.WindowXMLDialog):
             seasons = ondemand.seasons(it["title"], it.get("year", ""))
         seasons.sort(key=lambda x: x["number"], reverse=True)
         return seasons
+
+    def _episodes_for(self, sn):
+        """One fetch per season, shared by the background prefetch and the Episodes button."""
+        with self.season_lock:
+            if sn["number"] not in self.season_eps:
+                self.season_eps[sn["number"]] = self._fetch_episodes(sn)
+            return self.season_eps[sn["number"]]
 
     def _fetch_episodes(self, sn):
         return sn.get("episodes") if sn.get("episodes") is not None else tmdb.episodes(self.details.get("tmdb_id"), sn["number"])
@@ -171,7 +181,7 @@ class TitleInfo(xbmcgui.WindowXMLDialog):
         it, d = self.item, self.details
         t = time.time()
         if not self.enriched.is_set():
-            self._busy(lambda: self.enriched.wait(20))
+            self._busy(lambda: self.enriched.wait(8))
         seasons = self.seasons if self.seasons is not None else self._busy(self._fetch_seasons)
         if not seasons:
             kodi.notify("No episode data")
@@ -197,7 +207,7 @@ class TitleInfo(xbmcgui.WindowXMLDialog):
         t = time.time()
         self.episodes = self.season_eps.get(sn["number"])
         if self.episodes is None:
-            self.episodes = self.season_eps[sn["number"]] = self._busy(lambda: self._fetch_episodes(sn))
+            self.episodes = self._busy(lambda: self._episodes_for(sn))
         kodi.log("info: season %s episodes (%d) in %.2fs" % (sn["number"], len(self.episodes or []), time.time() - t))
         seen_map = (prog.get(sn["number"]) or {}).get("episodes") or {}
         p = prog.get(sn["number"])
@@ -238,7 +248,10 @@ def _nice_date(iso):
 def show(item):
     """Open the detail page for an on-demand item (dict from sources.ondemand)."""
     dlg = TitleInfo("TitleInfo.xml", kodi.ADDON_PATH, "Default", "1080i", item=item)
-    dlg.doModal()
+    try:
+        dlg.doModal()
+    finally:
+        dlg.closed.set()
     del dlg
 
 
