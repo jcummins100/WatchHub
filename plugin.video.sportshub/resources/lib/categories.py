@@ -37,7 +37,7 @@ _local_rx = {"key": None, "rx": None}
 
 def _local_pattern():
     from resources.lib import kodi
-    words = kodi.setting("local_market", "Pittsburgh, KDKA, WPXI, WTAE, WPGH, WQED")
+    words = kodi.ADDON.getSetting("local_market")  # empty = cleared on purpose
     if _local_rx["key"] != words:
         terms = [re.escape(w.strip()) for w in words.split(",") if w.strip()]
         _local_rx.update(key=words, rx=re.compile(r"\b(%s)\b" % "|".join(terms), re.I) if terms else None)

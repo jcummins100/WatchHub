@@ -9,6 +9,7 @@
 import json
 import os
 import sys
+import threading
 import time
 
 import xbmc
@@ -68,11 +69,14 @@ def main():
         from resources.lib import guide
         spot = homefilter.pending_spot()
         if spot and guide.pending_return() is None:
-            for _ in range(60):
-                if xbmc.getCondVisibility("Window.IsActive(home)") or monitor.waitForAbort(0.5):
-                    break
-            if homefilter.restore_spot(spot):
-                homefilter.forget_spot()
+            def back_to_card(spot=spot):
+                # its own thread: Up Next can take a while to load, and the service has other work to start
+                for _ in range(60):
+                    if xbmc.getCondVisibility("Window.IsActive(home)") or monitor.waitForAbort(0.5):
+                        break
+                homefilter.restore_spot(spot)
+                homefilter.forget_spot()  # one try; an old spot must never pull focus later
+            threading.Thread(target=back_to_card, name="sh-back-to-card", daemon=True).start()
 
     pending_guide = ""
     # Kodi was killed while a channel launched from the TV Guide was playing: put the guide back.
@@ -114,7 +118,11 @@ def main():
             # (only while no key has been pressed in Kodi since that app was launched)
             spot = homefilter.pending_spot()
             if spot and xbmc.getCondVisibility("System.IdleTime(%d)" % max(1, int(time.time() - spot["at"]) - 5)):
-                homefilter.restore_spot(spot, timeout_s=20)
+                homefilter.restore_spot(spot, timeout_s=20, after_reload=True)
+        # someone is using Kodi again after an app: the remembered card has done its job
+        spot = homefilter.pending_spot()
+        if spot and now - spot["at"] > 60 and not xbmc.getCondVisibility("System.IdleTime(2)"):
+            homefilter.forget_spot()
         if now >= next_refresh:
             try:
                 health.warm_caches()

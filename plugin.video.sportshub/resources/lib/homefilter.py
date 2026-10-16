@@ -146,16 +146,27 @@ def forget_spot():
         pass
 
 
-def restore_spot(spot, timeout_s=30.0):
+def restore_spot(spot, timeout_s=30.0, after_reload=False):
     """Focus the remembered card once its row has loaded: by label (rows may have been rebuilt meanwhile),
-    else by position. Gives up if the user is already somewhere else on Home, or the service filter changed."""
+    else by position. Gives up as soon as anyone presses a key (they're going somewhere themselves), or the
+    service filter changed. after_reload: the rows were just told to reload, so first wait for that reload
+    to begin; the old list is still on screen for a frame or two."""
     row = int(spot["row"])
     mon = xbmc.Monitor()
     waited = 0.0
+    reloading = not after_reload
+    first = xbmc.getInfoLabel("Container(%d).ListItemAbsolute(0).Label" % row)
     while waited < timeout_s:
         if current() != spot.get("provider", ""):
             return False
-        if xbmc.getCondVisibility("Window.IsActive(home) + Control.IsVisible(%d) + !Container(%d).IsUpdating" % (row, row)):
+        # (not in the first seconds: Kodi starting up, or the click that asked for this, counts as input)
+        if waited > 5 and not xbmc.getCondVisibility("System.IdleTime(%d)" % (int(waited) - 4)):
+            kodi.log("home: a key was pressed, card not restored")
+            return False
+        if not reloading:
+            reloading = xbmc.getCondVisibility("Container(%d).IsUpdating" % row) or \
+                xbmc.getInfoLabel("Container(%d).ListItemAbsolute(0).Label" % row) != first or waited >= 3
+        elif xbmc.getCondVisibility("Window.IsActive(home) + Control.IsVisible(%d) + !Container(%d).IsUpdating" % (row, row)):
             n = int(xbmc.getInfoLabel("Container(%d).NumItems" % row) or 0)
             if n:
                 labels = [xbmc.getInfoLabel("Container(%d).ListItemAbsolute(%d).Label" % (row, i)) for i in range(n)]

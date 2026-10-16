@@ -154,7 +154,7 @@ NEXT_WITHIN_S = 10 * 86400
 
 def my_teams():
     """[(league id, team abbreviation)] from the my_teams setting ("nfl:pit, nhl:pit, ...")."""
-    raw = kodi.setting("my_teams", "nfl:pit,nfl:cle,nhl:pit,mlb:pit,mlb:bos")
+    raw = kodi.ADDON.getSetting("my_teams")  # empty = no teams (settings.xml has the default)
     out = []
     for part in raw.split(","):
         lid, _, abbr = part.strip().partition(":")

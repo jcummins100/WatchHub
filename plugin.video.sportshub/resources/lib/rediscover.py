@@ -166,8 +166,11 @@ def today():
         now = time.time()
         for t in picks:
             shown[t["jw_id"]] = now
-        state.update({"day": day, "picks": [t["jw_id"] for t in picks], "shown": shown})
-        _save(state)
+        # the picking took a while (network): re-read, so a Hide / Like / Undo made meanwhile isn't lost
+        latest = _load()
+        latest.update({"day": day, "picks": [t["jw_id"] for t in picks], "shown": shown})
+        _save(latest)
+        state = latest
         kodi.log("rediscover: %d picked from %d (pool %d)" % (len(picks), len(cands), len(all_)))
     watched = trakt.watched_movie_ids()
     out = []

@@ -107,7 +107,7 @@ class TitleInfo(xbmcgui.WindowXMLDialog):
                 if self.focus_ep and self.seasons and not self.closed.is_set():
                     sn = next((x for x in self.seasons if str(x["number"]) == str(self.focus_ep[0])), None)
                     if sn:
-                        self._show_season(sn, self.focus_ep[1])
+                        self._show_season(sn, self.focus_ep[1], background=True)
         except Exception as exc:
             kodi.log("info enrich failed: %s" % exc)
         finally:
@@ -184,6 +184,12 @@ class TitleInfo(xbmcgui.WindowXMLDialog):
                 finish.remember(it["title"], it.get("year", ""), self.season_shown, e["number"], e.get("name", ""))
                 kodi.start_android_activity(it["play"]["pkg"], action="android.intent.action.VIEW", data_uri=it["play"]["url"])
 
+    def _focus_id(self):
+        try:
+            return self.getFocusId()
+        except RuntimeError:
+            return 0
+
     def _busy(self, fn):
         """Run fn with Kodi's spinner showing, so a slow fetch never looks like a dead button."""
         xbmc.executebuiltin("ActivateWindow(busydialognocancel)")
@@ -220,8 +226,10 @@ class TitleInfo(xbmcgui.WindowXMLDialog):
             return
         self._show_season(seasons[pick])
 
-    def _show_season(self, sn, focus_episode=None):
-        """Fill the episode list with one season; focus_episode (its number) puts focus on that one."""
+    def _show_season(self, sn, focus_episode=None, background=False):
+        """Fill the episode list with one season; focus_episode (its number) selects that one.
+        background: filled in by itself after the page opened, so focus only moves if nobody has moved it
+        (still on Play, the page's first button) and no picker is open."""
         it = self.item
         prog = (getattr(self, "progress", {}) or {}).get("seasons", {})
         t = time.time()
@@ -249,7 +257,8 @@ class TitleInfo(xbmcgui.WindowXMLDialog):
             li.setProperty("overview", e.get("overview") or "")
             li.setProperty("upcoming", "1" if aired > today else "")
             lst.addItem(li)
-        self.setFocusId(LIST_EPISODES)
+        if not background or (self._focus_id() in (BTN_PLAY, 0) and not xbmc.getCondVisibility("System.HasActiveModalDialog")):
+            self.setFocusId(LIST_EPISODES)
         self.season_shown = sn["number"]
         if focus_episode:
             pos = next((i for i, e in enumerate(self.episodes or []) if str(e["number"]) == str(focus_episode)), None)

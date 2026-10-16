@@ -91,7 +91,7 @@ def installed_codes():
 
 def subscriptions():
     """JustWatch codes of the paid services the user confirmed (Settings or WatchHub menu > Your subscriptions)."""
-    return {x.strip() for x in kodi.setting("subscriptions", "nfx,amp,atp,hlu,pct,app,aho").split(",") if x.strip()}
+    return {x.strip() for x in kodi.ADDON.getSetting("subscriptions").split(",") if x.strip()}
 
 
 def _label(offer, subs):

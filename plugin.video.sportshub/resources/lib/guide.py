@@ -201,6 +201,12 @@ def channels(rebuild=False):
         return _BUILT["rows"]
 
 
+def channels_quick():
+    """The rows without waiting: the built list if this process has one, else a single build with whatever
+    listings are cached (a plugin call for one home row mustn't sit through the first build's retries)."""
+    return _BUILT["rows"] if _BUILT["rows"] is not None else _build_channels()
+
+
 def _rebuild_now():
     """Build a new list and swap it in; skipped if another build is already running."""
     if not _BUILD_LOCK.acquire(blocking=False):

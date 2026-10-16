@@ -50,6 +50,17 @@ def _take():
     return note if away >= MIN_AWAY else None
 
 
+def _forget_if_back_early():
+    """A key press 30 s to MIN_AWAY after the Play click: they came straight back, so there's nothing to ask."""
+    try:
+        with open(_path(), encoding="utf-8") as fh:
+            away = time.time() - float(json.load(fh).get("at", 0))
+    except (OSError, ValueError, TypeError):
+        return
+    if 30 < away < MIN_AWAY:
+        forget()
+
+
 def forget():
     try:
         os.remove(_path())
@@ -69,6 +80,7 @@ def check():
         return  # nobody pressed anything just now, or something else is on screen
     note = _take()
     if not note:
+        _forget_if_back_early()
         return
     forget()  # ask once, whatever the answer
     _asking.set()

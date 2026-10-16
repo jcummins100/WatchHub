@@ -63,14 +63,13 @@ def channel_keys():
 
 
 def has_channel(name):
-    from resources.lib.sources import fast
-    return fast._norm(name) in channel_keys()
+    from resources.lib import guide
+    return guide._key(name) in channel_keys()  # the guide's key: ION and ION Plus are two channels
 
 
 def toggle_channel(name):
     from resources.lib import guide
-    from resources.lib.sources import fast
-    key = fast._norm(name)
+    key = guide._key(name)
     cur = guide.favorites()
     new = [k for k in cur if k != key] if key in cur else cur + [key]
     guide._write_json(guide._fav_path(), new)

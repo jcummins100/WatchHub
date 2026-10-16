@@ -193,11 +193,12 @@ def live(home=False):
     favs = _favorite_channels_now() if home else []
     for p in favs:
         _add_programme(p, kicker="\u2605 " + (p.get("service") or "").upper())
-    fav_keys = {fast._norm(p["channel"]) for p in favs}
+    from resources.lib import guide
+    fav_keys = {guide._key(p["channel"]) for p in favs}
     items = fast.live_now()
     if kodi.setting_bool("src_pvr", True) and pvr.available():
         items += pvr.live_now()
-    items = [p for p in _filter_games(items) if fast._norm(p["channel"]) not in fav_keys]
+    items = [p for p in _filter_games(items) if guide._key(p["channel"]) not in fav_keys]
     if not items and not favs:
         kodi.add_item(kodi.localized(30020), kodi.build_url(action="root"), False, props={"kind": "tile", "color": "FF3B3F4A"})
     for p in _sorted_live(items):
@@ -213,8 +214,8 @@ def _favorite_channels_now():
         return []
     now = time.time()
     out = []
-    for c in guide.channels():
-        if fast._norm(c["name"]) not in keys:
+    for c in guide.channels_quick():
+        if c["key"] not in keys:
             continue
         progs = c["programs"]
         cur = next((i for i in range(len(progs) - 1, -1, -1) if progs[i][0] <= now), None)
@@ -228,7 +229,7 @@ def _favorite_channels_now():
     keys_seen = set()
     uniq = []
     for p in sorted(out, key=lambda p: p["channel"].lower()):
-        k = fast._norm(p["channel"])
+        k = guide._key(p["channel"])
         if k not in keys_seen:  # same-named regional feeds: the first is enough here
             keys_seen.add(k)
             uniq.append(p)
@@ -1020,7 +1021,7 @@ def rediscover_feedback(action, jw_id):
     if spot:
         if action == "rediscover_hide":
             spot["label"] = ""  # that card is gone: its neighbour takes the same place
-        homefilter.restore_spot(spot, timeout_s=10)
+        homefilter.restore_spot(spot, timeout_s=10, after_reload=True)
         homefilter.forget_spot()
 
 
