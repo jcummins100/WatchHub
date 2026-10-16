@@ -786,10 +786,11 @@ class OnDevice:
                 d.key("Back")
                 continue
             if bname == "Settings":
-                self.click(B, "Header: Settings opens WatchHub settings", lambda l, s_, dl: "Window.IsActive(addonsettings)" in dl, back=False)
-                for k in range(5):
-                    rep.add(B, "WatchHub settings category %d" % (k + 1), "INFO", d.info("Container(3).ListItem.Label").get("Container(3).ListItem.Label", ""), d.shot("settings-cat-%d" % (k + 1)))
-                    d.key("Down")
+                # the gear opens WatchHub's own settings list (a select dialog run by the service)
+                self.click(B, "Header: Settings opens WatchHub settings", lambda l, s_, dl: "Window.IsActive(selectdialog)" in dl, back=False)
+                n = int(d.info("Container(3).NumItems").get("Container(3).NumItems") or 0)
+                rep.add(B, "WatchHub settings entries", "PASS" if n >= 8 else "FAIL", "%d entries" % n, d.shot("wh-settings"))
+                d.key("Back"); time.sleep(1.5)
             if bname == "Search":
                 self.click(B, "Header: Search opens WatchHub search (keyboard)", lambda l, s_, dl: "Window.IsActive(virtualkeyboard)" in dl, back=False)
                 if d.is_("Window.IsActive(virtualkeyboard)").get("Window.IsActive(virtualkeyboard)"):
@@ -1033,7 +1034,7 @@ class OnDevice:
             st = d.info("System.CurrentControlId", "Window(Home).Property(sh_provider)", "Window(Home).Property(sh_provider_name)",
                         *["Container(%d).NumItems" % i for i, _ in PROVIDER_ROWS], "Container(9051).ListItem.Label")
             counts = ", ".join("%s=%s" % (nm.replace("<svc>", svc), st.get("Container(%d).NumItems" % i)) for i, nm in PROVIDER_ROWS[1:])
-            focus_ok = st.get("System.CurrentControlId") == "9051" and st.get("Container(9051).ListItem.Label") == "Open %s" % svc
+            focus_ok = st.get("System.CurrentControlId") == "9051" and st.get("Container(9051).ListItem.Label") == svc  # the picked tile; "Open <svc>" follows it
             rep.add(B, "Filter %s: switch to provider view" % svc, "PASS" if ok and focus_ok else "FAIL",
                     "header=%s focus=%s on '%s' | %s" % (st.get("Window(Home).Property(sh_provider_name)"), st.get("System.CurrentControlId"),
                                                          st.get("Container(9051).ListItem.Label"), counts), d.shot("filter-%s" % svc))
@@ -1056,8 +1057,8 @@ class OnDevice:
                     rep.add(B, "Filter %s: %s only %s" % (svc, row, svc), "ISSUE", "showed the previous filter's titles at first (%s), correct 8s later" % first[i])
                 else:
                     rep.add(B, "Filter %s: %s only %s" % (svc, row, svc), "PASS", "")
-            # the picked tile now reads "Open <svc>": pressing it again opens the app
-            d.goto_code(9051, code)
+            # the separate "Open <svc>" card right after the picked tile opens the app
+            d.goto_code(9051, "open:" + code)
             restarts_before = getattr(d, "restarts", 0)
             lab = d.info("Container(9051).ListItem.Label").get("Container(9051).ListItem.Label", "")
             launched, _, _ = self.click(B, "Filter %s: '%s' card" % (svc, lab), lambda l, s, dl: bool(l), back=False)
@@ -1068,7 +1069,7 @@ class OnDevice:
                 st2 = d.info("Window(Home).Property(sh_provider)", "System.CurrentControlId", "Container(9051).ListItem.Label")
                 rep.add(B, "Filter %s: still on after returning from the app%s" % (svc, " (Kodi was restarted)" if getattr(d, "restarts", 0) > restarts_before else ""),
                         "PASS" if st2.get("Window(Home).Property(sh_provider)") == code and st2.get("System.CurrentControlId") == "9051"
-                        and st2.get("Container(9051).ListItem.Label") == "Open %s" % svc else "FAIL", json.dumps(st2))  # filter AND focus
+                        and st2.get("Container(9051).ListItem.Label") in (svc, "Open %s" % svc) else "FAIL", json.dumps(st2))  # filter AND focus
         # back to All
         d.home(); d.goto_row(9051, PROVIDER_ROWS); d.goto_item(9051, 1)
         d.key("Select"); time.sleep(2.5)
@@ -1096,7 +1097,7 @@ class OnDevice:
         time.sleep(3)
         st = d.info("Window(Home).Property(sh_provider)", "System.CurrentControlId", "Container(9051).ListItem.Label")
         rep.add(B, "Rapid picks Netflix -> Hulu -> Peacock end on Peacock", "PASS" if st.get("Window(Home).Property(sh_provider)") == "pct"
-                and st.get("System.CurrentControlId") == "9051" and st.get("Container(9051).ListItem.Label") == "Open Peacock" else "FAIL", json.dumps(st), d.shot("rapid-picks"))
+                and st.get("System.CurrentControlId") == "9051" and st.get("Container(9051).ListItem.Label") == "Peacock" else "FAIL", json.dumps(st), d.shot("rapid-picks"))
         # Back from the header while a service is picked
         d.goto_row(9051, PROVIDER_ROWS); d.key("Up"); d.key("Back"); time.sleep(2)
         st = d.info("Window(Home).Property(sh_provider)", "System.CurrentControlId")
@@ -1137,7 +1138,7 @@ class OnDevice:
         time.sleep(3)
         st = d.info("Window(Home).Property(sh_provider)", "System.CurrentControlId", "Container(9051).ListItem.Label")
         rep.add(B, "Kodi restart keeps the Hulu filter, focus on Hulu", "PASS" if st.get("Window(Home).Property(sh_provider)") == "hlu" and st.get("System.CurrentControlId") == "9051"
-                and st.get("Container(9051).ListItem.Label") == "Open Hulu" else "FAIL", "%s, ready in %.0fs" % (json.dumps(st), took or -1), d.shot("restart-keeps-filter"))
+                and st.get("Container(9051).ListItem.Label") == "Hulu" else "FAIL", "%s, ready in %.0fs" % (json.dumps(st), took or -1), d.shot("restart-keeps-filter"))
         d.home(); d.goto_row(9051, PROVIDER_ROWS); d.goto_item(9051, 1); d.key("Select"); time.sleep(3)
 
         # ---------------- settings on the device (Kodi restarted for each)

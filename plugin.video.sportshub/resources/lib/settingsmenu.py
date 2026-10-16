@@ -87,6 +87,7 @@ def show():
             ("free", "Free apps on this Shield", _free_apps_line()),
             ("trakt", "Trakt", "Signed in" if trakt.signed_in() else "Not signed in - choose to sign in"),
             ("all", "All settings", "Kodi's full settings screen for WatchHub"),
+            ("about", "About WatchHub", "Version %s - what's new in each release" % kodi.ADDON.getAddonInfo("version")),
         ]
         items = []
         for _, label, value in entries:
@@ -162,11 +163,36 @@ def show():
         elif key == "all":
             kodi.run_builtin("Addon.OpenSettings(%s)" % kodi.ADDON_ID)
             break
+        elif key == "about":
+            xbmcgui.Dialog().textviewer("About WatchHub", about_text())
     if changed_guide:
         from resources.lib import guide
         guide._rebuild_in_background()
     if changed_guide or changed_rows:
         kodi.run_builtin("SetProperty(sh_refresh,%d,home)" % time.time())
+
+
+def about_text():
+    """Versions, this Shield, then resources/changelog.txt (newest release first)."""
+    import os
+    import xbmc
+    import xbmcaddon
+    try:
+        skin = xbmcaddon.Addon("skin.sportshub").getAddonInfo("version")
+    except RuntimeError:
+        skin = "not installed"
+    lines = ["[B]WatchHub %s[/B]   (skin %s)" % (kodi.ADDON.getAddonInfo("version"), skin),
+             "This Shield: %s  -  Kodi %s" % (xbmc.getInfoLabel("System.FriendlyName") or "?",
+                                              (xbmc.getInfoLabel("System.BuildVersion") or "?").split(" ")[0]),
+             "Updates itself from github.com/jcummins100/WatchHub", "", "[B]What's new[/B]", ""]
+    try:
+        with open(os.path.join(kodi.ADDON_PATH, "resources", "changelog.txt"), encoding="utf-8") as fh:
+            for line in fh.read().splitlines():
+                # release headers ("0.7.5 - Oct 16") in bold
+                lines.append("[B]%s[/B]" % line if line[:1].isdigit() and " - " in line else line)
+    except OSError:
+        lines.append("(release notes missing)")
+    return "\n".join(lines)
 
 
 def _new_rediscover_day():

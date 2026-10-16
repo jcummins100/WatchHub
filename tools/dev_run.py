@@ -37,6 +37,7 @@ xbmc.getCondVisibility = lambda cond: os.environ.get("SH_android", "true") == "t
 xbmc.executebuiltin = lambda cmd: print("  BUILTIN:", cmd)
 xbmc.getSkinDir = lambda: os.environ.get("SH_skin", "skin.estuary")
 xbmc.executeJSONRPC = lambda payload: '{"id":1,"jsonrpc":"2.0","result":{"available":false}}'
+xbmc.getInfoLabel = lambda label: ""
 
 
 class _Player:

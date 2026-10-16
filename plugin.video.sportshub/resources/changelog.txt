@@ -1,0 +1,68 @@
+0.7.6 - Oct 16
+About WatchHub in WatchHub settings: the version and this list.
+
+0.7.5 - Oct 16
+Fixes: settings you clear stay cleared, coming back to the same card after an app is more reliable, ION and ION Plus favorites kept apart.
+
+0.7.4 - Oct 16
+A "Free services" card at the end of the Services row when a free app is missing.
+
+0.7.3 - Oct 16
+Your ★ channels come first in Live Now. "Free apps on this Shield" in WatchHub settings.
+
+0.7.2 - Oct 16
+Search results grouped: live now, then shows and movies on your services, then the rest with where to rent or stream them.
+
+0.7.1 - Oct 16
+Your teams (Steelers, Browns, Penguins, Pirates, Red Sox) first in Today's Games, with their next game when they don't play today.
+
+0.7.0 - Oct 16
+"Did you finish S02E04?" when you come back from an episode. WatchHub's own settings behind the gear.
+
+0.6.6 - Oct 16
+Local stations: CBS News Pittsburgh, WPXI and WTAE lead the News tab and have their own Local tile.
+
+0.6.5 - Oct 16
+One card per title on the home screen: a show appears once, in its highest row.
+
+0.6.4 - Oct 16
+Up Next shows "Season 2 · Episode 4" with the episode's summary and how much you've watched; clicking opens that episode.
+
+0.6.3 - Oct 16
+Rediscover: 20 movies from 1985-2015 on your services, new every day.
+
+0.6.1 - 0.6.2 - Oct 16
+Your subscriptions: cards say Included, Free or Rent. A separate "Open Netflix" card. Back to the same card after an app. Plex channel links fixed.
+
+0.6.0 - Oct 16
+Browse: a home row of categories; each shows channels on now plus shows and movies on your services.
+
+0.5.9 - 0.5.11 - Oct 15-16
+TV Guide categories as tiles, Single Show first; every channel sorted into a category; International category; Music tab removed.
+
+0.5.8 - Oct 15
+Tubi and Xumo Play live channels in the TV Guide.
+
+0.5.4 - 0.5.7 - Oct 15
+★ Favorites: star icon at the top, Add/Remove on every card. WatchHub's own long-press menu. Guide tabs fit on one screen.
+
+0.5.3 - Oct 15
+TV Guide and info pages open almost instantly.
+
+0.5.1 - 0.5.2 - Oct 15
+Netflix, Peacock and channel links land on the title even when the app is already open. Game Shows tab.
+
+0.5.0 - Oct 15
+TV Guide for every free channel, with tabs and Favorites. Spanish channels hidden.
+
+0.4.0 - Oct 15
+Picks up where you were after Android closes Kodi.
+
+0.3.0 - Oct 15
+Services row to show just one app's titles.
+
+0.2.0 - Oct 15
+Auto-updates from GitHub, Trakt watch history, Up Next.
+
+0.1.0 - Oct 14
+First version: live sports, free TV and your streaming services in one place.
