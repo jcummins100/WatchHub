@@ -1,3 +1,6 @@
+0.7.21 - Oct 16
+Pin: long-press a Rediscover or Recommended poster to keep it when the row changes (blue PINNED tag). Recommended for you changes every day and has "Show me different picks". TV Guide search shows its results under the Search tab (Back clears) instead of adding a tab. Focus comes back to the right poster after the row reloads.
+
 0.7.20 - Oct 16
 Trailers: many more movies coming to your services, each naming the service ("Coming Oct 30 · on Netflix"), alongside theater releases.
 

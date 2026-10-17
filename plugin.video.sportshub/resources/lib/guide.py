@@ -32,7 +32,7 @@ ACTION_LEFT, ACTION_RIGHT, ACTION_CONTEXT, ACTION_BACK, ACTION_NAV_BACK = 1, 2, 
 # Fixed tabs (a D-pad can't browse 39 shifting genre tabs); every channel is in Shows/News/... by
 # its genres, and "Categories" opens the full list as tiles.
 FIXED_TABS = ["All", "Favorites", "Sports", "News", "Movies", "Game Shows", "Kids", "Search"]
-SEARCH = "Search"   # opens the keyboard; the results become a tab named after the search, in quotes
+SEARCH = "Search"   # opens the keyboard; the Search tab itself then shows the results (self.tab = "\u201cprice\u201d")
 GENRES_TAB = "Categories"   # opens the category tiles
 OTHER = "Other"   # channels no source labels, name or show lookup could place: never dropped, listed here and in All
 
@@ -398,7 +398,7 @@ def genres(chans):
 
 def tabs(tab):
     """The tab strip, one screen wide: All, Favorites, Categories, the category picked from it (if any), then the rest."""
-    picked = [tab] if tab not in FIXED_TABS and tab != GENRES_TAB else []
+    picked = [tab] if tab not in FIXED_TABS and tab != GENRES_TAB and not is_search(tab) else []
     return FIXED_TABS[:2] + [GENRES_TAB] + picked + FIXED_TABS[2:]
 
 
@@ -502,16 +502,17 @@ class Guide(xbmcgui.WindowXMLDialog):
         names = tabs(self.tab)
         for name in names:
             li = xbmcgui.ListItem(name)
-            li.setProperty("active", "1" if name == self.tab else "")
+            li.setProperty("active", "1" if name == self.tab or (name == SEARCH and is_search(self.tab)) else "")
             lst.addItem(li)
-        lst.selectItem(names.index(self.tab))
+        lst.selectItem(names.index(SEARCH if is_search(self.tab) else self.tab))
 
     def _fill(self, keep=0):
         self.rows = in_tab(self.chans, self.tab, self.favs)
         for i in range(COLS):
             self.setProperty("slot%d" % i, _clock(self.t0 + i * SLOT, ampm=True))
         self.setProperty("day", _day(self.t0))
-        self.setProperty("tab", self.tab)
+        self.setProperty("tab", "Search %s  \u00b7  %d channel%s  \u00b7  Back clears" % (self.tab, len(self.rows), "" if len(self.rows) == 1 else "s")
+                         if is_search(self.tab) else self.tab)
         self.setProperty("empty", "" if self.rows else
                          ("No favorites yet - long-press any channel and choose Add to Favorites" if self.tab == "Favorites"
                           else "Nothing on now or in the next few hours matches %s" % self.tab if is_search(self.tab)
@@ -573,6 +574,12 @@ class Guide(xbmcgui.WindowXMLDialog):
         if aid in (ACTION_BACK, ACTION_NAV_BACK) and self.getProperty("picking"):
             self._hide_categories()     # Back closes the tiles, not the guide
             self.setFocusId(TABS)
+            return
+        if aid in (ACTION_BACK, ACTION_NAV_BACK) and is_search(self.tab):
+            self.tab = "All"   # Back clears a search first
+            self._tabs()
+            self._fill()
+            self.setFocusId(GRID if self.rows else TABS)
             return
         if aid in (ACTION_BACK, ACTION_NAV_BACK):
             forget_return()  # closed on purpose: don't reopen it after a restart

@@ -162,13 +162,15 @@ def today():
         cands = [t for t in all_ if t["jw_id"] not in hidden and t["jw_id"] not in shown
                  and t["jw_id"] not in elsewhere
                  and not (unseen_only and _seen(t, watched))]
-        picks = _pick(cands, state, day)
+        pins = [j for j in (state.get("pinned") or []) if j in by_id and j not in hidden]
+        cands = [t for t in cands if t["jw_id"] not in pins]
+        picks = _pick(cands, state, day)[:max(0, ROW_SIZE - len(pins))]
         now = time.time()
         for t in picks:
             shown[t["jw_id"]] = now
         # the picking took a while (network): re-read, so a Hide / Like / Undo made meanwhile isn't lost
         latest = _load()
-        latest.update({"day": day, "picks": [t["jw_id"] for t in picks], "shown": shown})
+        latest.update({"day": day, "picks": pins + [t["jw_id"] for t in picks], "shown": shown})
         _save(latest)
         state = latest
         kodi.log("rediscover: %d picked from %d (pool %d)" % (len(picks), len(cands), len(all_)))
@@ -178,7 +180,7 @@ def today():
         t = by_id.get(jid)
         if t and jid not in (state.get("hidden") or []):
             seen = (_seen(t, watched) or jid in (state.get("seen_now") or [])) and jid not in (state.get("unseen_now") or [])
-            out.append(dict(t, seen=seen))
+            out.append(dict(t, seen=seen, pinned=jid in (state.get("pinned") or [])))
     return out
 
 
@@ -237,6 +239,8 @@ def reshuffle():
     if nxt:
         now = time.time()
         shown = state.get("shown") or {}
+        pins = [j for j in state.get("pinned") or [] if j in (state.get("picks") or [])]  # pinned cards stay
+        nxt = pins + [j for j in nxt if j not in pins][:max(0, ROW_SIZE - len(pins))]
         for jid in nxt:
             shown[jid] = now
         state.update({"picks": nxt, "day": _today(), "shown": shown})
@@ -244,6 +248,14 @@ def reshuffle():
         state.pop("day", None)
     _save(state)
     return bool(nxt)
+
+
+def pin(jw_id, on=True):
+    """Pinned cards stay in the row through daily changes and "Show me 20 different movies"."""
+    state = _load()
+    pins = [j for j in state.get("pinned") or [] if j != jw_id]
+    state["pinned"] = pins + [jw_id] if on else pins
+    _save(state)
 
 
 def find(jw_id):

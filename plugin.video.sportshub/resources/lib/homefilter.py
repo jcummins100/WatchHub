@@ -171,13 +171,16 @@ def restore_spot(spot, timeout_s=30.0, after_reload=False):
             if n:
                 labels = [xbmc.getInfoLabel("Container(%d).ListItemAbsolute(%d).Label" % (row, i)) for i in range(n)]
                 idx = labels.index(spot["label"]) if spot.get("label") in labels else min(int(spot["pos"]), n) - 1
-                kodi.run_builtin("SetFocus(%d,%d,absolute)" % (row, idx))
-                # Kodi 21 can land a card off (seen one to the right on Rediscover): check, then step to it
+                # focus the row, then step to the card and check it by name once Kodi has stopped scrolling
+                # (SetFocus(row,pos,absolute) landed a card off, either side, after a reload)
                 want = labels[idx]
-                for _ in range(6):
+                kodi.run_builtin("SetFocus(%d)" % row)
+                for _ in range(12):
                     mon.waitForAbort(0.15)
+                    if xbmc.getCondVisibility("Container(%d).Scrolling" % row):
+                        continue
                     cur = int(xbmc.getInfoLabel("Container(%d).CurrentItem" % row) or 0) - 1
-                    if xbmc.getInfoLabel("Container(%d).ListItem.Label" % row) == want or cur < 0:
+                    if cur < 0 or (cur == idx and xbmc.getInfoLabel("Container(%d).ListItem.Label" % row) == want):
                         break
                     kodi.run_builtin("Control.Move(%d,%d)" % (row, idx - cur))
                 kodi.log("home: back to row %d card %d (%s)" % (row, idx + 1, spot.get("label", "")))

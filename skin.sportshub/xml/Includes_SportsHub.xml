@@ -870,6 +870,26 @@
 						<textcolor>FFFFFFFF</textcolor>
 					</control>
 				</control>
+				<control type="group">
+					<!-- Rediscover / Recommended: pinned, kept when the row refreshes -->
+					<left>10</left>
+					<top>10</top>
+					<visible>String.IsEqual(ListItem.Property(pinned),1)</visible>
+					<control type="image">
+						<width>96</width>
+						<height>30</height>
+						<texture border="8" colordiffuse="E62C6BD6">sportshub/card.png</texture>
+					</control>
+					<control type="label">
+						<width>96</width>
+						<height>30</height>
+						<align>center</align>
+						<aligny>center</aligny>
+						<font>font20_title</font>
+						<label>[B]PINNED[/B]</label>
+						<textcolor>FFFFFFFF</textcolor>
+					</control>
+				</control>
 				<control type="image">
 					<left>-6</left>
 					<top>-6</top>

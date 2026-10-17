@@ -649,6 +649,7 @@ def _chips(t):
 def _add_title(t, extra_ctx=None):
     props = {"kind": "title", "title": t["title"], "meta": t["meta"], "kicker": t.get("kicker") or t["service"].upper(), "service": t["service"],
              "year": str(t["year"]), "type": t["type"], "state": "", "seen": "1" if t.get("seen") else "",
+             "pinned": "1" if t.get("pinned") else "",
              # the hero's three lines (same layout as Up Next): headline, one-line summary, details
              "episode": t.get("headline") or "", "summary": (t.get("plot") or "").replace("\n", " "), "chips": _chips(t)}
     art = {"thumb": t["poster"] or "DefaultVideo.png", "poster": t["poster"], "landscape": t["backdrop"], "fanart": t["backdrop"]}
@@ -954,31 +955,65 @@ def _episode_summary(t):
 
 def _recommended(svc=""):
     """Home row "Recommended for you": Trakt's picks from your history, only titles on your services, none
-    already in Up Next or New this week, no movies you've seen; shows and movies taking turns."""
-    shows = trakt.recommendations("shows")
-    movies = trakt.recommendations("movies")
+    already in Up Next or New this week, no movies you've seen. Which 20 show (and pins) is recommend.py:
+    a new set each day and on "Show me different picks"."""
+    from resources.lib import recommend
+    shows = trakt.recommendations("shows", 60)
+    movies = trakt.recommendations("movies", 60)
     mixed = [x for pair in zip(shows, movies) for x in pair] + shows[len(movies):] + movies[len(shows):]
+    pinned = recommend.load()["pinned"]
+    have = {recommend.key(x["title"], x["year"], x["type"]) for x in mixed}
+    mixed = [dict(p, rating=0, ids={}) for p in pinned if p["key"] not in have] + mixed
     seen = trakt.watched_movie_ids()
     taken = _home_taken(3, svc) | {t["jw_id"] for t in ondemand.row_items(3, svc) if t.get("jw_id")}
     from concurrent.futures import ThreadPoolExecutor
     with ThreadPoolExecutor(max_workers=6) as pool:
         found = list(pool.map(lambda x: ondemand.lookup(x["title"], x["year"], x["type"]), mixed))
-    shown = 0
+    usable, by_key = [], {}
     for x, od in zip(mixed, found):
         if not od or not od.get("playable") or not od.get("play", {}).get("pkg") or od.get("jw_id") in taken:
             continue
         if svc and not _on_service({"title": x["title"], "year": x["year"], "type": x["type"]}, svc):
             continue
-        ids = x["ids"]
+        ids = x.get("ids") or {}
         if x["type"] == "Movie" and (str(ids.get("tmdb") or "") in seen["tmdb"] or (ids.get("imdb") or "") in seen["imdb"]):
             continue
+        k = recommend.key(x["title"], x["year"], x["type"])
+        if k in by_key:
+            continue
         taken.add(od.get("jw_id"))
-        head = "Picked for you by Trakt" + (" \u00b7 rated %.1f" % x["rating"] if x["rating"] else "")
-        _add_title(dict(od, headline=head, kicker="RECOMMENDED FOR YOU"))
-        shown += 1
-        if shown >= 20:
-            break
+        by_key[k] = (x, od)
+        usable.append(k)
+    pins = {p["key"] for p in pinned}
+    for k in (recommend.choose(usable) if not svc else usable[:20]):
+        if k not in by_key:
+            continue
+        x, od = by_key[k]
+        head = "Picked for you by Trakt" + (" \u00b7 rated %.1f" % x["rating"] if x.get("rating") else "")
+        ty = {"title": x["title"], "year": x["year"], "kind": x["type"]}
+        ctx = [("Show me different picks", "RunPlugin(%s)" % kodi.build_url(action="recs_new")),
+               ("Unpin" if k in pins else "Pin (keep it when the row changes)",
+                "RunPlugin(%s)" % kodi.build_url(action="recs_unpin" if k in pins else "recs_pin", **ty))]
+        _add_title(dict(od, headline=head, kicker="RECOMMENDED FOR YOU", pinned=k in pins), ctx)
     kodi.end_directory(view="posters")
+
+
+def recs_action(action, params):
+    """Long-press on Recommended for you: different picks now, pin / unpin; only that row reloads."""
+    from resources.lib import recommend
+    if action == "recs_new":
+        recommend.reshuffle()
+        kodi.notify("Recommended: different picks", time_ms=2500)
+    else:
+        recommend.pin(params.get("title", ""), params.get("year", ""), params.get("kind", ""), action == "recs_pin")
+    homefilter.remember_spot()
+    spot = homefilter.pending_spot()
+    kodi.run_builtin("SetProperty(sh_recommended,%d,home)" % time.time())
+    if spot:
+        if action == "recs_new":
+            spot["label"], spot["pos"] = "", 1
+        homefilter.restore_spot(spot, timeout_s=15, after_reload=True)
+        homefilter.forget_spot()
 
 
 def trakt_list(row, svc=""):
@@ -1181,6 +1216,8 @@ def rediscover_list():
         t = dict(t, meta=("Seen \u2022 " if t["seen"] else "") + t["meta"],
                  headline="From %s" % t["year"] + (" \u00b7 you've seen it" if t["seen"] else " \u00b7 one you haven't seen"))
         ctx = [("Show me 20 different movies", "RunPlugin(%s)" % kodi.build_url(action="rediscover_new", id=t["jw_id"])),
+               ("Unpin" if t.get("pinned") else "Pin (keep it when the row changes)",
+                "RunPlugin(%s)" % kodi.build_url(action="rediscover_unpin" if t.get("pinned") else "rediscover_pin", id=t["jw_id"])),
                ("More like this", "RunPlugin(%s)" % kodi.build_url(action="rediscover_like", id=t["jw_id"])),
                ("Hide this movie", "RunPlugin(%s)" % kodi.build_url(action="rediscover_hide", id=t["jw_id"]))]
         if undo:
@@ -1207,6 +1244,15 @@ def rediscover_feedback(action, jw_id):
         kodi.run_builtin("SetProperty(sh_rediscover,%d,home)" % time.time())  # only the Rediscover row reloads
         kodi.notify("Rediscover: 20 different movies", time_ms=2500)
         rediscover.prepare_next()  # and the set after that, while you look at these
+        return
+    if action in ("rediscover_pin", "rediscover_unpin"):
+        rediscover.pin(jw_id, action == "rediscover_pin")
+        homefilter.remember_spot()
+        spot = homefilter.pending_spot()
+        kodi.run_builtin("SetProperty(sh_rediscover,%d,home)" % time.time())
+        if spot:
+            homefilter.restore_spot(spot, timeout_s=10, after_reload=True)
+            homefilter.forget_spot()
         return
     if action == "rediscover_hide":
         t = rediscover.find(jw_id)
@@ -1237,7 +1283,7 @@ def _inputs_stamp():
     doesn't bump the Home refresh counter): a snapshot made before that can't be shown."""
     import os
     parts = ["v" + kodi.ADDON.getAddonInfo("version")]  # an update changes what rows show: rebuild them once
-    for name in ("settings.xml", "favorites.json", "upnext_order.json", "guide_favorites.json", "guide_hidden.json", "rediscover.json"):
+    for name in ("settings.xml", "favorites.json", "upnext_order.json", "recommended.json", "guide_favorites.json", "guide_hidden.json", "rediscover.json"):
         try:
             parts.append("%s:%d" % (name, os.path.getmtime(os.path.join(kodi.PROFILE_PATH, name))))
         except OSError:
@@ -1313,6 +1359,9 @@ def dispatch(params):
         calendars()
     elif action == "trailers":
         trailers_list()
+    elif action in ("recs_new", "recs_pin", "recs_unpin"):
+        kodi.resolve_none()
+        recs_action(action, params)
     elif action == "calendar":
         kodi.resolve_none()
         from resources.lib import calendarwin, uiworker
@@ -1450,7 +1499,7 @@ def dispatch(params):
             guide.show(params.get("tab") or None)
     elif action == "rediscover":
         rediscover_list()
-    elif action in ("rediscover_like", "rediscover_hide", "rediscover_unhide", "rediscover_new"):
+    elif action in ("rediscover_like", "rediscover_hide", "rediscover_unhide", "rediscover_new", "rediscover_pin", "rediscover_unpin"):
         kodi.resolve_none()
         rediscover_feedback(action, params.get("id", ""))
     elif action == "browse_tiles":
