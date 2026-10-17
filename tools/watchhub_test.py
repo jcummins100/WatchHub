@@ -37,7 +37,7 @@ LOG = KODI_HOME + "/temp/kodi.log"
 FILTER_FILE = KODI_HOME + "/userdata/addon_data/plugin.video.sportshub/home_filter.json"
 
 # Home rows, top to bottom, as Home.xml lays them out (id, name)
-FIXED_GUIDE_TABS = ["Favorites", "Categories", "Sports", "News", "Movies", "Game Shows", "Kids", "All"]
+FIXED_GUIDE_TABS = ["All", "Favorites", "Categories", "Sports", "News", "Movies", "Game Shows", "Kids"]
 # Live Now and Sports Starting Soon moved to the header's Sports page (0.7.9)
 ALL_ROWS = [(9050, "Services"), (9960, "Up Next"), (9200, "Today's Games"),
             (9950, "New This Week"), (9450, "Recommended"), (9800, "Trending"), (9400, "Rediscover"), (9700, "Browse"), (9600, "More")]
@@ -842,7 +842,7 @@ class OnDevice:
                 "%s | %s" % (json.dumps(lab), json.dumps(st)), d.shot("guide-from-live-row"))
         if not ok:
             return
-        rep.add(B, "Guide: opens on Favorites with tabs", "PASS" if st.get("Window(13000).Property(tab)") == "Favorites"
+        rep.add(B, "Guide: opens on All with tabs", "PASS" if st.get("Window(13000).Property(tab)") == "All"
                 and int(st.get("Container(300).NumItems") or 0) > 3 else "FAIL", json.dumps(st))
         # the rest needs a tab full of channels: reopen on Sports the way the service does after a restart
         d.key("Back"); time.sleep(1.5)
@@ -876,7 +876,7 @@ class OnDevice:
         d.shot("guide-long-press-menu")
         d.key("Select"); time.sleep(2)
         favs = d.sh("cat %s 2>/dev/null" % favfile)
-        first_tab = d.info("Container(300).ListItemAbsolute(0).Label").get("Container(300).ListItemAbsolute(0).Label")
+        first_tab = d.info("Container(300).ListItemAbsolute(1).Label").get("Container(300).ListItemAbsolute(1).Label")
         rep.add(B, "Guide: long-press > Add to Favorites", "PASS" if menu and first_tab == "Favorites" and favs.strip().startswith("[") else "FAIL",
                 "channel %s, saved %s, first tab %s" % (chan, favs.strip()[:80], first_tab))
         # 5. full schedule
@@ -933,7 +933,7 @@ class OnDevice:
                 "open=%s tab=%s (was %s)" % (ok, st.get("Window(13000).Property(tab)"), tab_before), d.shot("guide-reopened"))
         d.key("Back"); time.sleep(2)  # closing on purpose clears it
         d.home()
-        # 7. the TV Guide icon in the top bar (leftmost); the guide reopens on Favorites
+        # 7. the TV Guide icon in the top bar (leftmost); the guide opens on All
         d.goto_row(9050, ALL_ROWS); d.key("Up")
         for _ in range(5):
             if d.focus() == 805:
@@ -943,7 +943,7 @@ class OnDevice:
         if ok:
             d.key("Select"); ok = opened(); time.sleep(2)
         st = d.info("Window(13000).Property(tab)", "Container(500).NumItems")
-        rep.add(B, "Guide: top-bar TV Guide icon opens it on Favorites", "PASS" if ok and st.get("Window(13000).Property(tab)") == "Favorites" else "FAIL",
+        rep.add(B, "Guide: top-bar TV Guide icon opens it on All", "PASS" if ok and st.get("Window(13000).Property(tab)") == "All" else "FAIL",
                 json.dumps(st), d.shot("guide-from-header"))
         d.key("Back"); time.sleep(1)
         d.sh("rm -f %s" % favfile)  # leave no test favorites behind

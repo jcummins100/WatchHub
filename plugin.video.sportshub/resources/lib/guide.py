@@ -31,7 +31,7 @@ ACTION_LEFT, ACTION_RIGHT, ACTION_CONTEXT, ACTION_BACK, ACTION_NAV_BACK = 1, 2, 
 
 # Fixed tabs (a D-pad can't browse 39 shifting genre tabs); every channel is in Shows/News/... by
 # its genres, and "Categories" opens the full list as tiles.
-FIXED_TABS = ["Favorites", "Sports", "News", "Movies", "Game Shows", "Kids", "All"]
+FIXED_TABS = ["All", "Favorites", "Sports", "News", "Movies", "Game Shows", "Kids"]
 GENRES_TAB = "Categories"   # opens the category tiles
 OTHER = "Other"   # channels no source labels, name or show lookup could place: never dropped, listed here and in All
 
@@ -396,9 +396,9 @@ def genres(chans):
 
 
 def tabs(tab):
-    """The tab strip, one screen wide: Favorites, Categories, the category picked from it (if any), then the rest."""
+    """The tab strip, one screen wide: All, Favorites, Categories, the category picked from it (if any), then the rest."""
     picked = [tab] if tab not in FIXED_TABS and tab != GENRES_TAB else []
-    return FIXED_TABS[:1] + [GENRES_TAB] + picked + FIXED_TABS[1:]
+    return FIXED_TABS[:2] + [GENRES_TAB] + picked + FIXED_TABS[2:]
 
 
 def in_tab(chans, tab, favs):
@@ -454,7 +454,7 @@ class Guide(xbmcgui.WindowXMLDialog):
         self.chans = [c for c in self.all_chans if c["key"] not in self.hidden]
         self.loaded = time.time()
         self.favs = favorites()
-        self.tab = start_tab or "Favorites"   # always opens on Favorites (a restart returns to the tab you were on)
+        self.tab = start_tab or "All"   # always opens on All (a restart returns to the tab you were on)
         self.rows = []
         self.cat_choices = []
         self.t0 = _now_slot()
@@ -462,7 +462,7 @@ class Guide(xbmcgui.WindowXMLDialog):
     def onInit(self):
         t = time.time()
         if self.tab == GENRES_TAB or (self.tab not in FIXED_TABS and self.tab not in genres(self.chans)):
-            self.tab = "Favorites"
+            self.tab = "All"
         self._tabs()
         self._fill()
         self.setFocusId(GRID if self.rows else TABS)

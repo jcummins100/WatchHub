@@ -1,3 +1,6 @@
+0.7.12 - Oct 16
+TV Guide opens on All, now the first tab (All · Favorites · Categories · Sports · News · Movies · Game Shows · Kids).
+
 0.7.11 - Oct 16
 Recommended for you: Trakt's picks from your watch history, only what's on your services. Up Next long-press adds Move to the top and Move up one. Home screen rows: reorder or hide them in WatchHub settings (Rediscover now comes after Trending).
 
