@@ -661,7 +661,10 @@ def _add_title(t, extra_ctx=None):
         ctx.append(("Watch trailer", "RunPlugin(%s)" % kodi.build_url(action="trailer", title=t["title"], year=t["year"], kind=t["type"])))
     if trakt.signed_in():
         ctx.append(("Trakt: add to watchlist", "RunPlugin(%s)" % kodi.build_url(action="trakt_watchlist", title=t["title"], year=t["year"], kind=t["type"])))
-        ctx.append(("Trakt: mark as watched", "RunPlugin(%s)" % kodi.build_url(action="trakt_watched", title=t["title"], year=t["year"], kind=t["type"])))
+        if t.get("seen"):  # a SEEN card offers the opposite
+            ctx.append(("Trakt: unmark as watched", "RunPlugin(%s)" % kodi.build_url(action="trakt_unwatched", title=t["title"], year=t["year"], kind=t["type"])))
+        else:
+            ctx.append(("Trakt: mark as watched", "RunPlugin(%s)" % kodi.build_url(action="trakt_watched", title=t["title"], year=t["year"], kind=t["type"])))
     ctx.append(_title_star(t))
     ctx += extra_ctx or []
     # Click = detail page (play is one button away there, or on the long-press menu)
@@ -1395,16 +1398,17 @@ def dispatch(params):
         trakt.sign_out()
         kodi.run_builtin("Container.Refresh")
         kodi.run_builtin("SetProperty(sh_refresh,%d,home)" % time.time())  # home rows (Up Next) reload too
-    elif action in ("trakt_watched", "trakt_watchlist"):
+    elif action in ("trakt_watched", "trakt_watchlist", "trakt_unwatched"):
         kodi.resolve_none()
         ids = trakt.search_ids(params.get("title", ""), params.get("year", ""), params.get("kind", "Show"))
         if not ids:
             kodi.notify("Trakt: title not found")
-        elif action == "trakt_watched":
-            ok = trakt.mark_watched(params.get("kind", "Show"), ids)
-            kodi.notify("Marked as watched" if ok else "Trakt: failed")
+        elif action in ("trakt_watched", "trakt_unwatched"):
+            seen = action == "trakt_watched"
+            ok = (trakt.mark_watched if seen else trakt.unmark_watched)(params.get("kind", "Show"), ids)
+            kodi.notify(("Marked as watched" if seen else "No longer marked as watched") if ok else "Trakt: failed")
             from resources.lib import rediscover
-            if ok and params.get("kind") == "Movie" and rediscover.mark_seen(params.get("title", ""), params.get("year", "")):
+            if ok and params.get("kind") == "Movie" and rediscover.mark_seen(params.get("title", ""), params.get("year", ""), seen):
                 # a Rediscover card: SEEN right away, only that row reloads, focus stays on the same poster
                 homefilter.remember_spot()
                 spot = homefilter.pending_spot()

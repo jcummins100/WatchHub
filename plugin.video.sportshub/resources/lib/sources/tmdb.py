@@ -88,6 +88,29 @@ def details(title, year="", kind="Show"):
     }
 
 
+def related(media, tmdb_id, limit=14):
+    """(series name, [movies in the series, oldest first], [recommended]) for the info page row.
+    Items: {title, year, type, poster, tmdb_id}. A movie's series is its TMDB collection."""
+    if not tmdb_id or not enabled():
+        return "", [], []
+    kind = "Movie" if media == "movie" else "Show"
+
+    def item(r):
+        date = r.get("release_date") or r.get("first_air_date") or ""
+        return {"title": r.get("title") or r.get("name") or "", "year": date[:4], "date": date, "type": kind,
+                "poster": IMG + "w342" + r["poster_path"] if r.get("poster_path") else "", "tmdb_id": r.get("id")}
+    name, parts = "", []
+    if media == "movie":
+        col = (_get("movie/%s" % tmdb_id, language="en-US").get("belongs_to_collection") or {})
+        if col.get("id"):
+            c = _get("collection/%s" % col["id"], language="en-US")
+            name = c.get("name") or col.get("name") or ""
+            parts = sorted((item(x) for x in c.get("parts") or [] if x.get("poster_path")), key=lambda x: x["date"] or "9999")
+    recs = [item(x) for x in (_get("%s/%s/recommendations" % (media, tmdb_id), language="en-US").get("results") or [])
+            if x.get("poster_path") and x.get("id") not in {p["tmdb_id"] for p in parts}]
+    return name, parts, recs[:limit]
+
+
 def seasons(tv_id):
     if not tv_id:
         return []

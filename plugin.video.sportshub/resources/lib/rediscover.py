@@ -177,20 +177,24 @@ def today():
     for jid in state["picks"]:
         t = by_id.get(jid)
         if t and jid not in (state.get("hidden") or []):
-            out.append(dict(t, seen=_seen(t, watched) or jid in (state.get("seen_now") or [])))
+            seen = (_seen(t, watched) or jid in (state.get("seen_now") or [])) and jid not in (state.get("unseen_now") or [])
+            out.append(dict(t, seen=seen))
     return out
 
 
-def mark_seen(title, year):
-    """Marked watched from a long-press: SEEN at once (Trakt's watched list is cached for hours).
-    Returns True if it's one of today's cards."""
+def mark_seen(title, year, seen=True):
+    """Marked (or unmarked) watched from a long-press or the info page: SEEN changes at once (Trakt's
+    watched list is cached for hours). Returns True if it's one of today's cards."""
     state = _load()
     key = ((title or "").strip().lower(), str(year or ""))
     hit = next((t["jw_id"] for t in pool() if t["jw_id"] in (state.get("picks") or [])
                 and (t["title"].strip().lower(), str(t["year"])) == key), None)
     if not hit:
         return False
-    state["seen_now"] = (state.get("seen_now") or [])[-50:] + [hit]
+    now_seen = [x for x in state.get("seen_now") or [] if x != hit]
+    now_unseen = [x for x in state.get("unseen_now") or [] if x != hit]
+    state["seen_now"] = (now_seen + [hit] if seen else now_seen)[-50:]
+    state["unseen_now"] = (now_unseen if seen else now_unseen + [hit])[-50:]
     _save(state)
     return True
 

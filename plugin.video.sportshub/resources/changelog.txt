@@ -1,3 +1,6 @@
+0.7.19 - Oct 16
+Info pages: under the buttons, every movie in the series (prequels and sequels, this one marked in red) and "You may also like" (green = on your services); OK opens that title. Watched movies offer "Unmark as watched" (long-press on Rediscover, and the info page button).
+
 0.7.18 - Oct 16
 After marking a Rediscover movie watched, focus stays on that poster (it could land one to the right).
 

@@ -222,6 +222,12 @@ def mark_watched(kind, ids):
     return _call("sync/history", {key: [{"ids": ids}]}) is not None
 
 
+def unmark_watched(kind, ids):
+    """Take a movie or show out of your Trakt history (every play of it)."""
+    key = "movies" if kind == "Movie" else "shows"
+    return _call("sync/history/remove", {key: [{"ids": ids}]}) is not None
+
+
 def mark_episode_watched(title, year, season, number):
     """Mark one episode watched (the user said they finished it); Up Next moves on at its next load."""
     ids = search_ids(title, year, "Show")

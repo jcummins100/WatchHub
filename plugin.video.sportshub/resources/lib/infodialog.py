@@ -11,6 +11,7 @@ from resources.lib import finish
 from resources.lib.sources import ondemand, tmdb, trakt, youtube
 
 BTN_PLAY, BTN_TRAILER, BTN_EPISODES, BTN_WATCHLIST, BTN_WATCHED, BTN_ALTS, BTN_CLOSE, LIST_EPISODES = 101, 102, 103, 104, 105, 106, 199, 200
+LIST_RELATED = 300   # the series (prequels / sequels) and You may also like
 
 
 class TitleInfo(xbmcgui.WindowXMLDialog):
@@ -21,6 +22,7 @@ class TitleInfo(xbmcgui.WindowXMLDialog):
         self.season_shown = None                      # season number in the episode list
         self.details = kwargs.pop("details", None) or {}
         self.episodes = []
+        self.related = []              # [(tmdb item, JustWatch item or None)] in the row's order
         self.progress = {}
         self.seasons = None            # filled in the background after the page opens
         self.season_eps = {}           # season number -> episodes, prefetched for the likely pick
@@ -68,6 +70,8 @@ class TitleInfo(xbmcgui.WindowXMLDialog):
             self.setProperty("also", it.get("service") or "Not on your services")
         self.setProperty("trailer", "1")
         self.setProperty("trakt", "1" if trakt.signed_in() else "")
+        if not self.getProperty("watchedbtn"):
+            self.setProperty("watchedbtn", "Mark watched")
         self.setProperty("episodes", "1" if it["type"] == "Show" else "")
 
     def onInit(self):
@@ -97,7 +101,10 @@ class TitleInfo(xbmcgui.WindowXMLDialog):
                             self.setProperty("watched", "Watched %d of %d episodes - %d of %d seasons complete" % (pr["completed"], pr["aired"], full, len(pr["seasons"])))
                 elif trakt.movie_watched(it["title"], it.get("year", "")):
                     self.setProperty("watched", "Watched")
+                    self.setProperty("watchedbtn", "Unmark watched")
             kodi.log("info: details + Trakt filled in %.2fs" % (time.time() - t))
+            if self.details.get("tmdb_id") and not self.closed.is_set():
+                self._fill_related()
             if it["type"] == "Show" and not self.closed.is_set():
                 self.seasons = self._fetch_seasons()
                 pre = self._preselect(self.seasons)
@@ -112,6 +119,41 @@ class TitleInfo(xbmcgui.WindowXMLDialog):
             kodi.log("info enrich failed: %s" % exc)
         finally:
             self.enriched.set()
+
+    def _fill_related(self):
+        """Under the buttons: every movie in the series (oldest first, this one marked), then up to a dozen
+        recommendations, the ones on your services first. Green bar = on your services."""
+        t = time.time()
+        it, d = self.item, self.details
+        name, parts, recs = tmdb.related(d.get("media") or ("movie" if it["type"] == "Movie" else "tv"), d["tmdb_id"])
+        if len(parts) < 2:
+            parts = []  # a "series" of one is just this movie
+        from concurrent.futures import ThreadPoolExecutor
+        with ThreadPoolExecutor(max_workers=6) as pool:
+            found = list(pool.map(lambda x: ondemand.lookup(x["title"], x["year"], x["type"]), parts + recs))
+        if self.closed.is_set():
+            return
+        series = list(zip(parts, found[:len(parts)]))
+        more = list(zip(recs, found[len(parts):]))
+        more.sort(key=lambda pair: not (pair[1] and pair[1].get("playable")))  # on your services first
+        self.related = series + more[:12]
+        items = []
+        for i, (x, od) in enumerate(self.related):
+            li = xbmcgui.ListItem(x["title"])
+            li.setArt({"thumb": x["poster"]})
+            in_series = i < len(series)
+            li.setProperty("section", ("IN THE SERIES · %s" % name) if in_series and name else "IN THE SERIES" if in_series else "YOU MAY ALSO LIKE")
+            li.setProperty("year", x["year"])
+            current = in_series and x["tmdb_id"] == d.get("tmdb_id")
+            li.setProperty("current", "1" if current else "")
+            playable = bool(od and od.get("playable"))
+            li.setProperty("mine", "1" if playable and not current else "")
+            li.setProperty("where", "this movie" if current else (od["service"] if playable else "not on your services"))
+            items.append(li)
+        lst = self.getControl(LIST_RELATED)
+        lst.reset()
+        lst.addItems(items)
+        kodi.log("info: %d in the series, %d you may also like (%.2fs)" % (len(series), len(more[:12]), time.time() - t))
 
     def _fetch_seasons(self):
         it, d = self.item, self.details
@@ -143,6 +185,17 @@ class TitleInfo(xbmcgui.WindowXMLDialog):
         return 0
 
     def onClick(self, control_id):
+        if control_id == LIST_RELATED:
+            pos = self.getControl(LIST_RELATED).getSelectedPosition()
+            if 0 <= pos < len(self.related):
+                x, od = self.related[pos]
+                if x.get("tmdb_id") == self.details.get("tmdb_id"):
+                    return  # this movie
+                if od:
+                    show(od)
+                else:
+                    show_by_title(x["title"], x["year"], x["type"])
+            return
         it = self.item
         if control_id == BTN_PLAY:
             self.close()
@@ -170,7 +223,18 @@ class TitleInfo(xbmcgui.WindowXMLDialog):
             elif control_id == BTN_WATCHLIST:
                 kodi.notify("Added to watchlist" if trakt.add_watchlist(it["type"], ids) else "Trakt: failed")
             else:
-                kodi.notify("Marked as watched" if trakt.mark_watched(it["type"], ids) else "Trakt: failed")
+                seen = self.getProperty("watched") != "Watched"   # the button toggles for a movie
+                if it["type"] != "Movie":
+                    seen = True
+                ok = (trakt.mark_watched if seen else trakt.unmark_watched)(it["type"], ids)
+                kodi.notify(("Marked as watched" if seen else "No longer marked as watched") if ok else "Trakt: failed")
+                if ok and it["type"] == "Movie":
+                    self.setProperty("watched", "Watched" if seen else "")
+                    self.setProperty("watchedbtn", "Unmark watched" if seen else "Mark watched")
+                    trakt.forget_watched()
+                    from resources.lib import rediscover
+                    if rediscover.mark_seen(it["title"], it.get("year", ""), seen):
+                        kodi.run_builtin("SetProperty(sh_rediscover,%d,home)" % time.time())
         elif control_id == BTN_EPISODES:
             self._load_episodes()
         elif control_id == BTN_CLOSE:
