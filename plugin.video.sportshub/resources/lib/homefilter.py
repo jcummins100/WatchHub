@@ -172,6 +172,14 @@ def restore_spot(spot, timeout_s=30.0, after_reload=False):
                 labels = [xbmc.getInfoLabel("Container(%d).ListItemAbsolute(%d).Label" % (row, i)) for i in range(n)]
                 idx = labels.index(spot["label"]) if spot.get("label") in labels else min(int(spot["pos"]), n) - 1
                 kodi.run_builtin("SetFocus(%d,%d,absolute)" % (row, idx))
+                # Kodi 21 can land a card off (seen one to the right on Rediscover): check, then step to it
+                want = labels[idx]
+                for _ in range(6):
+                    mon.waitForAbort(0.15)
+                    cur = int(xbmc.getInfoLabel("Container(%d).CurrentItem" % row) or 0) - 1
+                    if xbmc.getInfoLabel("Container(%d).ListItem.Label" % row) == want or cur < 0:
+                        break
+                    kodi.run_builtin("Control.Move(%d,%d)" % (row, idx - cur))
                 kodi.log("home: back to row %d card %d (%s)" % (row, idx + 1, spot.get("label", "")))
                 return True
         if mon.waitForAbort(0.25):

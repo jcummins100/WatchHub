@@ -1,3 +1,6 @@
+0.7.18 - Oct 16
+After marking a Rediscover movie watched, focus stays on that poster (it could land one to the right).
+
 0.7.17 - Oct 16
 Rediscover: marking a movie watched shows the green SEEN tag right away, on the same poster.
 
