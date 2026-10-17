@@ -1,3 +1,6 @@
+0.7.25 - Oct 17
+Shorter long-press menus: "Watch on…", "Move…" and "Trakt…" open their own options. The panel above the rows names the Favorites and Sports icons.
+
 0.7.24 - Oct 17
 Long-press menus use one order on every row: play / watch on, trailer, schedule, Up Next moves, show me different, more like this, favorites, Trakt watchlist, Trakt watched, pin, hide.
 

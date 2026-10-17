@@ -141,9 +141,49 @@ def show_menu():
         return
     entries = [[_fav_label(label, cmd), cmd] for label, cmd in entries]
     entries.sort(key=lambda e: menu_rank(e[0]))   # one order on every row (stable within a group)
-    pick = xbmcgui.Dialog().contextmenu([e[0] for e in entries])
-    if pick >= 0:
-        xbmc.executebuiltin(entries[pick][1])
+    top = group_menu(entries)
+    pick = xbmcgui.Dialog().contextmenu([t[0] for t in top])
+    if pick < 0:
+        return
+    label, sub = top[pick]
+    if isinstance(sub, list):   # a "…" group: its own short menu
+        p2 = xbmcgui.Dialog().contextmenu([e[0] for e in sub])
+        if p2 >= 0:
+            xbmc.executebuiltin(sub[p2][1])
+    else:
+        xbmc.executebuiltin(sub)
+
+
+# groups folded into one "…" entry when they have two or more options (else the option shows directly)
+SUBMENUS = [("Watch on\u2026", ("Watch on",)),
+            ("Move\u2026", ("Move to the top", "Move up", "Move to the end", "Move back", "Put back")),
+            ("Trakt\u2026", ("Trakt:",))]
+
+
+def group_menu(entries):
+    """[(label, command or [[label, command], ...])] in menu order. A group with one option shows that
+    option itself; inside "Trakt…" the options drop their "Trakt: " prefix."""
+    out, groups = [], {}
+    for label, cmd in entries:
+        name = next((n for n, starts in SUBMENUS if label.startswith(starts)), None)
+        if name is None:
+            out.append((label, cmd))
+            continue
+        if name not in groups:
+            groups[name] = []
+            out.append((name, groups[name]))
+        groups[name].append([label, cmd])
+    result = []
+    for label, item in out:
+        if not isinstance(item, list):
+            result.append((label, item))
+        elif len(item) == 1:
+            result.append((item[0][0], item[0][1]))
+        else:
+            if label == "Trakt\u2026":
+                item = [[l.replace("Trakt: ", "", 1).capitalize(), c] for l, c in item]
+            result.append((label, item))
+    return result
 
 
 KEYMAP = """<keymap>
