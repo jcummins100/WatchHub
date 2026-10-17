@@ -185,11 +185,7 @@ def root():
 
 def live(home=False):
     kodi.set_content("videos")
-    if home:
-        # the home row starts with the full guide, one press down from where Home opens
-        kodi.add_item("TV Guide", kodi.build_url(action="guide"), False, art={"icon": "DefaultPVRGuide.png"},
-                      props={"kind": "guide", "color": "FF8A1F2E", "title": "TV Guide", "kicker": "ALL FREE CHANNELS",
-                             "meta": "What's on now and later on every free channel"})
+    # (no TV Guide card: the header's guide icon is right above this row on the Sports page)
     favs = _favorite_channels_now() if home else []
     for p in favs:
         _add_programme(p, kicker="\u2605 " + (p.get("service") or "").upper())
@@ -207,11 +203,13 @@ def live(home=False):
 
 
 def _favorite_channels_now():
-    """Your ★ channels (any kind, from the TV Guide's list) with what they're showing now, A-Z (Sprint D)."""
+    """Your ★ sports channels (from the TV Guide's list) with what they're showing now, A-Z, first in Live sports now."""
     from resources.lib import guide
     now = time.time()
     out = []
     for c in guide.favorite_rows():
+        if not c.get("sports"):  # the row lives on the Sports page now: ★ sports channels only
+            continue
         progs = c["programs"]
         cur = next((i for i in range(len(progs) - 1, -1, -1) if progs[i][0] <= now), None)
         if cur is None:
@@ -241,6 +239,26 @@ def soon():
     items.sort(key=lambda p: p["start"])
     for p in items:
         _add_programme(p, show_time=True)
+    kodi.end_directory()
+
+
+def sports_page():
+    """The header's Sports icon: everything sports in one place (Live now and Starting soon left Home)."""
+    kodi.set_content("videos")
+    stats = espn.counts() if kodi.setting_bool("src_scores", True) else {}
+    games = sum(t for _, t, _ in stats.values())
+    playing = sum(l for _, _, l in stats.values())
+    tiles = [
+        ("Live sports now", kodi.build_url(action="live"), "FFE0162B", "Every channel showing sports right now"),
+        ("Today's games", kodi.build_url(action="games"), "FF1F3F6E",
+         "%d games today, %d live" % (games, playing) if games else "Scores and where to watch"),
+        ("Starting soon", kodi.build_url(action="soon"), "FF6E3A1F", "Next %d minutes" % kodi.setting_int("soon_minutes", 120)),
+        ("By sport", kodi.build_url(action="sports"), "FF2F5D3A", "Football, basketball, golf... on now"),
+    ]
+    for label, url, color, meta in tiles:
+        kodi.add_item(label, url, True, art={"icon": ICON_FOLDER}, props={"kind": "tile", "color": color, "title": label, "meta": meta})
+    kodi.add_item("TV Guide: Sports", kodi.build_url(action="guide", tab="Sports"), False, art={"icon": "DefaultPVRGuide.png"},
+                  props={"kind": "guide", "color": "FF8A1F2E", "title": "TV Guide: Sports", "meta": "Every sports channel, now and later"})
     kodi.end_directory()
 
 
@@ -1049,7 +1067,7 @@ def rediscover_feedback(action, jw_id):
 
 # ---------------------------------------------------------------- router
 # Home rows that keep a snapshot, and how old a snapshot may be when Kodi starts (live rows go stale fast).
-ROW_MAX_AGE = {"live": 600, "soon": 600, "games": 600, "trakt": 2 * 86400, "ondemand": 2 * 86400,
+ROW_MAX_AGE = {"live": 600, "soon": 600, "games": 600, "sports": 600, "trakt": 2 * 86400, "ondemand": 2 * 86400,
                "rediscover": 2 * 86400, "browse_tiles": 2 * 86400, "providers": 2 * 86400}
 
 
@@ -1113,7 +1131,7 @@ def dispatch(params):
         return _home_row(params)
     kodi.log("dispatch handle=%s %s" % (kodi.HANDLE, params))
     categories = {
-        "root": "Menu", "live": "Live Now", "soon": "Starting Soon", "sports": "By Sport", "sport": params.get("name", "Sport"),
+        "root": "Menu", "sports_page": "Sports", "live": "Live Now", "soon": "Starting Soon", "sports": "By Sport", "sport": params.get("name", "Sport"),
         "services": "By Service", "service": fast.SERVICES.get(params.get("id", ""), {}).get("name", "Service"),
         "channel": "Channel", "pvr": "Live TV", "pvr_all": "All Live TV channels", "tv": "TV Schedule",
         "games": "Today's Games" if not params.get("league") else espn.BY_ID.get(params.get("league"), ("", "", "Today's Games", ""))[2],
@@ -1128,6 +1146,8 @@ def dispatch(params):
         soon()
     elif action == "sports":
         sports_menu()
+    elif action == "sports_page":
+        sports_page()
     elif action == "sport":
         sport(params.get("name", "Other"))
     elif action == "services":

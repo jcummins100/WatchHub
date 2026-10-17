@@ -1,0 +1,429 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- WatchHub Sports (header ball icon): Home's look with the sports rows. Built from Home.xml. -->
+<!-- Sports Hub home: cinematic backdrop + hero for the focused item + horizontal rails. -->
+<window id="1120" type="window">
+	<defaultcontrol always="true">9000</defaultcontrol>
+	<backgroundcolor>background</backgroundcolor>
+	<controls>
+		<include>DefaultBackground</include>
+
+		<!-- ============================ background ============================ -->
+		<control type="image">
+			<include>FullScreenDimensions</include>
+			<texture>sportshub/bg.png</texture>
+			<visible>!Player.HasVideo</visible>
+		</control>
+
+		<!-- ============================ rails ============================ -->
+		<!-- Fixed rows; the whole block slides so the focused row always sits just under the hero band. -->
+		<!-- All view: every row. Hidden while a service is picked in the Services row. -->
+		<control type="group" id="9000">
+			<left>0</left>
+			<top>556</top>
+			<width>1920</width>
+			<height>3760</height>
+			<defaultcontrol>9100</defaultcontrol>
+			<visible>String.IsEmpty(Window(Home).Property(sh_provider))</visible>
+			<animation effect="fade" start="0" end="100" time="300" delay="150">WindowOpen</animation>
+			<animation effect="slide" end="0,-376" time="260" tween="cubic" easing="out" condition="Control.HasFocus(9200) | Control.HasFocus(9300) | Control.HasFocus(9150)">Conditional</animation>
+			<animation effect="slide" end="0,-376" time="260" tween="cubic" easing="out" condition="Control.HasFocus(9300) | Control.HasFocus(9150)">Conditional</animation>
+			<animation effect="slide" end="0,-376" time="260" tween="cubic" easing="out" condition="Control.HasFocus(9150)">Conditional</animation>
+			<include content="SH_Rail">
+				<param name="list_id" value="9100"/>
+				<param name="row_top" value="0"/>
+				<param name="prev1" value="700"/><param name="prev2" value="700"/><param name="prev3" value="700"/>
+				<param name="next1" value="9200"/><param name="next2" value="9300"/><param name="next3" value="9150"/>
+				<param name="header" value="LIVE SPORTS NOW"/>
+				<param name="content_path" value="plugin://plugin.video.sportshub/?action=live&amp;skin=1&amp;r=$INFO[Window(Home).Property(sh_refresh)]"/>
+				<param name="onclick" value="RunPlugin($INFO[ListItem.FileNameAndPath])"/>
+				<param name="layout" value="SH_CardChannelAny"/>
+				<param name="item_width" value="416"/>
+			</include>
+			<include content="SH_Rail">
+				<param name="list_id" value="9200"/>
+				<param name="row_top" value="376"/>
+				<param name="prev1" value="9100"/><param name="prev2" value="700"/><param name="prev3" value="700"/>
+				<param name="next1" value="9300"/><param name="next2" value="9150"/><param name="next3" value="9150"/>
+				<param name="header" value="TODAY'S GAMES"/>
+				<param name="content_path" value="plugin://plugin.video.sportshub/?action=games&amp;league=all&amp;skin=1&amp;r=$INFO[Window(Home).Property(sh_refresh)]"/>
+				<param name="onclick" value="RunPlugin($INFO[ListItem.FileNameAndPath])"/>
+				<param name="layout" value="SH_CardGameAny"/>
+				<param name="item_width" value="416"/>
+			</include>
+			<include content="SH_Rail">
+				<param name="list_id" value="9300"/>
+				<param name="row_top" value="752"/>
+				<param name="prev1" value="9200"/><param name="prev2" value="9100"/><param name="prev3" value="700"/>
+				<param name="next1" value="9150"/><param name="next2" value="9150"/><param name="next3" value="9150"/>
+				<param name="header" value="STARTING SOON"/>
+				<param name="content_path" value="plugin://plugin.video.sportshub/?action=soon&amp;skin=1&amp;r=$INFO[Window(Home).Property(sh_refresh)]"/>
+				<param name="onclick" value="RunPlugin($INFO[ListItem.FileNameAndPath])"/>
+				<param name="layout" value="SH_CardChannel"/>
+				<param name="item_width" value="416"/>
+			</include>
+			<include content="SH_Rail">
+				<param name="list_id" value="9150"/>
+				<param name="row_top" value="1128"/>
+				<param name="prev1" value="9300"/><param name="prev2" value="9200"/><param name="prev3" value="9100"/>
+				<param name="next1" value="9150"/><param name="next2" value="9150"/><param name="next3" value="9150"/>
+				<param name="header" value="BY SPORT · ON NOW"/>
+				<param name="content_path" value="plugin://plugin.video.sportshub/?action=sports&amp;skin=1&amp;r=$INFO[Window(Home).Property(sh_refresh)]"/>
+				<param name="onclick" value="ActivateWindow(Videos,$INFO[ListItem.FolderPath],return)"/>
+				<param name="layout" value="SH_CardSport"/>
+				<param name="item_width" value="416"/>
+			</include>
+		</control>
+
+		<!-- ============================ hero band (painted over the scrolling rails) ============================ -->
+		<control type="image">
+			<left>0</left>
+			<top>0</top>
+			<width>1920</width>
+			<height>556</height>
+			<texture>sportshub/bg.png</texture>
+			<aspectratio align="left" aligny="top">scale</aspectratio>
+			<visible>!Player.HasVideo</visible>
+		</control>
+		<control type="image">
+			<left>1180</left>
+			<top>90</top>
+			<width>620</width>
+			<height>380</height>
+			<aspectratio align="center" aligny="center">keep</aspectratio>
+			<fadetime>300</fadetime>
+			<texture background="true" colordiffuse="22FFFFFF">$VAR[SH_HeroLogo]</texture>
+			<visible>!Player.HasVideo</visible>
+		</control>
+		<control type="image">
+			<left>560</left>
+			<top>0</top>
+			<width>1360</width>
+			<height>556</height>
+			<aspectratio align="right" aligny="top">scale</aspectratio>
+			<fadetime>500</fadetime>
+			<texture background="true" colordiffuse="C8FFFFFF">$VAR[SH_Backdrop]</texture>
+			<animation effect="fade" time="400">VisibleChange</animation>
+			<visible>!Player.HasVideo</visible>
+		</control>
+		<control type="image">
+			<left>560</left>
+			<top>0</top>
+			<width>900</width>
+			<height>556</height>
+			<texture>sportshub/grad_left.png</texture>
+			<visible>!Player.HasVideo</visible>
+		</control>
+		<control type="image">
+			<left>560</left>
+			<top>0</top>
+			<width>1360</width>
+			<height>170</height>
+			<texture flipy="true">sportshub/grad_bottom.png</texture>
+			<visible>!Player.HasVideo</visible>
+		</control>
+		<control type="image">
+			<left>560</left>
+			<top>256</top>
+			<width>1360</width>
+			<height>300</height>
+			<texture>sportshub/grad_bottom.png</texture>
+			<visible>!Player.HasVideo</visible>
+		</control>
+
+		<!-- ============================ top bar ============================ -->
+		<control type="group">
+			<depth>DepthBars</depth>
+			<animation effect="fade" start="0" end="100" time="300">WindowOpen</animation>
+			<control type="label">
+				<left>100</left>
+				<top>42</top>
+				<width>600</width>
+				<height>50</height>
+				<font>font37</font>
+				<label>[B]WATCH[/B]HUB</label>
+				<textcolor>FFFFFFFF</textcolor>
+				<shadowcolor>AA000000</shadowcolor>
+			</control>
+			<control type="label">
+				<!-- under WATCHHUB, on the same line as the date on the right (the icons are centred above) -->
+				<left>100</left>
+				<top>96</top>
+				<width>1100</width>
+				<height>30</height>
+				<font>font25_title</font>
+				<label>[B]BROWSING: $INFO[Window(Home).Property(sh_provider_name)][/B]  [COLOR FF9AA4B8]·  Back clears[/COLOR]</label>
+				<textcolor>FF3D8BFF</textcolor>
+				<shadowcolor>AA000000</shadowcolor>
+				<visible>!String.IsEmpty(Window(Home).Property(sh_provider))</visible>
+			</control>
+			<control type="label">
+				<left>1420</left>
+				<top>36</top>
+				<width>400</width>
+				<height>60</height>
+				<align>right</align>
+				<font>font45_title</font>
+				<label>$INFO[System.Time]</label>
+				<textcolor>FFFFFFFF</textcolor>
+				<shadowcolor>AA000000</shadowcolor>
+			</control>
+			<control type="label">
+				<left>1420</left>
+				<top>96</top>
+				<width>400</width>
+				<height>30</height>
+				<align>right</align>
+				<font>font25_title</font>
+				<label>$INFO[System.Date(DDDD)]  $INFO[System.Date(MMM D)]</label>
+				<textcolor>B0FFFFFF</textcolor>
+			</control>
+			<control type="grouplist" id="700">
+				<!-- centred on the screen: 6 buttons x 120 -->
+				<left>600</left>
+				<top>26</top>
+				<width>720</width>
+				<height>80</height>
+				<orientation>horizontal</orientation>
+				<itemgap>0</itemgap>
+				<align>center</align>
+				<ondown>9000</ondown>
+				<onup>noop</onup>
+				<include content="IconButton">
+					<param name="control_id" value="805"/>
+					<param name="height" value="80"/>
+					<param name="onclick" value="SetProperty(sh_ui_request,plugin://plugin.video.sportshub/?action=guide,home)"/>
+					<param name="icon" value="icons/submenu/guide.png"/>
+					<param name="label" value="TV Guide"/>
+				</include>
+				<include content="IconButton">
+					<param name="control_id" value="806"/>
+					<param name="height" value="80"/>
+					<param name="onclick" value="ActivateWindow(Videos,plugin://plugin.video.sportshub/?action=favorites,return)"/>
+					<param name="icon" value="sportshub/star.png"/>
+					<param name="label" value="Favorites"/>
+				</include>
+				<include content="IconButton">
+					<param name="control_id" value="807"/>
+					<param name="height" value="80"/>
+					<param name="onclick" value="ActivateWindow(Videos,plugin://plugin.video.sportshub/?action=sports_page,return)"/>
+					<param name="icon" value="sportshub/sports_balls.png"/>
+					<param name="label" value="Sports"/>
+				</include>
+				<include content="IconButton">
+					<param name="control_id" value="801"/>
+					<param name="height" value="80"/>
+					<param name="onclick" value="ActivateWindow(Videos,plugin://plugin.video.sportshub/?action=search,return)"/>
+					<param name="icon" value="icons/search.png"/>
+					<param name="label" value="$LOCALIZE[137]"/>
+				</include>
+				<include content="IconButton">
+					<param name="control_id" value="802"/>
+					<param name="height" value="80"/>
+					<param name="onclick" value="SetProperty(sh_ui_request,plugin://plugin.video.sportshub/?action=wh_settings,home)"/>
+					<param name="icon" value="icons/settings.png"/>
+					<param name="label" value="$LOCALIZE[21417]"/>
+				</include>
+				<include content="IconButton">
+					<param name="control_id" value="804"/>
+					<param name="height" value="80"/>
+					<param name="onclick" value="ActivateWindow(shutdownmenu)"/>
+					<param name="icon" value="icons/power.png"/>
+					<param name="label" value="$LOCALIZE[33060]"/>
+				</include>
+			</control>
+		</control>
+
+		<!-- ============================ hero ============================ -->
+		<control type="group">
+			<left>100</left>
+			<top>140</top>
+			<width>1000</width>
+			<height>420</height>
+			<animation effect="fade" start="0" end="100" time="300" delay="100">WindowOpen</animation>
+			<visible>!Player.HasVideo</visible>
+			<control type="image">
+				<left>0</left>
+				<top>10</top>
+				<width>260</width>
+				<height>80</height>
+				<aspectratio align="left" aligny="center">keep</aspectratio>
+				<fadetime>200</fadetime>
+				<texture background="true">$VAR[SH_HeroLogo]</texture>
+			</control>
+			<control type="group">
+				<top>108</top>
+				<height>34</height>
+				<control type="image">
+					<left>0</left>
+					<top>0</top>
+					<width>84</width>
+					<height>32</height>
+					<texture border="16" colordiffuse="FFE0162B">sportshub/pill.png</texture>
+					<visible>$EXP[SH_HeroIsLive]</visible>
+				</control>
+				<control type="label">
+					<left>0</left>
+					<top>0</top>
+					<width>84</width>
+					<height>32</height>
+					<align>center</align>
+					<aligny>center</aligny>
+					<font>font12</font>
+					<label>[B]LIVE[/B]</label>
+					<visible>$EXP[SH_HeroIsLive]</visible>
+				</control>
+				<control type="label">
+					<left>100</left>
+					<top>0</top>
+					<width>800</width>
+					<height>32</height>
+					<aligny>center</aligny>
+					<font>font25_title</font>
+					<label>$VAR[SH_HeroKicker]</label>
+					<textcolor>FFB8C4D6</textcolor>
+					<visible>$EXP[SH_HeroIsLive]</visible>
+				</control>
+				<control type="label">
+					<left>0</left>
+					<top>0</top>
+					<width>900</width>
+					<height>32</height>
+					<aligny>center</aligny>
+					<font>font25_title</font>
+					<label>$VAR[SH_HeroKicker]</label>
+					<textcolor>FFB8C4D6</textcolor>
+					<visible>!$EXP[SH_HeroIsLive]</visible>
+				</control>
+			</control>
+			<control type="textbox">
+				<left>0</left>
+				<top>150</top>
+				<width>1000</width>
+				<height>150</height>
+				<font>font52_title</font>
+				<label>$VAR[SH_HeroTitle]</label>
+				<textcolor>FFFFFFFF</textcolor>
+				<shadowcolor>AA000000</shadowcolor>
+				<autoscroll>false</autoscroll>
+			</control>
+			<control type="label">
+				<left>0</left>
+				<top>308</top>
+				<width>1000</width>
+				<height>40</height>
+				<font>font32</font>
+				<label>$VAR[SH_HeroMeta]</label>
+				<textcolor>FFD6DEEA</textcolor>
+				<shadowcolor>AA000000</shadowcolor>
+				<visible>!$EXP[SH_UpNextHero]</visible>
+			</control>
+			<!-- Up Next: Season 2 · Episode 4 — title / its summary / service · year · genres / watched 11 of 16 -->
+			<control type="group">
+				<visible>$EXP[SH_UpNextHero]</visible>
+				<control type="label">
+					<left>0</left>
+					<top>222</top>
+					<width>1100</width>
+					<height>44</height>
+					<font>font32_title</font>
+					<label>[B]$VAR[SH_HeroEpisode][/B]</label>
+					<textcolor>FFFFFFFF</textcolor>
+					<shadowcolor>AA000000</shadowcolor>
+				</control>
+				<control type="label">
+					<left>0</left>
+					<top>266</top>
+					<width>1100</width>
+					<height>36</height>
+					<font>font27</font>
+					<label>$VAR[SH_HeroSummary]</label>
+					<textcolor>FFD6DEEA</textcolor>
+					<shadowcolor>AA000000</shadowcolor>
+				</control>
+				<control type="label">
+					<left>0</left>
+					<top>304</top>
+					<width>1100</width>
+					<height>36</height>
+					<font>font27</font>
+					<label>$VAR[SH_HeroChips]</label>
+					<textcolor>FF9AA5BD</textcolor>
+					<shadowcolor>AA000000</shadowcolor>
+				</control>
+				<control type="label">
+					<left>540</left>
+					<top>338</top>
+					<width>560</width>
+					<height>36</height>
+					<font>font25_title</font>
+					<label>$INFO[Container(9960).ListItem.Property(progress_text)]</label>
+					<textcolor>FF4CD27F</textcolor>
+					<visible>Control.HasFocus(9960)</visible>
+				</control>
+				<control type="label">
+					<left>540</left>
+					<top>338</top>
+					<width>560</width>
+					<height>36</height>
+					<font>font25_title</font>
+					<label>$INFO[Container(9961).ListItem.Property(progress_text)]</label>
+					<textcolor>FF4CD27F</textcolor>
+					<visible>Control.HasFocus(9961)</visible>
+				</control>
+				<control type="progress">
+					<left>0</left>
+					<top>362</top>
+					<width>520</width>
+					<height>6</height>
+					<texturebg colordiffuse="40FFFFFF">sportshub/white.png</texturebg>
+					<midtexture colordiffuse="FF4CD27F">sportshub/white.png</midtexture>
+					<lefttexture/>
+					<righttexture/>
+					<overlaytexture/>
+					<info>Container(9960).ListItem.Property(progress)</info>
+					<visible>Control.HasFocus(9960) + !String.IsEmpty(Container(9960).ListItem.Property(progress))</visible>
+				</control>
+				<control type="progress">
+					<left>0</left>
+					<top>362</top>
+					<width>520</width>
+					<height>6</height>
+					<texturebg colordiffuse="40FFFFFF">sportshub/white.png</texturebg>
+					<midtexture colordiffuse="FF4CD27F">sportshub/white.png</midtexture>
+					<lefttexture/>
+					<righttexture/>
+					<overlaytexture/>
+					<info>Container(9961).ListItem.Property(progress)</info>
+					<visible>Control.HasFocus(9961) + !String.IsEmpty(Container(9961).ListItem.Property(progress))</visible>
+				</control>
+			</control>
+			<control type="progress">
+				<left>0</left>
+				<top>362</top>
+				<width>520</width>
+				<height>6</height>
+				<texturebg colordiffuse="40FFFFFF">sportshub/white.png</texturebg>
+				<midtexture colordiffuse="FFE0162B">sportshub/white.png</midtexture>
+				<lefttexture/>
+				<righttexture/>
+				<overlaytexture/>
+				<info>Container(9100).ListItem.Property(progress)</info>
+				<visible>$EXP[SH_Focus9100] + !String.IsEmpty(Container(9100).ListItem.Property(progress))</visible>
+			</control>
+			<control type="progress">
+				<left>0</left>
+				<top>362</top>
+				<width>520</width>
+				<height>6</height>
+				<texturebg colordiffuse="40FFFFFF">sportshub/white.png</texturebg>
+				<midtexture colordiffuse="FFE0162B">sportshub/white.png</midtexture>
+				<lefttexture/>
+				<righttexture/>
+				<overlaytexture/>
+				<info>Container(9300).ListItem.Property(progress)</info>
+				<visible>$EXP[SH_Focus9300] + !String.IsEmpty(Container(9300).ListItem.Property(progress))</visible>
+			</control>
+		</control>
+
+	</controls>
+</window>

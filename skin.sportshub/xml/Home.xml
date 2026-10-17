@@ -25,20 +25,18 @@
 			<defaultcontrol>9960</defaultcontrol>
 			<visible>String.IsEmpty(Window(Home).Property(sh_provider))</visible>
 			<animation effect="fade" start="0" end="100" time="300" delay="150">WindowOpen</animation>
-			<animation effect="slide" end="0,-376" time="260" tween="cubic" easing="out" condition="Control.HasFocus(9960) | Control.HasFocus(9100) | Control.HasFocus(9200) | Control.HasFocus(9950) | Control.HasFocus(9400) | Control.HasFocus(9800) | Control.HasFocus(9700) | Control.HasFocus(9300) | Control.HasFocus(9600)">Conditional</animation>
-			<animation effect="slide" end="0,-376" time="260" tween="cubic" easing="out" condition="Control.HasFocus(9100) | Control.HasFocus(9200) | Control.HasFocus(9950) | Control.HasFocus(9400) | Control.HasFocus(9800) | Control.HasFocus(9700) | Control.HasFocus(9300) | Control.HasFocus(9600)">Conditional</animation>
-			<animation effect="slide" end="0,-376" time="260" tween="cubic" easing="out" condition="Control.HasFocus(9200) | Control.HasFocus(9950) | Control.HasFocus(9400) | Control.HasFocus(9800) | Control.HasFocus(9700) | Control.HasFocus(9300) | Control.HasFocus(9600)">Conditional</animation>
-			<animation effect="slide" end="0,-376" time="260" tween="cubic" easing="out" condition="Control.HasFocus(9950) | Control.HasFocus(9400) | Control.HasFocus(9800) | Control.HasFocus(9700) | Control.HasFocus(9300) | Control.HasFocus(9600)">Conditional</animation>
-			<animation effect="slide" end="0,-376" time="260" tween="cubic" easing="out" condition="Control.HasFocus(9400) | Control.HasFocus(9800) | Control.HasFocus(9700) | Control.HasFocus(9300) | Control.HasFocus(9600)">Conditional</animation>
-			<animation effect="slide" end="0,-376" time="260" tween="cubic" easing="out" condition="Control.HasFocus(9800) | Control.HasFocus(9700) | Control.HasFocus(9300) | Control.HasFocus(9600)">Conditional</animation>
-			<animation effect="slide" end="0,-376" time="260" tween="cubic" easing="out" condition="Control.HasFocus(9700) | Control.HasFocus(9300) | Control.HasFocus(9600)">Conditional</animation>
-			<animation effect="slide" end="0,-376" time="260" tween="cubic" easing="out" condition="Control.HasFocus(9300) | Control.HasFocus(9600)">Conditional</animation>
+			<animation effect="slide" end="0,-376" time="260" tween="cubic" easing="out" condition="Control.HasFocus(9960) | Control.HasFocus(9200) | Control.HasFocus(9950) | Control.HasFocus(9400) | Control.HasFocus(9800) | Control.HasFocus(9700) | Control.HasFocus(9600)">Conditional</animation>
+			<animation effect="slide" end="0,-376" time="260" tween="cubic" easing="out" condition="Control.HasFocus(9200) | Control.HasFocus(9950) | Control.HasFocus(9400) | Control.HasFocus(9800) | Control.HasFocus(9700) | Control.HasFocus(9600)">Conditional</animation>
+			<animation effect="slide" end="0,-376" time="260" tween="cubic" easing="out" condition="Control.HasFocus(9950) | Control.HasFocus(9400) | Control.HasFocus(9800) | Control.HasFocus(9700) | Control.HasFocus(9600)">Conditional</animation>
+			<animation effect="slide" end="0,-376" time="260" tween="cubic" easing="out" condition="Control.HasFocus(9400) | Control.HasFocus(9800) | Control.HasFocus(9700) | Control.HasFocus(9600)">Conditional</animation>
+			<animation effect="slide" end="0,-376" time="260" tween="cubic" easing="out" condition="Control.HasFocus(9800) | Control.HasFocus(9700) | Control.HasFocus(9600)">Conditional</animation>
+			<animation effect="slide" end="0,-376" time="260" tween="cubic" easing="out" condition="Control.HasFocus(9700) | Control.HasFocus(9600)">Conditional</animation>
 			<animation effect="slide" end="0,-376" time="260" tween="cubic" easing="out" condition="Control.HasFocus(9600)">Conditional</animation>
 			<include content="SH_Rail">
 				<param name="list_id" value="9050"/>
 				<param name="row_top" value="0"/>
 				<param name="prev1" value="700"/><param name="prev2" value="700"/><param name="prev3" value="700"/>
-				<param name="next1" value="9960"/><param name="next2" value="9100"/><param name="next3" value="9200"/>
+				<param name="next1" value="9960"/><param name="next2" value="9200"/><param name="next3" value="9950"/>
 				<param name="header" value="SERVICES"/>
 				<param name="content_path" value="plugin://plugin.video.sportshub/?action=providers&amp;svc=$INFO[Window(Home).Property(sh_provider)]&amp;skin=1&amp;r=$INFO[Window(Home).Property(sh_refresh)]"/>
 				<param name="onclick" value="RunPlugin($INFO[ListItem.FileNameAndPath])"/>
@@ -49,7 +47,7 @@
 				<param name="list_id" value="9960"/>
 				<param name="row_top" value="376"/>
 				<param name="prev1" value="9050"/><param name="prev2" value="700"/><param name="prev3" value="700"/>
-				<param name="next1" value="9100"/><param name="next2" value="9200"/><param name="next3" value="9950"/>
+				<param name="next1" value="9200"/><param name="next2" value="9950"/><param name="next3" value="9400"/>
 				<param name="header" value="UP NEXT"/>
 				<param name="content_path" value="plugin://plugin.video.sportshub/?action=trakt&amp;row=upnext&amp;skin=1&amp;r=$INFO[Window(Home).Property(sh_refresh)]"/>
 				<param name="onclick" value="RunPlugin($INFO[ListItem.FileNameAndPath])"/>
@@ -57,20 +55,9 @@
 				<param name="item_width" value="232"/>
 			</include>
 			<include content="SH_Rail">
-				<param name="list_id" value="9100"/>
+				<param name="list_id" value="9200"/>
 				<param name="row_top" value="752"/>
 				<param name="prev1" value="9960"/><param name="prev2" value="9050"/><param name="prev3" value="700"/>
-				<param name="next1" value="9200"/><param name="next2" value="9950"/><param name="next3" value="9400"/>
-				<param name="header" value="LIVE NOW"/>
-				<param name="content_path" value="plugin://plugin.video.sportshub/?action=live&amp;skin=1&amp;r=$INFO[Window(Home).Property(sh_refresh)]"/>
-				<param name="onclick" value="RunPlugin($INFO[ListItem.FileNameAndPath])"/>
-				<param name="layout" value="SH_CardChannelAny"/>
-				<param name="item_width" value="416"/>
-			</include>
-			<include content="SH_Rail">
-				<param name="list_id" value="9200"/>
-				<param name="row_top" value="1128"/>
-				<param name="prev1" value="9100"/><param name="prev2" value="9960"/><param name="prev3" value="9050"/>
 				<param name="next1" value="9950"/><param name="next2" value="9400"/><param name="next3" value="9800"/>
 				<param name="header" value="TODAY'S GAMES"/>
 				<param name="content_path" value="plugin://plugin.video.sportshub/?action=games&amp;league=all&amp;skin=1&amp;r=$INFO[Window(Home).Property(sh_refresh)]"/>
@@ -80,8 +67,8 @@
 			</include>
 			<include content="SH_Rail">
 				<param name="list_id" value="9950"/>
-				<param name="row_top" value="1504"/>
-				<param name="prev1" value="9200"/><param name="prev2" value="9100"/><param name="prev3" value="9960"/>
+				<param name="row_top" value="1128"/>
+				<param name="prev1" value="9200"/><param name="prev2" value="9960"/><param name="prev3" value="9050"/>
 				<param name="next1" value="9400"/><param name="next2" value="9800"/><param name="next3" value="9700"/>
 				<param name="header" value="NEW THIS WEEK ON YOUR SERVICES"/>
 				<param name="content_path" value="plugin://plugin.video.sportshub/?action=ondemand&amp;row=3&amp;home=1&amp;skin=1&amp;r=$INFO[Window(Home).Property(sh_refresh)]"/>
@@ -91,9 +78,9 @@
 			</include>
 			<include content="SH_Rail">
 				<param name="list_id" value="9400"/>
-				<param name="row_top" value="1880"/>
-				<param name="prev1" value="9950"/><param name="prev2" value="9200"/><param name="prev3" value="9100"/>
-				<param name="next1" value="9800"/><param name="next2" value="9700"/><param name="next3" value="9300"/>
+				<param name="row_top" value="1504"/>
+				<param name="prev1" value="9950"/><param name="prev2" value="9200"/><param name="prev3" value="9960"/>
+				<param name="next1" value="9800"/><param name="next2" value="9700"/><param name="next3" value="9600"/>
 				<param name="header" value="REDISCOVER · 1985–2015"/>
 				<param name="content_path" value="plugin://plugin.video.sportshub/?action=rediscover&amp;skin=1&amp;r=$INFO[Window(Home).Property(sh_refresh)]"/>
 				<param name="onclick" value="RunPlugin($INFO[ListItem.FileNameAndPath])"/>
@@ -102,9 +89,9 @@
 			</include>
 			<include content="SH_Rail">
 				<param name="list_id" value="9800"/>
-				<param name="row_top" value="2256"/>
+				<param name="row_top" value="1880"/>
 				<param name="prev1" value="9400"/><param name="prev2" value="9950"/><param name="prev3" value="9200"/>
-				<param name="next1" value="9700"/><param name="next2" value="9300"/><param name="next3" value="9600"/>
+				<param name="next1" value="9700"/><param name="next2" value="9600"/><param name="next3" value="9600"/>
 				<param name="header" value="TRENDING ON YOUR SERVICES"/>
 				<param name="content_path" value="plugin://plugin.video.sportshub/?action=ondemand&amp;row=0&amp;home=1&amp;skin=1&amp;r=$INFO[Window(Home).Property(sh_refresh)]"/>
 				<param name="onclick" value="RunPlugin($INFO[ListItem.FileNameAndPath])"/>
@@ -113,30 +100,19 @@
 			</include>
 			<include content="SH_Rail">
 				<param name="list_id" value="9700"/>
-				<param name="row_top" value="2632"/>
+				<param name="row_top" value="2256"/>
 				<param name="prev1" value="9800"/><param name="prev2" value="9400"/><param name="prev3" value="9950"/>
-				<param name="next1" value="9300"/><param name="next2" value="9600"/><param name="next3" value="9600"/>
+				<param name="next1" value="9600"/><param name="next2" value="9600"/><param name="next3" value="9600"/>
 				<param name="header" value="BROWSE"/>
 				<param name="content_path" value="plugin://plugin.video.sportshub/?action=browse_tiles&amp;skin=1&amp;r=$INFO[Window(Home).Property(sh_refresh)]"/>
 				<param name="onclick" value="ActivateWindow(Videos,$INFO[ListItem.FolderPath],return)"/>
 				<param name="layout" value="SH_CardSport"/>
 				<param name="item_width" value="416"/>
 			</include>
-			<include content="SH_Rail">
-				<param name="list_id" value="9300"/>
-				<param name="row_top" value="3008"/>
-				<param name="prev1" value="9700"/><param name="prev2" value="9800"/><param name="prev3" value="9400"/>
-				<param name="next1" value="9600"/><param name="next2" value="9600"/><param name="next3" value="9600"/>
-				<param name="header" value="SPORTS STARTING SOON"/>
-				<param name="content_path" value="plugin://plugin.video.sportshub/?action=soon&amp;skin=1&amp;r=$INFO[Window(Home).Property(sh_refresh)]"/>
-				<param name="onclick" value="RunPlugin($INFO[ListItem.FileNameAndPath])"/>
-				<param name="layout" value="SH_CardChannel"/>
-				<param name="item_width" value="416"/>
-			</include>
 			<include content="SH_RailStatic">
 				<param name="list_id" value="9600"/>
-				<param name="row_top" value="3384"/>
-				<param name="prev1" value="9300"/><param name="prev2" value="9700"/><param name="prev3" value="9800"/>
+				<param name="row_top" value="2632"/>
+				<param name="prev1" value="9700"/><param name="prev2" value="9800"/><param name="prev3" value="9400"/>
 				<param name="header" value="MORE"/>
 			</include>
 		</control>
@@ -307,10 +283,10 @@
 				<textcolor>B0FFFFFF</textcolor>
 			</control>
 			<control type="grouplist" id="700">
-				<!-- centred on the screen: 5 buttons x 120 -->
-				<left>660</left>
+				<!-- centred on the screen: 6 buttons x 120 -->
+				<left>600</left>
 				<top>26</top>
-				<width>600</width>
+				<width>720</width>
 				<height>80</height>
 				<orientation>horizontal</orientation>
 				<itemgap>0</itemgap>
@@ -331,6 +307,13 @@
 					<param name="onclick" value="ActivateWindow(Videos,plugin://plugin.video.sportshub/?action=favorites,return)"/>
 					<param name="icon" value="sportshub/star.png"/>
 					<param name="label" value="Favorites"/>
+				</include>
+				<include content="IconButton">
+					<param name="control_id" value="807"/>
+					<param name="height" value="80"/>
+					<param name="onclick" value="ActivateWindow(1120)"/>
+					<param name="icon" value="sportshub/sports_balls.png"/>
+					<param name="label" value="Sports"/>
 				</include>
 				<include content="IconButton">
 					<param name="control_id" value="801"/>

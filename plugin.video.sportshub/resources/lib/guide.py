@@ -223,7 +223,7 @@ def publish_favorites(rows=None, force=False):
     if not force and mtime == _FAVS_PUB["mtime"]:
         return
     keys = set(favorites())
-    keep = ("key", "name", "logo", "programs", "play", "service", "sid", "alts")
+    keep = ("key", "name", "logo", "programs", "play", "service", "sid", "alts", "sports")
     if _write_json(_favs_now_path(), [{k: c.get(k) for k in keep} for c in rows if c["key"] in keys]):
         _FAVS_PUB["mtime"] = mtime
 

@@ -1,3 +1,6 @@
+0.7.9 - Oct 16
+Sports moved off the home screen: a new Sports icon (the balls, next to ★) opens a Sports page laid out like Home, with Live sports now, Today's games, Starting soon and By sport. Home keeps Today's Games.
+
 0.7.8 - Oct 16
 New this week, Rediscover and Trending show the same details as Up Next when you're on a poster: a headline (New on Netflix · added Oct 16, #3 trending, From 1994), a one-line summary, and service, year, genres, IMDb, length and rating.
 

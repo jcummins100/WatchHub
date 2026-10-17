@@ -61,6 +61,7 @@
 		<value condition="Control.HasFocus(9961)">$INFO[Container(9961).ListItem.Property(kicker)]</value>
 		<value condition="$EXP[SH_Focus9960]">$INFO[Container(9960).ListItem.Property(kicker)]</value>
 		<value condition="$EXP[SH_Focus9700]">BROWSE</value>
+		<value condition="Control.HasFocus(9150)">BY SPORT</value>
 		<value condition="$EXP[SH_Focus9600]">KODI</value>
 		<value></value>
 	</variable>
@@ -115,6 +116,7 @@
 		<value condition="Control.HasFocus(9961)">$INFO[Container(9961).ListItem.Property(title)]</value>
 		<value condition="$EXP[SH_Focus9960]">$INFO[Container(9960).ListItem.Property(title)]</value>
 		<value condition="$EXP[SH_Focus9700]">$INFO[Container(9700).ListItem.Label]</value>
+		<value condition="Control.HasFocus(9150)">$INFO[Container(9150).ListItem.Label]</value>
 		<value condition="$EXP[SH_Focus9600]">$INFO[Container(9600).ListItem.Label]</value>
 		<value>WatchHub</value>
 	</variable>
@@ -139,6 +141,7 @@
 		<value condition="Control.HasFocus(9961)">$INFO[Container(9961).ListItem.Property(meta)]</value>
 		<value condition="$EXP[SH_Focus9960]">$INFO[Container(9960).ListItem.Property(meta)]</value>
 		<value condition="$EXP[SH_Focus9700]">$INFO[Container(9700).ListItem.Property(meta)]</value>
+		<value condition="Control.HasFocus(9150)">$INFO[Container(9150).ListItem.Property(meta)]</value>
 		<value condition="$EXP[SH_Focus9600]">$INFO[Container(9600).ListItem.Property(meta)]</value>
 		<value></value>
 	</variable>

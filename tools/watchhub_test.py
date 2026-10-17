@@ -38,8 +38,9 @@ FILTER_FILE = KODI_HOME + "/userdata/addon_data/plugin.video.sportshub/home_filt
 
 # Home rows, top to bottom, as Home.xml lays them out (id, name)
 FIXED_GUIDE_TABS = ["Favorites", "Categories", "Sports", "News", "Movies", "Game Shows", "Kids", "All"]
-ALL_ROWS = [(9050, "Services"), (9960, "Up Next"), (9100, "Live Now"), (9200, "Today's Games"),
-            (9950, "New This Week"), (9400, "Rediscover"), (9800, "Trending"), (9700, "Browse"), (9300, "Sports Starting Soon"), (9600, "More")]
+# Live Now and Sports Starting Soon moved to the header's Sports page (0.7.9)
+ALL_ROWS = [(9050, "Services"), (9960, "Up Next"), (9200, "Today's Games"),
+            (9950, "New This Week"), (9400, "Rediscover"), (9800, "Trending"), (9700, "Browse"), (9600, "More")]
 PROVIDER_ROWS = [(9051, "Services"), (9961, "Up Next on <svc>"), (9951, "New This Week on <svc>"), (9801, "Trending on <svc>")]
 # actions the crawler must never run (they change user data, need a human, or switch the skin)
 NEVER = {"trakt_watched", "trakt_watchlist", "trakt_signout", "trakt_signin", "settings", "skin", "enable_addon", "refresh", "provider"}
@@ -280,8 +281,8 @@ class Offline:
               lambda r, b: (not any("espa" in l.lower() for l in labels(r)), ", ".join(labels(r))[:200]))
         check("hide_spanish=false: En Español genre back", "action=tvgroups&skin=1",
               lambda r, b: (any("espa" in l.lower() for l in labels(r)), ", ".join(labels(r))[:200]), hide_spanish="false")
-        check("Home Live Sports Now starts with the TV Guide card", "action=live&skin=1",
-              lambda r, b: (bool(r["items"]) and r["items"][0]["props"].get("kind") == "guide", ", ".join(labels(r)[:3])))
+        check("Sports page Live sports now: no TV Guide card, only sports", "action=live&skin=1",
+              lambda r, b: (bool(r["items"]) and all(i["props"].get("kind") != "guide" for i in r["items"]), ", ".join(labels(r)[:3])))
         check("service_priority plex first", "action=live&skin=1",
               lambda r, b: (len(r["items"]) > 0, "first 3 now: %s" % ", ".join(labels(r)[:3])), service_priority="plex,pluto,roku,samsung")
 
@@ -654,17 +655,17 @@ class OnDevice:
         rep.add(B, "Up from Services reaches header buttons", "PASS" if d.focus() not in [i for i, _ in ALL_ROWS] else "ISSUE",
                 "focus=%s" % d.focus(), d.shot("header-focus"))
         # sideways through a row to the end and back
-        d.goto_row(9100, ALL_ROWS)
-        n = int(d.info("Container(9100).NumItems").get("Container(9100).NumItems") or 0)
-        d.goto_item(9100, n)
+        d.goto_row(9700, ALL_ROWS)
+        n = int(d.info("Container(9700).NumItems").get("Container(9700).NumItems") or 0)
+        d.goto_item(9700, n)
         d.key("Right")
-        end_ok = int(d.info("Container(9100).CurrentItem").get("Container(9100).CurrentItem") or 0) == n
+        end_ok = int(d.info("Container(9700).CurrentItem").get("Container(9700).CurrentItem") or 0) == n
         rep.add(B, "Right at end of a row stops (no wrap)", "PASS" if end_ok else "ISSUE", "%d items" % n, d.shot("row-end"))
-        last = d.info("Container(9100).ListItem.Label", "Container(9100).ListItem.Property(kind)")
-        if last.get("Container(9100).ListItem.Label") == "More..." and not last.get("Container(9100).ListItem.Property(kind)"):
+        last = d.info("Container(9700).ListItem.Label", "Container(9700).ListItem.Property(kind)")
+        if last.get("Container(9700).ListItem.Label") == "More..." and not last.get("Container(9700).ListItem.Property(kind)"):
             self.click(B, "Row end: 'See all' card opens the full Live Sports list", lambda l, s_, dl: "Window.IsActive(videos)" in dl)
-            d.goto_row(9100, ALL_ROWS)
-        d.goto_item(9100, 1)
+            d.goto_row(9700, ALL_ROWS)
+        d.goto_item(9700, 1)
 
         # ---------------- every card type: click and see what happens
         def row_clicks(cid, name, count, expect=None, first=1):
@@ -685,11 +686,9 @@ class OnDevice:
         self.row_clicks = row_clicks
         launched_ok = lambda l, s, dl: bool(l)
         row_clicks(9960, "Up Next", 2, lambda l, s, dl: "Window.IsActive(TitleInfo.xml)" in dl or bool(l))
-        row_clicks(9100, "Live Sports Now", 6, launched_ok, first=2)  # card 1 is the TV Guide (tested below)
         row_clicks(9200, "Today's Games", 6)
         row_clicks(9950, "New This Week", 2, lambda l, s, dl: "Window.IsActive(TitleInfo.xml)" in dl)
         row_clicks(9800, "Trending", 2, lambda l, s, dl: "Window.IsActive(TitleInfo.xml)" in dl)
-        row_clicks(9300, "Sports Starting Soon", 4, launched_ok)
         row_clicks(9700, "Browse category", 3, lambda l, s, dl: "Window.IsActive(Browse.xml)" in dl, first=2)  # card 1 = TV Guide
         self._browse(B, 2)
         d.home()
@@ -757,7 +756,7 @@ class OnDevice:
             d.home()
 
         # ---------------- long-press menu on a poster and on a live channel
-        for cid, name in ((9800, "Trending poster"), (9100, "Live channel"), (9200, "Game card")):
+        for cid, name in ((9800, "Trending poster"), (9200, "Game card")):
             d.home(); d.goto_row(cid, ALL_ROWS); d.goto_item(cid, 1)
             d.key("ContextMenu")
             time.sleep(1.5)
@@ -771,15 +770,22 @@ class OnDevice:
             d.key("Back")
         rep.add(B, "Long-press: Trakt mark watched / add to watchlist", "SKIP", "would change your Trakt data")
 
-        # ---------------- header buttons (801 Search, 802 Settings, 804 Power; Right wraps around)
-        for bname, bid in (("Search", 801), ("Settings", 802), ("Power", 804)):
+        # ---------------- header buttons (807 Sports, 801 Search, 802 Settings, 804 Power; Right wraps around)
+        for bname, bid in (("Sports", 807), ("Search", 801), ("Settings", 802), ("Power", 804)):
             d.home(); d.goto_row(9050, ALL_ROWS); d.key("Up")
-            for _ in range(4):
+            for _ in range(6):
                 if d.focus() == bid:
                     break
                 d.key("Right")
             if d.focus() != bid:
                 rep.add(B, "Header: %s" % bname, "FAIL", "could not focus button %d (focus=%s)" % (bid, d.focus()))
+                continue
+            if bname == "Sports":
+                self.click(B, "Header: Sports opens the Sports page", lambda l, s_, dl: "Window.IsActive(videos)" in dl, back=False)
+                st = d.info("Container.NumItems", "Container.ListItemAbsolute(0).Label")
+                rep.add(B, "Sports page: Live sports now, games, Starting soon, By sport, TV Guide", "PASS" if int(st.get("Container.NumItems") or 0) >= 5 else "FAIL",
+                        json.dumps(st), d.shot("sports-page"))
+                d.key("Back"); time.sleep(1.5)
                 continue
             if bname == "Power":
                 self.click(B, "Header: Power (menu only, nothing chosen)", lambda l, s_, dl: "Window.IsActive(shutdownmenu)" in dl, back=False)
@@ -827,12 +833,12 @@ class OnDevice:
         d.sh("rm -f %s" % favfile)
         opened = lambda: d.wait(lambda: d.is_(G).get(G), 15)
         # 1. the first Live Sports Now card
-        d.home(); d.goto_row(9100, ALL_ROWS); d.goto_item(9100, 1)
-        lab = d.info("Container(9100).ListItem.Label", "Container(9100).ListItem.Property(kind)")
+        d.home(); d.goto_row(9700, ALL_ROWS); d.goto_item(9700, 1)
+        lab = d.info("Container(9700).ListItem.Label", "Container(9700).ListItem.Property(kind)")
         d.key("Select")
         ok = opened(); time.sleep(2)
         st = d.info("Window(13000).Property(tab)", "Container(500).NumItems", "Window(13000).Property(slot0)", "Container(300).NumItems")
-        rep.add(B, "Guide: Live Sports Now first card opens it", "PASS" if ok and lab.get("Container(9100).ListItem.Property(kind)") == "guide" else "FAIL",
+        rep.add(B, "Guide: Browse row first card opens it", "PASS" if ok and lab.get("Container(9700).ListItem.Property(kind)") == "guide" else "FAIL",
                 "%s | %s" % (json.dumps(lab), json.dumps(st)), d.shot("guide-from-live-row"))
         if not ok:
             return
@@ -965,7 +971,6 @@ class OnDevice:
         row_clicks(9200, "Today's Games", 6)
         row_clicks(9950, "New This Week", 3, info_ok)
         row_clicks(9800, "Trending", 3, info_ok)
-        row_clicks(9300, "Sports Starting Soon", 4, lambda l, s, dl: bool(l))
         row_clicks(9700, "Browse category", 3, lambda l, s, dl: "Window.IsActive(Browse.xml)" in dl, first=2)  # card 1 = TV Guide
         self._browse(B, 3)
         rep.add(B, "Kodi cold starts after returning from an app (this run)", "INFO", "%d" % getattr(d, "restarts", 0))
@@ -1156,11 +1161,11 @@ class OnDevice:
             n = int(d.info("Container(9050).NumItems").get("Container(9050).NumItems") or 0)
             return [d.info("Container(9050).ListItemAbsolute(%d).Label" % k).get("Container(9050).ListItemAbsolute(%d).Label" % k, "") for k in range(n)]
 
-        base_live = d.info("Container(9100).NumItems").get("Container(9100).NumItems")
-        with_settings("src_pluto=false", lambda: (True, "Live Sports Now items %s -> %s" % (base_live, d.info("Container(9100).NumItems").get("Container(9100).NumItems"))), src_pluto="false")
+        base_live = d.info("Container(9700).NumItems").get("Container(9700).NumItems")
+        with_settings("src_pluto=false", lambda: (True, "Live Sports Now items %s -> %s" % (base_live, d.info("Container(9700).NumItems").get("Container(9700).NumItems"))), src_pluto="false")
         with_settings("amazon_channels empty", lambda: (not any("(Prime)" in l for l in svc_labels()), ", ".join(svc_labels())), amazon_channels="")
-        with_settings("games_only=true", lambda: (True, "Live %s / Soon %s items" % (d.info("Container(9100).NumItems").get("Container(9100).NumItems"),
-                                                                                      d.info("Container(9300).NumItems").get("Container(9300).NumItems"))), games_only="true")
+        with_settings("games_only=true", lambda: (True, "Live %s / Soon %s items" % (d.info("Container(9700).NumItems").get("Container(9700).NumItems"),
+                                                                                      d.info("Container(9200).NumItems").get("Container(9200).NumItems"))), games_only="true")
         with_settings("src_scores=false", lambda: (d.info("Container(9200).ListItem.Label").get("Container(9200).ListItem.Label") == "Live scores are off",
                                                     "Today's Games first card: %s" % d.info("Container(9200).ListItem.Label").get("Container(9200).ListItem.Label")), src_scores="false")
         with_settings("open_on_start=false", lambda: (True, json.dumps(d.info("System.CurrentWindow", "System.CurrentControlId"))), open_on_start="false")
