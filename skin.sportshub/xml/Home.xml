@@ -25,12 +25,13 @@
 			<defaultcontrol>9960</defaultcontrol>
 			<visible>String.IsEmpty(Window(Home).Property(sh_provider))</visible>
 			<animation effect="fade" start="0" end="100" time="300" delay="150">WindowOpen</animation>
-			<animation effect="slide" end="0,-376" time="260" tween="cubic" easing="out" condition="Control.HasFocus(9960) | Control.HasFocus(9200) | Control.HasFocus(9950) | Control.HasFocus(9450) | Control.HasFocus(9800) | Control.HasFocus(9400) | Control.HasFocus(9700) | Control.HasFocus(9600)">Conditional</animation>
-			<animation effect="slide" end="0,-376" time="260" tween="cubic" easing="out" condition="Control.HasFocus(9200) | Control.HasFocus(9950) | Control.HasFocus(9450) | Control.HasFocus(9800) | Control.HasFocus(9400) | Control.HasFocus(9700) | Control.HasFocus(9600)">Conditional</animation>
-			<animation effect="slide" end="0,-376" time="260" tween="cubic" easing="out" condition="Control.HasFocus(9950) | Control.HasFocus(9450) | Control.HasFocus(9800) | Control.HasFocus(9400) | Control.HasFocus(9700) | Control.HasFocus(9600)">Conditional</animation>
-			<animation effect="slide" end="0,-376" time="260" tween="cubic" easing="out" condition="Control.HasFocus(9450) | Control.HasFocus(9800) | Control.HasFocus(9400) | Control.HasFocus(9700) | Control.HasFocus(9600)">Conditional</animation>
-			<animation effect="slide" end="0,-376" time="260" tween="cubic" easing="out" condition="Control.HasFocus(9800) | Control.HasFocus(9400) | Control.HasFocus(9700) | Control.HasFocus(9600)">Conditional</animation>
-			<animation effect="slide" end="0,-376" time="260" tween="cubic" easing="out" condition="Control.HasFocus(9400) | Control.HasFocus(9700) | Control.HasFocus(9600)">Conditional</animation>
+			<animation effect="slide" end="0,-376" time="260" tween="cubic" easing="out" condition="Control.HasFocus(9960) | Control.HasFocus(9200) | Control.HasFocus(9950) | Control.HasFocus(9450) | Control.HasFocus(9800) | Control.HasFocus(9400) | Control.HasFocus(9470) | Control.HasFocus(9700) | Control.HasFocus(9600)">Conditional</animation>
+			<animation effect="slide" end="0,-376" time="260" tween="cubic" easing="out" condition="Control.HasFocus(9200) | Control.HasFocus(9950) | Control.HasFocus(9450) | Control.HasFocus(9800) | Control.HasFocus(9400) | Control.HasFocus(9470) | Control.HasFocus(9700) | Control.HasFocus(9600)">Conditional</animation>
+			<animation effect="slide" end="0,-376" time="260" tween="cubic" easing="out" condition="Control.HasFocus(9950) | Control.HasFocus(9450) | Control.HasFocus(9800) | Control.HasFocus(9400) | Control.HasFocus(9470) | Control.HasFocus(9700) | Control.HasFocus(9600)">Conditional</animation>
+			<animation effect="slide" end="0,-376" time="260" tween="cubic" easing="out" condition="Control.HasFocus(9450) | Control.HasFocus(9800) | Control.HasFocus(9400) | Control.HasFocus(9470) | Control.HasFocus(9700) | Control.HasFocus(9600)">Conditional</animation>
+			<animation effect="slide" end="0,-376" time="260" tween="cubic" easing="out" condition="Control.HasFocus(9800) | Control.HasFocus(9400) | Control.HasFocus(9470) | Control.HasFocus(9700) | Control.HasFocus(9600)">Conditional</animation>
+			<animation effect="slide" end="0,-376" time="260" tween="cubic" easing="out" condition="Control.HasFocus(9400) | Control.HasFocus(9470) | Control.HasFocus(9700) | Control.HasFocus(9600)">Conditional</animation>
+			<animation effect="slide" end="0,-376" time="260" tween="cubic" easing="out" condition="Control.HasFocus(9470) | Control.HasFocus(9700) | Control.HasFocus(9600)">Conditional</animation>
 			<animation effect="slide" end="0,-376" time="260" tween="cubic" easing="out" condition="Control.HasFocus(9700) | Control.HasFocus(9600)">Conditional</animation>
 			<animation effect="slide" end="0,-376" time="260" tween="cubic" easing="out" condition="Control.HasFocus(9600)">Conditional</animation>
 			<include content="SH_Rail">
@@ -81,7 +82,7 @@
 				<param name="list_id" value="9450"/>
 				<param name="row_top" value="1504"/>
 				<param name="prev1" value="9950"/><param name="prev2" value="9200"/><param name="prev3" value="9960"/>
-				<param name="next1" value="9800"/><param name="next2" value="9400"/><param name="next3" value="9700"/>
+				<param name="next1" value="9800"/><param name="next2" value="9400"/><param name="next3" value="9470"/>
 				<param name="header" value="RECOMMENDED FOR YOU · FROM TRAKT"/>
 				<param name="content_path" value="plugin://plugin.video.sportshub/?action=trakt&amp;row=recommended&amp;skin=1&amp;r=$INFO[Window(Home).Property(sh_refresh)]"/>
 				<param name="onclick" value="RunPlugin($INFO[ListItem.FileNameAndPath])"/>
@@ -92,7 +93,7 @@
 				<param name="list_id" value="9800"/>
 				<param name="row_top" value="1880"/>
 				<param name="prev1" value="9450"/><param name="prev2" value="9950"/><param name="prev3" value="9200"/>
-				<param name="next1" value="9400"/><param name="next2" value="9700"/><param name="next3" value="9600"/>
+				<param name="next1" value="9400"/><param name="next2" value="9470"/><param name="next3" value="9700"/>
 				<param name="header" value="TRENDING ON YOUR SERVICES"/>
 				<param name="content_path" value="plugin://plugin.video.sportshub/?action=ondemand&amp;row=0&amp;home=1&amp;skin=1&amp;r=$INFO[Window(Home).Property(sh_refresh)]"/>
 				<param name="onclick" value="RunPlugin($INFO[ListItem.FileNameAndPath])"/>
@@ -103,7 +104,7 @@
 				<param name="list_id" value="9400"/>
 				<param name="row_top" value="2256"/>
 				<param name="prev1" value="9800"/><param name="prev2" value="9450"/><param name="prev3" value="9950"/>
-				<param name="next1" value="9700"/><param name="next2" value="9600"/><param name="next3" value="9600"/>
+				<param name="next1" value="9470"/><param name="next2" value="9700"/><param name="next3" value="9600"/>
 				<param name="header" value="REDISCOVER · 1985–2015"/>
 				<param name="content_path" value="plugin://plugin.video.sportshub/?action=rediscover&amp;skin=1&amp;r=$INFO[Window(Home).Property(sh_refresh)]"/>
 				<param name="onclick" value="RunPlugin($INFO[ListItem.FileNameAndPath])"/>
@@ -111,9 +112,20 @@
 				<param name="item_width" value="232"/>
 			</include>
 			<include content="SH_Rail">
-				<param name="list_id" value="9700"/>
+				<param name="list_id" value="9470"/>
 				<param name="row_top" value="2632"/>
 				<param name="prev1" value="9400"/><param name="prev2" value="9800"/><param name="prev3" value="9450"/>
+				<param name="next1" value="9700"/><param name="next2" value="9600"/><param name="next3" value="9600"/>
+				<param name="header" value="TRAILERS · COMING SOON"/>
+				<param name="content_path" value="plugin://plugin.video.sportshub/?action=trailers&amp;skin=1&amp;r=$INFO[Window(Home).Property(sh_refresh)]"/>
+				<param name="onclick" value="RunPlugin($INFO[ListItem.FileNameAndPath])"/>
+				<param name="layout" value="SH_CardPosterRow"/>
+				<param name="item_width" value="232"/>
+			</include>
+			<include content="SH_Rail">
+				<param name="list_id" value="9700"/>
+				<param name="row_top" value="3008"/>
+				<param name="prev1" value="9470"/><param name="prev2" value="9400"/><param name="prev3" value="9800"/>
 				<param name="next1" value="9600"/><param name="next2" value="9600"/><param name="next3" value="9600"/>
 				<param name="header" value="BROWSE"/>
 				<param name="content_path" value="plugin://plugin.video.sportshub/?action=browse_tiles&amp;skin=1&amp;r=$INFO[Window(Home).Property(sh_refresh)]"/>
@@ -123,8 +135,8 @@
 			</include>
 			<include content="SH_RailStatic">
 				<param name="list_id" value="9600"/>
-				<param name="row_top" value="3008"/>
-				<param name="prev1" value="9700"/><param name="prev2" value="9400"/><param name="prev3" value="9800"/>
+				<param name="row_top" value="3384"/>
+				<param name="prev1" value="9700"/><param name="prev2" value="9470"/><param name="prev3" value="9400"/>
 				<param name="header" value="MORE"/>
 			</include>
 		</control>

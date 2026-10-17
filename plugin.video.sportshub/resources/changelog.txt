@@ -1,3 +1,6 @@
+0.7.14 - Oct 16
+Trailers row: upcoming movies coming to your services or to theaters - OK plays the trailer, like the old Apple Trailers. Rediscover: long-press "Show me 20 different movies".
+
 0.7.13 - Oct 16
 Sports calendar: Sports page > Schedules - NFL, college football, NBA, college basketball, MLB and NHL by week, grouped by division or conference, your teams first, with times, channels and scores. Today's Games now shows only today.
 

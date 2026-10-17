@@ -185,6 +185,14 @@ def _seen(t, watched):
     return t.get("tmdb_id") in watched["tmdb"] or t.get("imdb_id") in watched["imdb"]
 
 
+def reshuffle():
+    """Long-press > Show me 20 different movies: today's picks go into the two-week cooldown and a new
+    20 are picked now (the next day still brings its own)."""
+    state = _load()
+    state.pop("day", None)
+    _save(state)
+
+
 def find(jw_id):
     return next((t for t in pool() if t["jw_id"] == jw_id), None)
 

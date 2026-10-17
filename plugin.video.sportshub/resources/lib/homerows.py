@@ -17,8 +17,8 @@ from resources.lib import kodi
 
 FIRST, LAST = "9050", "9600"
 ROWS = {"9960": "Up Next", "9200": "Today's Games", "9950": "New this week", "9450": "Recommended for you",
-        "9800": "Trending", "9400": "Rediscover", "9700": "Browse"}
-DEFAULT = ["9960", "9200", "9950", "9450", "9800", "9400", "9700"]
+        "9800": "Trending", "9400": "Rediscover", "9470": "Trailers", "9700": "Browse"}
+DEFAULT = ["9960", "9200", "9950", "9450", "9800", "9400", "9470", "9700"]
 ROW_H = 376
 FILE = "homerows.json"
 _RAIL = re.compile(r'\t\t\t<include content="SH_Rail(?:Static)?">.*?</include>', re.S)

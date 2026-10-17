@@ -40,7 +40,7 @@ FILTER_FILE = KODI_HOME + "/userdata/addon_data/plugin.video.sportshub/home_filt
 FIXED_GUIDE_TABS = ["All", "Favorites", "Categories", "Sports", "News", "Movies", "Game Shows", "Kids"]
 # Live Now and Sports Starting Soon moved to the header's Sports page (0.7.9)
 ALL_ROWS = [(9050, "Services"), (9960, "Up Next"), (9200, "Today's Games"),
-            (9950, "New This Week"), (9450, "Recommended"), (9800, "Trending"), (9400, "Rediscover"), (9700, "Browse"), (9600, "More")]
+            (9950, "New This Week"), (9450, "Recommended"), (9800, "Trending"), (9400, "Rediscover"), (9470, "Trailers"), (9700, "Browse"), (9600, "More")]
 PROVIDER_ROWS = [(9051, "Services"), (9961, "Up Next on <svc>"), (9951, "New This Week on <svc>"), (9801, "Trending on <svc>")]
 # actions the crawler must never run (they change user data, need a human, or switch the skin)
 NEVER = {"trakt_watched", "trakt_watchlist", "trakt_signout", "trakt_signin", "settings", "skin", "enable_addon", "refresh", "provider"}

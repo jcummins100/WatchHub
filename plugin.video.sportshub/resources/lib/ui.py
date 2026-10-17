@@ -683,6 +683,47 @@ def _add_upcoming(t, kicker):
                   art=art, info={"title": t["title"], "plot": t["plot"]}, props=props, context=ctx)
 
 
+def trailers_list():
+    """Home row TRAILERS: upcoming movies (on your services, then in theaters) that have a trailer; OK plays
+    the trailer in YouTube, like the old Apple Trailers app. The hero says when and where it's coming."""
+    kodi.set_content("videos")
+    streaming = tmdb.coming_soon(ondemand.installed_codes(), "Movie") if tmdb.enabled() else []
+    theaters = tmdb.upcoming("Movie") if tmdb.enabled() else []
+    items, seen = [], set()
+    for where, rows in (("on your services", streaming), ("in theaters", theaters)):
+        for t in rows:
+            k = (t["title"].lower(), t["year"])
+            if k not in seen and t.get("poster"):
+                seen.add(k)
+                items.append(dict(t, where=where))
+    items.sort(key=lambda t: t["date"])
+    from concurrent.futures import ThreadPoolExecutor
+    with ThreadPoolExecutor(max_workers=6) as pool:
+        urls = list(pool.map(lambda t: tmdb.trailer_url(t["title"], t["year"], "Movie"), items[:40]))
+    shown = 0
+    for t, url in zip(items, urls):
+        if not url:
+            continue
+        nice = _nice_day(t["date"])
+        props = {"kind": "title", "title": t["title"], "kicker": "TRAILER", "state": "upcoming", "type": "Movie", "year": str(t["year"]),
+                 "service": "Coming %s" % nice if nice else "Coming soon",
+                 "meta": "Coming %s \u2022 %s" % (nice, t["where"]),
+                 "episode": "Coming %s \u00b7 %s" % (nice, t["where"]) if nice else "Coming soon \u00b7 %s" % t["where"],
+                 "summary": (t.get("plot") or "").replace("\n", " "),
+                 "chips": " \u2022 ".join(x for x in ("Movie", str(t["year"]), ("TMDB %.1f" % t["vote"]) if t.get("vote") else "") if x)}
+        ctx = [("Watch trailer", "RunPlugin(%s)" % kodi.build_url(action="trailer", title=t["title"], year=t["year"], kind="Movie"))]
+        if trakt.signed_in():
+            ctx.append(("Trakt: add to watchlist", "RunPlugin(%s)" % kodi.build_url(action="trakt_watchlist", title=t["title"], year=t["year"], kind="Movie")))
+        ctx.append(_title_star(t))
+        kodi.add_item(t["title"], kodi.build_url(action="trailer", title=t["title"], year=t["year"], kind="Movie"), False,
+                      art={"thumb": t["poster"], "poster": t["poster"], "fanart": t.get("backdrop") or "", "landscape": t.get("backdrop") or ""},
+                      info={"title": t["title"], "plot": t.get("plot") or ""}, props=props, context=ctx)
+        shown += 1
+        if shown >= 25:
+            break
+    kodi.end_directory(view="posters")
+
+
 def coming_soon_list(which):
     kodi.set_content("videos")
     codes = ondemand.installed_codes()
@@ -1130,7 +1171,8 @@ def rediscover_list():
     for t in rediscover.today():
         t = dict(t, meta=("Seen \u2022 " if t["seen"] else "") + t["meta"],
                  headline="From %s" % t["year"] + (" \u00b7 you've seen it" if t["seen"] else " \u00b7 one you haven't seen"))
-        ctx = [("More like this", "RunPlugin(%s)" % kodi.build_url(action="rediscover_like", id=t["jw_id"])),
+        ctx = [("Show me 20 different movies", "RunPlugin(%s)" % kodi.build_url(action="rediscover_new", id=t["jw_id"])),
+               ("More like this", "RunPlugin(%s)" % kodi.build_url(action="rediscover_like", id=t["jw_id"])),
                ("Hide this movie", "RunPlugin(%s)" % kodi.build_url(action="rediscover_hide", id=t["jw_id"]))]
         if undo:
             ctx.append(("Undo hide (%s)" % undo[1], "RunPlugin(%s)" % kodi.build_url(action="rediscover_unhide", id=undo[0])))
@@ -1143,6 +1185,11 @@ def rediscover_feedback(action, jw_id):
     if action == "rediscover_like":
         t = rediscover.like(jw_id)
         kodi.notify("Rediscover: more like %s from tomorrow" % t["title"] if t else "Rediscover: movie not found")
+        return
+    if action == "rediscover_new":
+        rediscover.reshuffle()
+        kodi.notify("Rediscover: 20 different movies", time_ms=2500)
+        kodi.run_builtin("SetProperty(sh_refresh,%d,home)" % time.time())
         return
     if action == "rediscover_hide":
         t = rediscover.find(jw_id)
@@ -1165,7 +1212,7 @@ def rediscover_feedback(action, jw_id):
 # ---------------------------------------------------------------- router
 # Home rows that keep a snapshot, and how old a snapshot may be when Kodi starts (live rows go stale fast).
 ROW_MAX_AGE = {"live": 600, "soon": 600, "games": 600, "sports": 600, "trakt": 2 * 86400, "ondemand": 2 * 86400,
-               "rediscover": 2 * 86400, "browse_tiles": 2 * 86400, "providers": 2 * 86400}
+               "rediscover": 2 * 86400, "browse_tiles": 2 * 86400, "providers": 2 * 86400, "trailers": 86400}
 
 
 def _inputs_stamp():
@@ -1247,6 +1294,8 @@ def dispatch(params):
         sports_page()
     elif action == "calendars":
         calendars()
+    elif action == "trailers":
+        trailers_list()
     elif action == "calendar":
         kodi.resolve_none()
         from resources.lib import calendarwin, uiworker
@@ -1371,7 +1420,7 @@ def dispatch(params):
             guide.show(params.get("tab") or None)
     elif action == "rediscover":
         rediscover_list()
-    elif action in ("rediscover_like", "rediscover_hide", "rediscover_unhide"):
+    elif action in ("rediscover_like", "rediscover_hide", "rediscover_unhide", "rediscover_new"):
         kodi.resolve_none()
         rediscover_feedback(action, params.get("id", ""))
     elif action == "browse_tiles":
