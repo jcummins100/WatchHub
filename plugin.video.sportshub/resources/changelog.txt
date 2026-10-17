@@ -1,3 +1,6 @@
+0.7.26 - Oct 17
+Home screen rows: the Move up / Move down / Hide choices open as a centred list (they could land off screen).
+
 0.7.25 - Oct 17
 Shorter long-press menus: "Watch on…", "Move…" and "Trakt…" open their own options. The panel above the rows names the Favorites and Sports icons.
 

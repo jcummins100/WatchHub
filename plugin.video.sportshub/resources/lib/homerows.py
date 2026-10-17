@@ -152,7 +152,8 @@ def edit():
             continue
         r = data["order"][pick]
         acts = ["Move up", "Move down", "Move to the top", "Show this row" if r in data["hidden"] else "Hide this row"]
-        a = xbmcgui.Dialog().contextmenu(acts)
+        # a centred list (a context menu opened next to the picked row, which put it off screen for lower rows)
+        a = xbmcgui.Dialog().select("%s: what would you like to do?" % ROWS[r], acts)
         i = pick
         if a == 0 and i > 0:
             data["order"][i - 1], data["order"][i] = data["order"][i], data["order"][i - 1]
