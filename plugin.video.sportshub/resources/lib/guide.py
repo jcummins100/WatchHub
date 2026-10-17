@@ -482,6 +482,7 @@ class Guide(xbmcgui.WindowXMLDialog):
         self.loaded = time.time()
         self.favs = favorites()
         self.tab = start_tab or "All"   # always opens on All (a restart returns to the tab you were on)
+        self.fresh = not start_tab       # opened from the TV Guide icon / card: start on the tab bar, on All
         self.rows = []
         self.cat_choices = []
         self.t0 = _now_slot()
@@ -492,7 +493,8 @@ class Guide(xbmcgui.WindowXMLDialog):
             self.tab = "All"
         self._tabs()
         self._fill()
-        self.setFocusId(GRID if self.rows else TABS)
+        # a fresh open starts on the first tab (All) in the tab bar; coming back to a tab goes to its channels
+        self.setFocusId(TABS if self.fresh or not self.rows else GRID)
         kodi.log("guide: %s tab drawn (%d rows) in %.2fs" % (self.tab, len(self.rows), time.time() - t))
 
     # ---- drawing
