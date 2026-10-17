@@ -1,3 +1,6 @@
+0.7.20 - Oct 16
+Trailers: many more movies coming to your services, each naming the service ("Coming Oct 30 · on Netflix"), alongside theater releases.
+
 0.7.19 - Oct 16
 Info pages: under the buttons, every movie in the series (prequels and sequels, this one marked in red) and "You may also like" (green = on your services); OK opens that title. Watched movies offer "Unmark as watched" (long-press on Rediscover, and the info page button).
 

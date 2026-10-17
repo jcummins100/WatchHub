@@ -153,6 +153,18 @@ PROVIDERS = {"nfx": 8, "amp": 9, "atp": 350, "hlu": 15, "pct": 386, "ppp": 531, 
              "rkc": 207, "plx": 538, "aho": 1899, "app": 531}
 
 
+def service_for(tmdb_id, codes, kind="Movie", region="US"):
+    """The JustWatch code of the first of your services TMDB lists for a title ('' if none)."""
+    media = "movie" if kind == "Movie" else "tv"
+    res = (_get("%s/%s/watch/providers" % (media, tmdb_id)).get("results") or {}).get(region) or {}
+    ids = [p.get("provider_id") for k in ("flatrate", "ads", "free") for p in res.get(k) or []]
+    for pid in ids:
+        code = next((c for c in codes if PROVIDERS.get(c) == pid), "")
+        if code:
+            return code
+    return ""
+
+
 def coming_soon(codes, kind="Movie", days=60, region="US"):
     """Titles releasing in the next `days` on the given services (JustWatch codes -> TMDB providers)."""
     import datetime

@@ -690,21 +690,25 @@ def trailers_list():
     """Home row TRAILERS: upcoming movies (on your services, then in theaters) that have a trailer; OK plays
     the trailer in YouTube, like the old Apple Trailers app. The hero says when and where it's coming."""
     kodi.set_content("videos")
-    streaming = tmdb.coming_soon(ondemand.installed_codes(), "Movie") if tmdb.enabled() else []
-    theaters = tmdb.upcoming("Movie") if tmdb.enabled() else []
+    streaming = [dict(t, where="on %s" % t["service"]) for t in ondemand.upcoming()]   # JustWatch: names the service
+    codes = ondemand.installed_codes()
+    for t in (tmdb.coming_soon(codes, "Movie") if tmdb.enabled() else []):
+        code = tmdb.service_for(t.get("tmdb_id"), codes) if t.get("tmdb_id") else ""
+        streaming.append(dict(t, where="on %s" % ondemand.short_name(code) if code else "on your services"))
+    theaters = [dict(t, where="in theaters") for t in (tmdb.upcoming("Movie") if tmdb.enabled() else [])]
     items, seen = [], set()
     today = time.strftime("%Y-%m-%d")
-    for where, rows in (("on your services", streaming), ("in theaters", theaters)):
+    for rows in (streaming, theaters):
         for t in rows:
             k = (t["title"].lower(), t["year"])
             # TMDB's "upcoming" list keeps films for weeks after they open: only what's still to come
             if k not in seen and t.get("poster") and (t.get("date") or "") > today:
                 seen.add(k)
-                items.append(dict(t, where=where))
+                items.append(t)
     items.sort(key=lambda t: t["date"])
     from concurrent.futures import ThreadPoolExecutor
     with ThreadPoolExecutor(max_workers=6) as pool:
-        urls = list(pool.map(lambda t: tmdb.trailer_url(t["title"], t["year"], "Movie"), items[:40]))
+        urls = list(pool.map(lambda t: tmdb.trailer_url(t["title"], t["year"], "Movie"), items[:60]))
     shown = 0
     for t, url in zip(items, urls):
         if not url:

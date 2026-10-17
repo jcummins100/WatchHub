@@ -401,6 +401,55 @@ def new_titles(codes=None, days=7, object_types=("MOVIE", "SHOW")):
     return out
 
 
+_UPCOMING = """
+query Upcoming($country: Country!, $language: Language!, $date: Date!, $first: Int!) {
+  newTitles(country: $country, date: $date, first: $first, filter: {packages: %s, objectTypes: [MOVIE]}, pageType: UPCOMING) {
+    edges { node { id
+      content(country: $country, language: $language) { title originalReleaseYear shortDescription posterUrl backdrops { backdropUrl }
+        upcomingReleases { releaseDate package { shortName clearName } } } } }
+  }
+}
+"""
+
+
+def upcoming(codes=None):
+    """Movies coming to your services, soonest first: [{title, year, date, service, plot, poster, backdrop}]
+    (JustWatch's Upcoming page: each release names its service and date)."""
+    import datetime
+    codes = codes or installed_codes()
+    if not codes:
+        return []
+    variables = {"country": kodi.setting("region", "us").upper(), "language": "en", "date": datetime.date.today().isoformat(), "first": 80}
+    key = "jw:upcoming:%s:" % QV + json.dumps([variables, codes], sort_keys=True)
+    data = cache.get(key, 6 * 3600)
+    if data is None:
+        body = json.dumps({"query": _UPCOMING % json.dumps(codes), "variables": variables}).encode("utf-8")
+        req = urllib.request.Request(API, data=body, headers={"Content-Type": "application/json", "User-Agent": "Mozilla/5.0 (Kodi SportsHub)"})
+        try:
+            with urllib.request.urlopen(req, timeout=20) as resp:
+                data = json.loads(resp.read().decode("utf-8")).get("data") or {}
+            cache.put(key, data)
+        except Exception as exc:
+            kodi.log("justwatch upcoming failed: %s" % exc)
+            return []
+    today = datetime.date.today().isoformat()
+    out = []
+    for edge in ((data.get("newTitles") or {}).get("edges") or []):
+        c = (edge.get("node") or {}).get("content") or {}
+        rel = next((u for u in sorted(c.get("upcomingReleases") or [], key=lambda u: u.get("releaseDate") or "")
+                    if ((u.get("package") or {}).get("shortName") in codes) and (u.get("releaseDate") or "") > today), None)
+        if not rel or not c.get("title"):
+            continue
+        code = rel["package"]["shortName"]
+        out.append({"title": c["title"], "year": str(c.get("originalReleaseYear") or ""), "date": rel["releaseDate"][:10],
+                    "service": short_name(code) if code in BY_CODE else rel["package"].get("clearName", ""),
+                    "plot": c.get("shortDescription") or "", "type": "Movie",
+                    "poster": _img(c.get("posterUrl"), "s332") if c.get("posterUrl") else "",
+                    "backdrop": _img(((c.get("backdrops") or [{}])[0]).get("backdropUrl"), "s1440") if c.get("backdrops") else ""})
+    out.sort(key=lambda t: t["date"])
+    return out
+
+
 def rows():
     """[(label, kind, arg)] for the on-demand menu; services limited to installed apps."""
     codes = installed_codes()
