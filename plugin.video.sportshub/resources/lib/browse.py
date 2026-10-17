@@ -29,7 +29,7 @@ def tiles():
     except ValueError:
         counts = None
     if not counts:
-        counts = guide.genre_counts(guide.channels())
+        counts = guide.genre_counts(guide.channels_quick())
     out = []
     for c in categories.CATEGORIES:
         if c == "Sports":

@@ -1,3 +1,6 @@
+0.7.7 - Oct 16
+Faster start: home rows appear in a second or two from their last saved copy and refresh themselves in the background. Live Now and Browse no longer rebuild the whole TV Guide.
+
 0.7.6 - Oct 16
 About WatchHub in WatchHub settings: the version and this list.
 

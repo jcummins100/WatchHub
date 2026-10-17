@@ -101,9 +101,12 @@ def main():
     # Refresh a little before the cache expires so the UI never has to wait on the network.
     home = xbmcgui.Window(10000)
     home.setProperty("sh_service_alive", "1")
+    # the channel list first, from whatever listings are cached: the home rows read the copy it saves
+    uiworker.warm_guide()
     if pending_guide:
         uiworker.request(pending_guide)
     next_refresh = 0
+    first_refresh_done = False
     reload_pending = 0  # time the fresh data became ready, 0 = nothing waiting
     while not monitor.abortRequested():
         now = time.time()
@@ -119,6 +122,17 @@ def main():
             spot = homefilter.pending_spot()
             if spot and xbmc.getCondVisibility("System.IdleTime(%d)" % max(1, int(time.time() - spot["at"]) - 5)):
                 homefilter.restore_spot(spot, timeout_s=20, after_reload=True)
+        # a home row shown from its snapshot at start-up came out different when rebuilt: reload the rows
+        # (under the same don't-move-me rules as a data refresh)
+        if home.getProperty("sh_rows_stale"):
+            home.clearProperty("sh_rows_stale")
+            reload_pending = reload_pending or now
+        # starred or unstarred a channel somewhere: refresh the ★ rows the home Live row reads
+        try:
+            from resources.lib import guide
+            guide.publish_favorites()
+        except Exception as exc:
+            kodi.debug("favorites publish failed: %s" % exc)
         # someone is using Kodi again after an app: the remembered card has done its job
         spot = homefilter.pending_spot()
         if spot and now - spot["at"] > 60 and not xbmc.getCondVisibility("System.IdleTime(2)"):
@@ -128,7 +142,11 @@ def main():
                 health.warm_caches()
                 uiworker.warm_guide()
                 uiworker.fill_show_genres()
-                reload_pending = reload_pending or time.time()
+                # the rows that just loaded at start-up already fetched anything out of date: reloading them
+                # all again a few seconds later only doubles the start-up work
+                if first_refresh_done:
+                    reload_pending = reload_pending or time.time()
+                first_refresh_done = True
                 pruned = health.prune_cache()
                 if pruned:
                     kodi.log("pruned %d stale cache files" % pruned)

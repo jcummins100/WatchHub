@@ -154,16 +154,74 @@ def jsonrpc(method, params=None, rpc_id=1):
 
 # ---------------------------------------------------------------- listing
 def set_content(content="videos"):
+    if _REC["dry"]:
+        return
     xbmcplugin.setContent(HANDLE, content)
 
 
 def set_category(name):
     """Breadcrumb shown by the skin (Container.PluginCategory)."""
-    if HANDLE >= 0 and name:
+    if HANDLE >= 0 and name and not _REC["dry"]:
         xbmcplugin.setPluginCategory(HANDLE, name)
 
 
+# ---------------------------------------------------------------- home-row snapshots
+# A home row records what it added; next time it can show that copy at once and rebuild behind it (ui.py).
+_REC = {"items": None, "view": None, "dry": False}
+
+
+def record_start(dry=False):
+    """Record add_item calls; dry = record only (a rebuild after the row is already on screen)."""
+    _REC.update(items=[], view=None, dry=dry)
+
+
+def record_stop():
+    items, view = _REC["items"], _REC["view"]
+    _REC.update(items=None, view=None, dry=False)
+    return items or [], view
+
+
+def _rows_dir():
+    path = os.path.join(ensure_profile_dir(), "rows")
+    os.makedirs(path, exist_ok=True)
+    return path
+
+
+def _row_file(key):
+    import hashlib
+    return os.path.join(_rows_dir(), hashlib.md5(key.encode("utf-8")).hexdigest() + ".json")
+
+
+def load_row(key):
+    try:
+        with open(_row_file(key), encoding="utf-8") as fh:
+            return json.load(fh)
+    except (OSError, ValueError):
+        return None
+
+
+def save_row(key, snap):
+    path = _row_file(key)
+    tmp = "%s.%d.tmp" % (path, os.getpid())
+    try:
+        with open(tmp, "w", encoding="utf-8") as fh:
+            json.dump(snap, fh)
+        os.replace(tmp, path)
+    except (OSError, TypeError, ValueError) as exc:
+        log("row snapshot not saved: %s" % exc)
+
+
+def replay_row(snap):
+    for label, url, is_folder, playable, art, info, label2, context, props in snap["items"]:
+        add_item(label, url, is_folder, playable, art, info, label2, [tuple(c) for c in context] if context else None, props)
+    end_directory(view=snap.get("view"))
+
+
 def add_item(label, url, is_folder=False, playable=False, art=None, info=None, label2=None, context=None, props=None):
+    if _REC["items"] is not None:
+        _REC["items"].append([label, url, is_folder, playable, art, info, label2, [list(c) for c in context] if context else None, props])
+        if _REC["dry"]:
+            return None
     li = xbmcgui.ListItem(label=label, label2=label2 or "")
     if art:
         li.setArt({k: v for k, v in art.items() if v})
@@ -206,6 +264,10 @@ VIEWS = {"wall": 500, "widelist": 55, "infowall": 54, "list": 50, "shift": 53}
 
 
 def end_directory(succeeded=True, cache=False, update_listing=False, view=None):
+    if _REC["items"] is not None:
+        _REC["view"] = view
+        if _REC["dry"]:
+            return
     log("end_directory handle=%s ok=%s" % (HANDLE, succeeded))
     if xbmc.getSkinDir() == "skin.sportshub" and HANDLE >= 0:
         # The WatchHub skin picks its layout from the content type (posters for "movies", channel/tile

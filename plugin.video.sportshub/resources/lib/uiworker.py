@@ -91,6 +91,10 @@ def warm_guide():
     def work():
         try:
             from resources.lib import guide
+            # just built (the guide reopened at start-up, or a window asked for it): the listings it used
+            # are the ones just refreshed, so a second ~10 s build would only compete with the home rows
+            if guide._BUILT["rows"] is not None and time.time() - guide._BUILT["at"] < 5 * 60:
+                return
             guide.channels(rebuild=True)
         except Exception as exc:
             kodi.log("guide prebuild failed: %s" % exc)

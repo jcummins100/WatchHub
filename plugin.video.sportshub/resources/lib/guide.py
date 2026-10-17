@@ -201,10 +201,84 @@ def channels(rebuild=False):
         return _BUILT["rows"]
 
 
+# The ★ channels' rows, written by the service with each build (and when the favorites change), so the
+# home Live row - a separate plugin process - never has to build all ~1,100 rows just to find a few.
+_FAVS_PUB = {"mtime": None}
+
+
+def _favs_now_path():
+    return os.path.join(kodi.ensure_profile_dir(), "guide_favorites_now.json")
+
+
+def publish_favorites(rows=None, force=False):
+    """Write the ★ channels' rows (service only). Skipped when the favorites file hasn't changed since the
+    last write, unless a new build (force)."""
+    rows = rows if rows is not None else _BUILT["rows"]
+    if rows is None:
+        return
+    try:
+        mtime = os.path.getmtime(_fav_path())
+    except OSError:
+        mtime = 0
+    if not force and mtime == _FAVS_PUB["mtime"]:
+        return
+    keys = set(favorites())
+    keep = ("key", "name", "logo", "programs", "play", "service", "sid", "alts")
+    if _write_json(_favs_now_path(), [{k: c.get(k) for k in keep} for c in rows if c["key"] in keys]):
+        _FAVS_PUB["mtime"] = mtime
+
+
+def favorite_rows():
+    """The ★ channels' rows: from memory in the service, else from the file the service keeps."""
+    keys = set(favorites())
+    if not keys:
+        return []
+    if _BUILT["rows"] is not None:
+        return [c for c in _BUILT["rows"] if c["key"] in keys]
+    try:
+        with open(_favs_now_path(), encoding="utf-8") as fh:
+            rows = json.load(fh)
+        if keys <= {c["key"] for c in rows}:
+            return [c for c in rows if c["key"] in keys]
+    except (OSError, ValueError):
+        pass
+    return [c for c in channels_quick() if c["key"] in keys]  # no service yet, or a channel starred just now
+
+
+ROWS_MAX_AGE = 6 * 3600  # listings cover several hours ahead, so a saved list stays good for "on now" that long
+
+
+def _rows_path():
+    return os.path.join(kodi.ensure_profile_dir(), "guide_rows.json")
+
+
+def _save_rows(rows):
+    """The whole list on disk (service), for the plugin's home rows and the next start-up."""
+    _write_json(_rows_path(), [dict(c, cats=sorted(c["cats"])) for c in rows])
+
+
+def saved_rows():
+    """The list the service saved last (this session or the previous one), or None if missing or too old."""
+    try:
+        if time.time() - os.path.getmtime(_rows_path()) > ROWS_MAX_AGE:
+            return None
+        with open(_rows_path(), encoding="utf-8") as fh:
+            rows = json.load(fh)
+    except (OSError, ValueError):
+        return None
+    for c in rows:
+        c["cats"] = set(c.get("cats") or [])
+    return rows
+
+
 def channels_quick():
-    """The rows without waiting: the built list if this process has one, else a single build with whatever
-    listings are cached (a plugin call for one home row mustn't sit through the first build's retries)."""
-    return _BUILT["rows"] if _BUILT["rows"] is not None else _build_channels()
+    """The rows without waiting: the built list if this process has one, else the one the service saved
+    (about a second to read), else a single build with whatever listings are cached. A home row must never
+    build all ~1,100 rows itself: on a busy start-up that took up to a minute."""
+    if _BUILT["rows"] is not None:
+        return _BUILT["rows"]
+    rows = saved_rows()
+    return rows if rows is not None else _build_channels()
 
 
 def _rebuild_now():
@@ -222,6 +296,8 @@ COUNTS_PROP = "sh_category_counts"  # Home window property: channels per categor
 
 def _publish(rows, t=None):
     _BUILT.update(at=time.time(), rows=rows)
+    publish_favorites(rows, force=True)
+    _save_rows(rows)
     try:
         xbmcgui.Window(10000).setProperty(COUNTS_PROP, json.dumps(genre_counts(rows)))
     except Exception as exc:  # no GUI (off-device tools)

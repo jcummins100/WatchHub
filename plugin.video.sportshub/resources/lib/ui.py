@@ -208,15 +208,10 @@ def live(home=False):
 
 def _favorite_channels_now():
     """Your ★ channels (any kind, from the TV Guide's list) with what they're showing now, A-Z (Sprint D)."""
-    from resources.lib import favorites, guide
-    keys = set(favorites.channel_keys())
-    if not keys:
-        return []
+    from resources.lib import guide
     now = time.time()
     out = []
-    for c in guide.channels_quick():
-        if c["key"] not in keys:
-            continue
+    for c in guide.favorite_rows():
         progs = c["programs"]
         cur = next((i for i in range(len(progs) - 1, -1, -1) if progs[i][0] <= now), None)
         if cur is None:
@@ -1026,10 +1021,69 @@ def rediscover_feedback(action, jw_id):
 
 
 # ---------------------------------------------------------------- router
+# Home rows that keep a snapshot, and how old a snapshot may be when Kodi starts (live rows go stale fast).
+ROW_MAX_AGE = {"live": 600, "soon": 600, "games": 600, "trakt": 2 * 86400, "ondemand": 2 * 86400,
+               "rediscover": 2 * 86400, "browse_tiles": 2 * 86400, "providers": 2 * 86400}
+
+
+def _inputs_stamp():
+    """Changes whenever a setting or a favorites/hidden list changes, from anywhere (Kodi's settings screen
+    doesn't bump the Home refresh counter): a snapshot made before that can't be shown."""
+    import os
+    parts = []
+    for name in ("settings.xml", "favorites.json", "guide_favorites.json", "guide_hidden.json", "rediscover.json"):
+        try:
+            parts.append("%s:%d" % (name, os.path.getmtime(os.path.join(kodi.PROFILE_PATH, name))))
+        except OSError:
+            parts.append("%s:-" % name)
+    # off-device runs (tools/dev_run.py) set settings and installed apps through SH_* variables
+    parts += sorted("%s=%s" % kv for kv in os.environ.items() if kv[0].startswith("SH_"))
+    return "|".join(parts)
+
+
+def _home_row(params):
+    """A home row from its snapshot, rebuilt behind it when that helps.
+
+    r (the Home refresh counter) is empty right after Kodi starts: then any snapshot young enough is shown
+    at once and the row is rebuilt quietly afterwards; if it changed, the service reloads the rows when
+    nobody is scrolling. A row asked for again with the same r (back on Home) shows its snapshot. A new r
+    means something changed on purpose (marked watched, a filter, a setting, fresh data): build as usual."""
+    action = params["action"]
+    key = json.dumps({k: v for k, v in sorted(params.items()) if k != "r"})
+    r = params.get("r", "")
+    snap = kodi.load_row(key)
+    stamp = _inputs_stamp()
+    age = time.time() - snap["at"] if snap else None
+    usable = snap is not None and snap.get("stamp") == stamp and age < ROW_MAX_AGE[action] and (
+        r == "" or snap.get("r") == r or (snap.get("fresh") and age < 300))
+    if usable:
+        t = time.time()
+        kodi.replay_row(snap)
+        kodi.log("row %s from its snapshot (%d s old) in %.2fs" % (action, age, time.time() - t))
+        if r != "":
+            if snap.get("r") != r:
+                kodi.save_row(key, dict(snap, r=r, fresh=False))
+            return
+        # start-up: let every row get on screen first; ten rows rebuilding at once slowed the others' replays
+        if xbmc.Monitor().waitForAbort(20):
+            return
+    kodi.record_start(dry=usable)
+    try:
+        dispatch(dict(params, _norow="1"))
+    finally:
+        items, view = kodi.record_stop()
+    kodi.save_row(key, {"at": time.time(), "r": r, "stamp": stamp, "items": items, "view": view, "fresh": usable})
+    if usable and [i[:2] for i in items] != [i[:2] for i in snap["items"]]:
+        xbmcgui.Window(10000).setProperty("sh_rows_stale", str(int(time.time())))
+        kodi.log("row %s changed since its snapshot: reload asked" % action)
+
+
 def dispatch(params):
     global PLAIN
     action = params.get("action", "root")
     PLAIN = params.get("skin") == "1" or xbmc.getSkinDir() == "skin.sportshub"
+    if params.get("skin") == "1" and action in ROW_MAX_AGE and kodi.HANDLE >= 0 and not params.get("_norow"):
+        return _home_row(params)
     kodi.log("dispatch handle=%s %s" % (kodi.HANDLE, params))
     categories = {
         "root": "Menu", "live": "Live Now", "soon": "Starting Soon", "sports": "By Sport", "sport": params.get("name", "Sport"),
