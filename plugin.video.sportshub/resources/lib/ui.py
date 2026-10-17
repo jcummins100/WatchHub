@@ -562,9 +562,28 @@ def favorites_list():
     kodi.end_directory()
 
 
+def _nice_day(iso):
+    """2026-10-16 -> Oct 16"""
+    try:
+        return time.strftime("%b %d", time.strptime(iso[:10], "%Y-%m-%d")).replace(" 0", " ")
+    except (ValueError, TypeError):
+        return ""
+
+
+def _chips(t):
+    """The details line under the hero (like Up Next's): service, kind, year, genres, IMDb, length, rating -
+    without the row's own prefixes ("Added ...", "Seen")."""
+    parts = [x.strip() for x in (t.get("meta") or "").split("\u2022")]
+    parts = [x for x in parts if x and not x.startswith(("Added ", "Seen"))]
+    parts += [x for x in (t.get("runtime"), t.get("certification")) if x]
+    return " \u2022 ".join(parts)
+
+
 def _add_title(t, extra_ctx=None):
     props = {"kind": "title", "title": t["title"], "meta": t["meta"], "kicker": t.get("kicker") or t["service"].upper(), "service": t["service"],
-             "year": str(t["year"]), "type": t["type"], "state": "", "seen": "1" if t.get("seen") else ""}
+             "year": str(t["year"]), "type": t["type"], "state": "", "seen": "1" if t.get("seen") else "",
+             # the hero's three lines (same layout as Up Next): headline, one-line summary, details
+             "episode": t.get("headline") or "", "summary": (t.get("plot") or "").replace("\n", " "), "chips": _chips(t)}
     art = {"thumb": t["poster"] or "DefaultVideo.png", "poster": t["poster"], "landscape": t["backdrop"], "fanart": t["backdrop"]}
     info = {"title": t["title"], "plot": t["plot"], "genre": t["type"]}
     label = t["title"] if PLAIN else "%s [COLOR gray](%s, %s)[/COLOR]" % (t["title"], t["year"], t["service"])
@@ -660,8 +679,15 @@ def ondemand_list(row, svc="", home=False):
     if home and items:
         taken = _home_taken(row, svc)
         items = [t for t in items if t.get("jw_id") not in taken]
-    for t in items:
-        _add_title(t)
+    kind = ondemand.rows()[row][1] if 0 <= row < len(ondemand.rows()) else ""
+    for i, t in enumerate(items):
+        if kind == "new":
+            head = "New on %s" % t["service"] + (" \u00b7 added %s" % _nice_day(t["added"]) if t.get("added") else "")
+        elif kind == "trending":
+            head = "#%d trending on your services" % (i + 1)
+        else:
+            head = ""
+        _add_title(dict(t, headline=head))
     if not items:
         # a filtered row, or a menu row for one service ("New on Pluto TV"): say so and offer the app
         rows = ondemand.rows()
@@ -987,7 +1013,8 @@ def rediscover_list():
     kodi.set_content("videos")
     undo = rediscover.undo_candidate()
     for t in rediscover.today():
-        t = dict(t, meta=("Seen \u2022 " if t["seen"] else "") + t["meta"])
+        t = dict(t, meta=("Seen \u2022 " if t["seen"] else "") + t["meta"],
+                 headline="From %s" % t["year"] + (" \u00b7 you've seen it" if t["seen"] else " \u00b7 one you haven't seen"))
         ctx = [("More like this", "RunPlugin(%s)" % kodi.build_url(action="rediscover_like", id=t["jw_id"])),
                ("Hide this movie", "RunPlugin(%s)" % kodi.build_url(action="rediscover_hide", id=t["jw_id"]))]
         if undo:
@@ -1030,7 +1057,7 @@ def _inputs_stamp():
     """Changes whenever a setting or a favorites/hidden list changes, from anywhere (Kodi's settings screen
     doesn't bump the Home refresh counter): a snapshot made before that can't be shown."""
     import os
-    parts = []
+    parts = ["v" + kodi.ADDON.getAddonInfo("version")]  # an update changes what rows show: rebuild them once
     for name in ("settings.xml", "favorites.json", "guide_favorites.json", "guide_hidden.json", "rediscover.json"):
         try:
             parts.append("%s:%d" % (name, os.path.getmtime(os.path.join(kodi.PROFILE_PATH, name))))

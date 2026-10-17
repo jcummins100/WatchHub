@@ -449,21 +449,9 @@
 					<width>1100</width>
 					<height>44</height>
 					<font>font32_title</font>
-					<label>[B]$INFO[Container(9960).ListItem.Property(episode)][/B]</label>
+					<label>[B]$VAR[SH_HeroEpisode][/B]</label>
 					<textcolor>FFFFFFFF</textcolor>
 					<shadowcolor>AA000000</shadowcolor>
-					<visible>Control.HasFocus(9960)</visible>
-				</control>
-				<control type="label">
-					<left>0</left>
-					<top>222</top>
-					<width>1100</width>
-					<height>44</height>
-					<font>font32_title</font>
-					<label>[B]$INFO[Container(9961).ListItem.Property(episode)][/B]</label>
-					<textcolor>FFFFFFFF</textcolor>
-					<shadowcolor>AA000000</shadowcolor>
-					<visible>Control.HasFocus(9961)</visible>
 				</control>
 				<control type="label">
 					<left>0</left>
@@ -471,21 +459,9 @@
 					<width>1100</width>
 					<height>36</height>
 					<font>font27</font>
-					<label>$INFO[Container(9960).ListItem.Property(summary)]</label>
+					<label>$VAR[SH_HeroSummary]</label>
 					<textcolor>FFD6DEEA</textcolor>
 					<shadowcolor>AA000000</shadowcolor>
-					<visible>Control.HasFocus(9960)</visible>
-				</control>
-				<control type="label">
-					<left>0</left>
-					<top>266</top>
-					<width>1100</width>
-					<height>36</height>
-					<font>font27</font>
-					<label>$INFO[Container(9961).ListItem.Property(summary)]</label>
-					<textcolor>FFD6DEEA</textcolor>
-					<shadowcolor>AA000000</shadowcolor>
-					<visible>Control.HasFocus(9961)</visible>
 				</control>
 				<control type="label">
 					<left>0</left>
@@ -493,21 +469,9 @@
 					<width>1100</width>
 					<height>36</height>
 					<font>font27</font>
-					<label>$INFO[Container(9960).ListItem.Property(chips)]</label>
+					<label>$VAR[SH_HeroChips]</label>
 					<textcolor>FF9AA5BD</textcolor>
 					<shadowcolor>AA000000</shadowcolor>
-					<visible>Control.HasFocus(9960)</visible>
-				</control>
-				<control type="label">
-					<left>0</left>
-					<top>304</top>
-					<width>1100</width>
-					<height>36</height>
-					<font>font27</font>
-					<label>$INFO[Container(9961).ListItem.Property(chips)]</label>
-					<textcolor>FF9AA5BD</textcolor>
-					<shadowcolor>AA000000</shadowcolor>
-					<visible>Control.HasFocus(9961)</visible>
 				</control>
 				<control type="label">
 					<left>540</left>

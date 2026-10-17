@@ -1,3 +1,6 @@
+0.7.8 - Oct 16
+New this week, Rediscover and Trending show the same details as Up Next when you're on a poster: a headline (New on Netflix · added Oct 16, #3 trending, From 1994), a one-line summary, and service, year, genres, IMDb, length and rating.
+
 0.7.7 - Oct 16
 Faster start: home rows appear in a second or two from their last saved copy and refresh themselves in the background. Live Now and Browse no longer rebuild the whole TV Guide.
 

@@ -17,7 +17,7 @@
 </addon>
 <addon id="plugin.video.sportshub"
        name="WatchHub"
-       version="0.7.7"
+       version="0.7.8"
        provider-name="jcummins">
   <requires>
     <import addon="xbmc.python" version="3.0.1"/>
@@ -36,7 +36,7 @@
     </assets>
   </extension>
 </addon>
-<addon id="skin.sportshub" version="0.7.3" name="WatchHub" provider-name="jcummins (based on Estuary by phil65, Ichabod Fletchman)">
+<addon id="skin.sportshub" version="0.7.4" name="WatchHub" provider-name="jcummins (based on Estuary by phil65, Ichabod Fletchman)">
 	<requires>
 		<import addon="xbmc.gui" version="5.17.0"/>
 	</requires>
