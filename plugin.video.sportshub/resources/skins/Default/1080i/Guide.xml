@@ -28,41 +28,41 @@
 			<ondown condition="!String.IsEmpty(Window.Property(picking))">600</ondown>
 			<ondown>500</ondown>
 			<scrolltime>200</scrolltime>
-			<itemlayout width="193" height="64">
+			<itemlayout width="173" height="64">
 				<control type="label">
-					<left>10</left><top>10</top><width>173</width><height>40</height>
+					<left>4</left><top>10</top><width>165</width><height>40</height>
 					<font>font25_title</font><align>center</align>
 					<label>$INFO[ListItem.Label]</label>
 					<textcolor>A0FFFFFF</textcolor>
 					<visible>String.IsEmpty(ListItem.Property(active))</visible>
 				</control>
 				<control type="label">
-					<left>10</left><top>10</top><width>173</width><height>40</height>
+					<left>4</left><top>10</top><width>165</width><height>40</height>
 					<font>font25_title</font><align>center</align>
 					<label>[B]$INFO[ListItem.Label][/B]</label>
 					<textcolor>FFFFFFFF</textcolor>
 					<visible>!String.IsEmpty(ListItem.Property(active))</visible>
 				</control>
 				<control type="image">
-					<left>38</left><top>54</top><width>116</width><height>5</height>
+					<left>30</left><top>54</top><width>113</width><height>5</height>
 					<texture colordiffuse="FF3D8BFF">special://home/addons/plugin.video.sportshub/resources/media/white.png</texture>
 					<visible>!String.IsEmpty(ListItem.Property(active))</visible>
 				</control>
 			</itemlayout>
-			<focusedlayout width="193" height="64">
+			<focusedlayout width="173" height="64">
 				<control type="image">
-					<left>4</left><top>2</top><width>185</width><height>56</height>
+					<left>4</left><top>2</top><width>165</width><height>56</height>
 					<texture border="14" colordiffuse="FF2C3E66">special://home/addons/plugin.video.sportshub/resources/media/pill.png</texture>
 					<visible>Control.HasFocus(300)</visible>
 				</control>
 				<control type="label">
-					<left>10</left><top>10</top><width>173</width><height>40</height>
+					<left>4</left><top>10</top><width>165</width><height>40</height>
 					<font>font25_title</font><align>center</align>
 					<label>[B]$INFO[ListItem.Label][/B]</label>
 					<textcolor>FFFFFFFF</textcolor>
 				</control>
 				<control type="image">
-					<left>38</left><top>54</top><width>116</width><height>5</height>
+					<left>30</left><top>54</top><width>113</width><height>5</height>
 					<texture colordiffuse="FF3D8BFF">special://home/addons/plugin.video.sportshub/resources/media/white.png</texture>
 					<visible>!String.IsEmpty(ListItem.Property(active))</visible>
 				</control>

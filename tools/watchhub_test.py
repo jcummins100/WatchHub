@@ -37,7 +37,7 @@ LOG = KODI_HOME + "/temp/kodi.log"
 FILTER_FILE = KODI_HOME + "/userdata/addon_data/plugin.video.sportshub/home_filter.json"
 
 # Home rows, top to bottom, as Home.xml lays them out (id, name)
-FIXED_GUIDE_TABS = ["All", "Favorites", "Categories", "Sports", "News", "Movies", "Game Shows", "Kids"]
+FIXED_GUIDE_TABS = ["All", "Favorites", "Categories", "Sports", "News", "Movies", "Game Shows", "Kids", "Search"]
 # Live Now and Sports Starting Soon moved to the header's Sports page (0.7.9)
 ALL_ROWS = [(9050, "Services"), (9960, "Up Next"), (9200, "Today's Games"),
             (9950, "New This Week"), (9450, "Recommended"), (9800, "Trending"), (9400, "Rediscover"), (9470, "Trailers"), (9700, "Browse"), (9600, "More")]

@@ -1,3 +1,6 @@
+0.7.15 - Oct 16
+TV Guide: a Search tab - type a channel or a show and get every channel with it on now or in the next few hours.
+
 0.7.14 - Oct 16
 Trailers row: upcoming movies coming to your services or to theaters - OK plays the trailer, like the old Apple Trailers. Rediscover: long-press "Show me 20 different movies".
 

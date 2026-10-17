@@ -31,7 +31,8 @@ ACTION_LEFT, ACTION_RIGHT, ACTION_CONTEXT, ACTION_BACK, ACTION_NAV_BACK = 1, 2, 
 
 # Fixed tabs (a D-pad can't browse 39 shifting genre tabs); every channel is in Shows/News/... by
 # its genres, and "Categories" opens the full list as tiles.
-FIXED_TABS = ["All", "Favorites", "Sports", "News", "Movies", "Game Shows", "Kids"]
+FIXED_TABS = ["All", "Favorites", "Sports", "News", "Movies", "Game Shows", "Kids", "Search"]
+SEARCH = "Search"   # opens the keyboard; the results become a tab named after the search, in quotes
 GENRES_TAB = "Categories"   # opens the category tiles
 OTHER = "Other"   # channels no source labels, name or show lookup could place: never dropped, listed here and in All
 
@@ -401,7 +402,33 @@ def tabs(tab):
     return FIXED_TABS[:2] + [GENRES_TAB] + picked + FIXED_TABS[2:]
 
 
+def is_search(tab):
+    return tab.startswith("\u201c") and tab.endswith("\u201d")
+
+
+def search(chans, text, hours=6):
+    """Channels whose name, or a show on now or in the next few hours, matches; name matches first."""
+    q = text.strip().lower()
+    if not q:
+        return []
+    now = time.time()
+    by_name, by_show = [], []
+    for c in chans:
+        if q in c["name"].lower():
+            by_name.append(c)
+            continue
+        progs = c["programs"]
+        for i, (start, title) in enumerate(progs):
+            end = progs[i + 1][0] if i + 1 < len(progs) else start + 3600
+            if end > now and start < now + hours * 3600 and q in (title or "").lower():
+                by_show.append(c)
+                break
+    return by_name + by_show
+
+
 def in_tab(chans, tab, favs):
+    if is_search(tab):
+        return search(chans, tab[1:-1])
     if tab == "Favorites":
         return [c for c in chans if c["key"] in favs]
     if tab == "All":
@@ -487,6 +514,7 @@ class Guide(xbmcgui.WindowXMLDialog):
         self.setProperty("tab", self.tab)
         self.setProperty("empty", "" if self.rows else
                          ("No favorites yet - long-press any channel and choose Add to Favorites" if self.tab == "Favorites"
+                          else "Nothing on now or in the next few hours matches %s" % self.tab if is_search(self.tab)
                           else "No channels in %s" % self.tab))
         lst = self.getControl(GRID)
         lst.reset()
@@ -576,6 +604,11 @@ class Guide(xbmcgui.WindowXMLDialog):
             if pick == GENRES_TAB:
                 self._show_categories()
                 return
+            if pick == SEARCH:
+                text = xbmcgui.Dialog().input("Search the TV Guide: a channel or a show")
+                if not text or not text.strip():
+                    return
+                pick = "\u201c%s\u201d" % text.strip()
             self.tab = pick
             self._tabs()
             self._fill()
