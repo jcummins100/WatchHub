@@ -171,6 +171,16 @@ def up_next(limit=20):
     return out
 
 
+def recommendations(kind="movies", limit=40):
+    """Trakt's picks for you from your watch history (free accounts too); [{title, year, type, rating}]."""
+    if not signed_in():
+        return []
+    data = _call("recommendations/%s?limit=%d&ignore_collected=true" % (kind, limit), cache_ttl=6 * 3600) or []
+    return [{"title": x["title"], "year": x.get("year") or "", "type": "Movie" if kind == "movies" else "Show",
+             "rating": x.get("rating") or 0, "ids": x.get("ids") or {}}
+            for x in data if isinstance(x, dict) and x.get("title")]
+
+
 def calendar(days=14):
     """New episodes of your shows in the next `days` (and the past 2 so 'just dropped' shows up)."""
     if not signed_in():

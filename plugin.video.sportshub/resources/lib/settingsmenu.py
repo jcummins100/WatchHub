@@ -60,6 +60,13 @@ def _names(codes):
     return ", ".join(ondemand.short_name(c) for c in codes) or "none"
 
 
+def _rows_line():
+    from resources.lib import homerows
+    d = homerows.load()
+    shown = [homerows.ROWS[r] for r in d["order"] if r not in d["hidden"]]
+    return "Order: " + ", ".join(shown) + (" (%d hidden)" % len(d["hidden"]) if d["hidden"] else "")
+
+
 def _on(flag):
     return "On" if flag else "Off"
 
@@ -76,6 +83,7 @@ def show():
         missing = {sid for sid in LIVE_SERVICES if health.app_installed(fast.SERVICES[sid]["package"]) is False}
         order = fast.service_priority()
         entries = [
+            ("rows", "Home screen rows", _rows_line()),
             ("subs", "Your subscriptions", _names(subs)),
             ("prime", "Prime Video channels you pay for", ", ".join(n.replace(" (Prime)", "") for c, n in ondemand.AMAZON_CHANNELS if c in prime) or "none"),
             ("live", "Free live TV in the guide", ", ".join(fast.SERVICES[s]["name"] + (" (no app)" if s in missing else "") for s in live) or "none"),
@@ -98,7 +106,11 @@ def show():
             break
         pos = pick
         key = entries[pick][0]
-        if key == "subs":
+        if key == "rows":
+            from resources.lib import homerows
+            homerows.edit()
+            break  # the skin reloads with the new order
+        elif key == "subs":
             from resources.lib import ui
             ui.pick_subscriptions()
             changed_rows = True

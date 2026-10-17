@@ -1,7 +1,7 @@
 """Your own order for Up Next (Trakt has no way to reorder it).
 
-Long-press on an Up Next card: "Move to the end of Up Next" (stays at the end until moved back to the
-front) or "Hide from Up Next for now" (gone until its next episode changes - you watched one somewhere -
+Long-press on an Up Next card: "Move to the top", "Move up one", "Move to the end" (each stays put until
+"Put back in its usual place") or "Hide from Up Next for now" (gone until its next episode changes - you watched one somewhere -
 or until you bring it back from the "Hidden" card at the end of the row). Kept per Shield in
 upnext_order.json; tools/sync_settings.py copies it like the favorites.
 """
@@ -24,6 +24,7 @@ def _load():
             data = json.load(fh)
     except (OSError, ValueError):
         data = {}
+    data.setdefault("top", [])   # moved up: these lead, in this order
     data.setdefault("back", [])
     data.setdefault("hidden", {})
     return data
@@ -44,11 +45,12 @@ def key(title, year):
 
 
 def arrange(items):
-    """Trakt's Up Next in your order: hidden shows out (unless their next episode moved on), shows you
-    pushed back at the end, in the order you pushed them."""
+    """Trakt's Up Next in your order: shows you moved up first (in your order), then the rest in Trakt's
+    order, then shows you pushed back (in the order you pushed them); hidden shows out unless their next
+    episode moved on."""
     data = _load()
     changed = False
-    front, back = [], {}
+    front, top, back = [], {}, {}
     for t in items:
         k = key(t["title"], t["year"])
         h = data["hidden"].get(k)
@@ -60,11 +62,49 @@ def arrange(items):
                 continue
         if k in data["back"]:
             back[k] = t
+        elif k in data["top"]:
+            top[k] = t
         else:
             front.append(t)
     if changed:
         _save(data)
-    return front + [back[k] for k in data["back"] if k in back]
+    return [top[k] for k in data["top"] if k in top] + front + [back[k] for k in data["back"] if k in back]
+
+
+def is_moved(title, year):
+    k = key(title, year)
+    data = _load()
+    return k in data["back"] or k in data["top"]
+
+
+def move_top(title, year):
+    data = _load()
+    k = key(title, year)
+    data["back"] = [x for x in data["back"] if x != k]
+    data["top"] = [k] + [x for x in data["top"] if x != k]
+    _save(data)
+
+
+def move_up(title, year, current):
+    """One place up. current = the keys in the order Up Next shows now. Moving up among Trakt's own order
+    fixes the shows above it in place (that's what "up one" means to someone looking at the row)."""
+    data = _load()
+    k = key(title, year)
+    if k not in current or current.index(k) == 0:
+        return
+    i = current.index(k)
+    if k in data["back"]:
+        j = data["back"].index(k)
+        if j > 0:
+            data["back"][j - 1], data["back"][j] = data["back"][j], data["back"][j - 1]
+            _save(data)
+            return
+        data["back"].remove(k)
+    order = [x for x in current if x not in data["back"]]
+    i = order.index(k) if k in order else len(order)
+    order = [x for x in order if x != k]
+    data["top"] = order[:max(i - 1, 0)] + [k] + order[max(i - 1, 0):i]
+    _save(data)
 
 
 def is_back(title, year):
@@ -74,13 +114,17 @@ def is_back(title, year):
 def move_back(title, year):
     data = _load()
     k = key(title, year)
+    data["top"] = [x for x in data["top"] if x != k]
     data["back"] = [x for x in data["back"] if x != k] + [k]
     _save(data)
 
 
 def move_front(title, year):
+    """Back in its usual place (Trakt's order)."""
     data = _load()
-    data["back"] = [x for x in data["back"] if x != key(title, year)]
+    k = key(title, year)
+    data["back"] = [x for x in data["back"] if x != k]
+    data["top"] = [x for x in data["top"] if x != k]
     _save(data)
 
 

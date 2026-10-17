@@ -246,7 +246,14 @@ def upnext_action(action, params):
     """Long-press on Up Next: move to the end / back to the front, hide for now; the Hidden card brings back."""
     from resources.lib import upnext
     title, year = params.get("title", ""), params.get("year", "")
-    if action == "upnext_back":
+    if action == "upnext_top":
+        upnext.move_top(title, year)
+        kodi.notify("%s moved to the top of Up Next" % title, time_ms=2500)
+    elif action == "upnext_up":
+        current = [upnext.key(t["title"], t["year"]) for t in upnext.arrange(trakt.up_next(limit=30))]
+        upnext.move_up(title, year, current)
+        kodi.notify("%s moved up" % title, time_ms=2000)
+    elif action == "upnext_back":
         upnext.move_back(title, year)
         kodi.notify("%s moved to the end of Up Next" % title, time_ms=2500)
     elif action == "upnext_front":
@@ -877,6 +884,35 @@ def _episode_summary(t):
     return ""
 
 
+def _recommended(svc=""):
+    """Home row "Recommended for you": Trakt's picks from your history, only titles on your services, none
+    already in Up Next or New this week, no movies you've seen; shows and movies taking turns."""
+    shows = trakt.recommendations("shows")
+    movies = trakt.recommendations("movies")
+    mixed = [x for pair in zip(shows, movies) for x in pair] + shows[len(movies):] + movies[len(shows):]
+    seen = trakt.watched_movie_ids()
+    taken = _home_taken(3, svc) | {t["jw_id"] for t in ondemand.row_items(3, svc) if t.get("jw_id")}
+    from concurrent.futures import ThreadPoolExecutor
+    with ThreadPoolExecutor(max_workers=6) as pool:
+        found = list(pool.map(lambda x: ondemand.lookup(x["title"], x["year"], x["type"]), mixed))
+    shown = 0
+    for x, od in zip(mixed, found):
+        if not od or not od.get("playable") or not od.get("play", {}).get("pkg") or od.get("jw_id") in taken:
+            continue
+        if svc and not _on_service({"title": x["title"], "year": x["year"], "type": x["type"]}, svc):
+            continue
+        ids = x["ids"]
+        if x["type"] == "Movie" and (str(ids.get("tmdb") or "") in seen["tmdb"] or (ids.get("imdb") or "") in seen["imdb"]):
+            continue
+        taken.add(od.get("jw_id"))
+        head = "Picked for you by Trakt" + (" \u00b7 rated %.1f" % x["rating"] if x["rating"] else "")
+        _add_title(dict(od, headline=head, kicker="RECOMMENDED FOR YOU"))
+        shown += 1
+        if shown >= 20:
+            break
+    kodi.end_directory(view="posters")
+
+
 def trakt_list(row, svc=""):
     kodi.set_content("videos")
     if row == "upnext":
@@ -907,9 +943,11 @@ def trakt_list(row, svc=""):
                      "progress_text": "Watched %d of %d episodes" % (t["completed"], t["aired"]) if t["aired"] else "",
                      "progress": str(int(100 * t["completed"] / t["aired"])) if t["aired"] else ""}
             ty = {"title": t["title"], "year": t["year"]}
-            order = ([("Move back to the front of Up Next", "RunPlugin(%s)" % kodi.build_url(action="upnext_front", **ty))]
-                     if upnext.is_back(t["title"], t["year"]) else
-                     [("Move to the end of Up Next", "RunPlugin(%s)" % kodi.build_url(action="upnext_back", **ty))])
+            order = [("Move to the top of Up Next", "RunPlugin(%s)" % kodi.build_url(action="upnext_top", **ty)),
+                     ("Move up one", "RunPlugin(%s)" % kodi.build_url(action="upnext_up", **ty)),
+                     ("Move to the end of Up Next", "RunPlugin(%s)" % kodi.build_url(action="upnext_back", **ty))]
+            if upnext.is_moved(t["title"], t["year"]):
+                order.append(("Put back in its usual place", "RunPlugin(%s)" % kodi.build_url(action="upnext_front", **ty)))
             order.append(("Hide from Up Next for now", "RunPlugin(%s)" % kodi.build_url(action="upnext_hide", next=t["next"], **ty)))
             _trakt_item(t, "UP NEXT", "%s %s" % (t["next"], t["episode_title"]), extra_props=props,
                         url_extra={"season": t["season"], "episode": t["number"]}, extra_ctx=order)
@@ -922,6 +960,9 @@ def trakt_list(row, svc=""):
                                  "meta": "Bring back: " + ", ".join(n for _, n in hid[:4]) + ("..." if len(hid) > 4 else "")})
         if svc and not shown and svc in ondemand.BY_CODE:
             _empty_service_tile(svc, "Nothing to resume")
+    elif row == "recommended":
+        _recommended(svc)
+        return
     elif row == "calendar":
         # one card per show: the earliest upcoming episode, plus how many are coming in the window
         by_show = {}
@@ -1186,7 +1227,7 @@ def dispatch(params):
         sports_menu()
     elif action == "sports_page":
         sports_page()
-    elif action in ("upnext_back", "upnext_front", "upnext_hide", "upnext_hidden"):
+    elif action in ("upnext_top", "upnext_up", "upnext_back", "upnext_front", "upnext_hide", "upnext_hidden"):
         kodi.resolve_none()
         upnext_action(action, params)
     elif action == "sport":

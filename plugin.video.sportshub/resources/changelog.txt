@@ -1,3 +1,6 @@
+0.7.11 - Oct 16
+Recommended for you: Trakt's picks from your watch history, only what's on your services. Up Next long-press adds Move to the top and Move up one. Home screen rows: reorder or hide them in WatchHub settings (Rediscover now comes after Trending).
+
 0.7.10 - Oct 16
 Up Next: long-press a show to move it to the end of Up Next (and back to the front later) or hide it for now. Hidden shows come back when you watch an episode, or from the "Hidden" card at the end of the row.
 

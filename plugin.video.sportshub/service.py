@@ -101,6 +101,12 @@ def main():
     # Refresh a little before the cache expires so the UI never has to wait on the network.
     home = xbmcgui.Window(10000)
     home.setProperty("sh_service_alive", "1")
+    # your home row order (a skin update ships the default one)
+    try:
+        from resources.lib import homerows
+        homerows.apply_saved()
+    except Exception as exc:
+        kodi.log("home rows not applied: %s" % exc)
     # the channel list first, from whatever listings are cached: the home rows read the copy it saves
     uiworker.warm_guide()
     if pending_guide:
