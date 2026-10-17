@@ -242,6 +242,30 @@ def soon():
     kodi.end_directory()
 
 
+def upnext_action(action, params):
+    """Long-press on Up Next: move to the end / back to the front, hide for now; the Hidden card brings back."""
+    from resources.lib import upnext
+    title, year = params.get("title", ""), params.get("year", "")
+    if action == "upnext_back":
+        upnext.move_back(title, year)
+        kodi.notify("%s moved to the end of Up Next" % title, time_ms=2500)
+    elif action == "upnext_front":
+        upnext.move_front(title, year)
+        kodi.notify("%s is back in its usual place" % title, time_ms=2500)
+    elif action == "upnext_hide":
+        upnext.hide(title, year, params.get("next", ""))
+        kodi.notify("%s hidden - it comes back when you watch an episode" % title, time_ms=3000)
+    else:
+        hid = upnext.hidden()
+        if not hid:
+            return
+        sel = xbmcgui.Dialog().multiselect("Bring back to Up Next", [n for _, n in hid])
+        if not sel:
+            return
+        upnext.unhide([hid[i][0] for i in sel])
+    kodi.run_builtin("SetProperty(sh_refresh,%d,home)" % time.time())  # Up Next reloads in the new order
+
+
 def sports_page():
     """The header's Sports icon: everything sports in one place (Live now and Starting soon left Home)."""
     kodi.set_content("videos")
@@ -682,7 +706,8 @@ def _home_taken(row, svc=""):
     Up Next, then New this week (row 3), then Trending (row 0)."""
     taken = set()
     if trakt.signed_in():
-        for t in trakt.up_next(limit=60 if svc else 20):
+        from resources.lib import upnext
+        for t in upnext.arrange(trakt.up_next(limit=60 if svc else 30)):
             od = ondemand.lookup(t["title"], t["year"], t["type"])
             if od and od.get("jw_id"):
                 taken.add(od["jw_id"])
@@ -786,7 +811,7 @@ def search(query=None):
     kodi.end_directory(view="posters")
 
 
-def _trakt_item(t, kicker, meta_extra="", extra_props=None, url_extra=None):
+def _trakt_item(t, kicker, meta_extra="", extra_props=None, url_extra=None, extra_ctx=None):
     """A Trakt title -> card. Availability/deep link comes from JustWatch by name; falls back to a search."""
     od = ondemand.lookup(t["title"], t["year"], t["type"])
     if od:
@@ -808,6 +833,7 @@ def _trakt_item(t, kicker, meta_extra="", extra_props=None, url_extra=None):
     ctx = []
     if od and od.get("play", {}).get("pkg"):
         ctx.append(("Play on %s" % od["service"], "RunPlugin(%s)" % kodi.build_url(action="play", **od["play"])))
+    ctx += extra_ctx or []
     if tmdb.enabled():
         ctx.append(("Watch trailer", "RunPlugin(%s)" % kodi.build_url(action="trailer", title=t["title"], year=t["year"], kind=t["type"])))
     ctx.append(("Trakt: mark as watched", "RunPlugin(%s)" % kodi.build_url(action="trakt_watched", title=t["title"], year=t["year"], kind=t["type"])))
@@ -863,7 +889,8 @@ def trakt_list(row, svc=""):
         # a service view filters the list, so look further down the history first (the All view's top 20
         # can easily contain nothing from that service)
         picks = []
-        for t in trakt.up_next(limit=60 if svc else 20):
+        from resources.lib import upnext
+        for t in upnext.arrange(trakt.up_next(limit=60 if svc else 30)):
             if svc and not _on_service(t, svc):
                 continue
             picks.append(t)
@@ -879,9 +906,20 @@ def trakt_list(row, svc=""):
             props = {"episode": ep, "summary": summary,
                      "progress_text": "Watched %d of %d episodes" % (t["completed"], t["aired"]) if t["aired"] else "",
                      "progress": str(int(100 * t["completed"] / t["aired"])) if t["aired"] else ""}
+            ty = {"title": t["title"], "year": t["year"]}
+            order = ([("Move back to the front of Up Next", "RunPlugin(%s)" % kodi.build_url(action="upnext_front", **ty))]
+                     if upnext.is_back(t["title"], t["year"]) else
+                     [("Move to the end of Up Next", "RunPlugin(%s)" % kodi.build_url(action="upnext_back", **ty))])
+            order.append(("Hide from Up Next for now", "RunPlugin(%s)" % kodi.build_url(action="upnext_hide", next=t["next"], **ty)))
             _trakt_item(t, "UP NEXT", "%s %s" % (t["next"], t["episode_title"]), extra_props=props,
-                        url_extra={"season": t["season"], "episode": t["number"]})
+                        url_extra={"season": t["season"], "episode": t["number"]}, extra_ctx=order)
             shown += 1
+        hid = upnext.hidden()
+        if hid and not svc:
+            kodi.add_item("Hidden (%d)[CR]from Up Next" % len(hid), kodi.build_url(action="upnext_hidden"), False,
+                          art={"icon": ICON_FOLDER},
+                          props={"kind": "tile", "color": "FF3B3F4A", "title": "Hidden from Up Next",
+                                 "meta": "Bring back: " + ", ".join(n for _, n in hid[:4]) + ("..." if len(hid) > 4 else "")})
         if svc and not shown and svc in ondemand.BY_CODE:
             _empty_service_tile(svc, "Nothing to resume")
     elif row == "calendar":
@@ -1076,7 +1114,7 @@ def _inputs_stamp():
     doesn't bump the Home refresh counter): a snapshot made before that can't be shown."""
     import os
     parts = ["v" + kodi.ADDON.getAddonInfo("version")]  # an update changes what rows show: rebuild them once
-    for name in ("settings.xml", "favorites.json", "guide_favorites.json", "guide_hidden.json", "rediscover.json"):
+    for name in ("settings.xml", "favorites.json", "upnext_order.json", "guide_favorites.json", "guide_hidden.json", "rediscover.json"):
         try:
             parts.append("%s:%d" % (name, os.path.getmtime(os.path.join(kodi.PROFILE_PATH, name))))
         except OSError:
@@ -1148,6 +1186,9 @@ def dispatch(params):
         sports_menu()
     elif action == "sports_page":
         sports_page()
+    elif action in ("upnext_back", "upnext_front", "upnext_hide", "upnext_hidden"):
+        kodi.resolve_none()
+        upnext_action(action, params)
     elif action == "sport":
         sport(params.get("name", "Other"))
     elif action == "services":
