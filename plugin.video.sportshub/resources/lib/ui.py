@@ -1401,7 +1401,19 @@ def dispatch(params):
         if not ids:
             kodi.notify("Trakt: title not found")
         elif action == "trakt_watched":
-            kodi.notify("Marked as watched" if trakt.mark_watched(params.get("kind", "Show"), ids) else "Trakt: failed")
+            ok = trakt.mark_watched(params.get("kind", "Show"), ids)
+            kodi.notify("Marked as watched" if ok else "Trakt: failed")
+            from resources.lib import rediscover
+            if ok and params.get("kind") == "Movie" and rediscover.mark_seen(params.get("title", ""), params.get("year", "")):
+                # a Rediscover card: SEEN right away, only that row reloads, focus stays on the same poster
+                homefilter.remember_spot()
+                spot = homefilter.pending_spot()
+                kodi.run_builtin("SetProperty(sh_rediscover,%d,home)" % time.time())
+                if spot:
+                    homefilter.restore_spot(spot, timeout_s=10, after_reload=True)
+                    homefilter.forget_spot()
+                trakt.forget_watched()
+                return
         else:
             kodi.notify("Added to watchlist" if trakt.add_watchlist(params.get("kind", "Show"), ids) else "Trakt: failed")
         cache.clear()

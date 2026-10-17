@@ -1,3 +1,6 @@
+0.7.17 - Oct 16
+Rediscover: marking a movie watched shows the green SEEN tag right away, on the same poster.
+
 0.7.16 - Oct 16
 Trailers only shows movies that haven't come out yet. Rediscover's "Show me 20 different movies" is instant (the next 20 are kept ready) and reloads just that row.
 

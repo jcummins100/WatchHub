@@ -275,6 +275,12 @@ def movie_watched(title, year=""):
     return bool(hist)
 
 
+def forget_watched():
+    """Drop the cached watched-movies pages (marked something watched): the next read asks Trakt."""
+    for page in range(1, 41):
+        cache.forget("trakt:" + API + "sync/watched/movies?page=%d&limit=250" % page)
+
+
 def watched_movie_ids():
     """{"tmdb": set, "imdb": set} of every movie in the user's Trakt history (cached 6 h); empty when signed out."""
     out = {"tmdb": set(), "imdb": set()}
