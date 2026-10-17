@@ -1,3 +1,6 @@
+0.7.16 - Oct 16
+Trailers only shows movies that haven't come out yet. Rediscover's "Show me 20 different movies" is instant (the next 20 are kept ready) and reloads just that row.
+
 0.7.15 - Oct 16
 TV Guide: a Search tab - type a channel or a show and get every channel with it on now or in the next few hours.
 

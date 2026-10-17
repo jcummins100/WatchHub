@@ -690,10 +690,12 @@ def trailers_list():
     streaming = tmdb.coming_soon(ondemand.installed_codes(), "Movie") if tmdb.enabled() else []
     theaters = tmdb.upcoming("Movie") if tmdb.enabled() else []
     items, seen = [], set()
+    today = time.strftime("%Y-%m-%d")
     for where, rows in (("on your services", streaming), ("in theaters", theaters)):
         for t in rows:
             k = (t["title"].lower(), t["year"])
-            if k not in seen and t.get("poster"):
+            # TMDB's "upcoming" list keeps films for weeks after they open: only what's still to come
+            if k not in seen and t.get("poster") and (t.get("date") or "") > today:
                 seen.add(k)
                 items.append(dict(t, where=where))
     items.sort(key=lambda t: t["date"])
@@ -1187,9 +1189,17 @@ def rediscover_feedback(action, jw_id):
         kodi.notify("Rediscover: more like %s from tomorrow" % t["title"] if t else "Rediscover: movie not found")
         return
     if action == "rediscover_new":
-        rediscover.reshuffle()
+        # the next 20 are normally ready (the service keeps a set): swap them in and reload just this row
+        ready = rediscover.reshuffle()
+        if not ready:
+            kodi.run_builtin("ActivateWindow(busydialognocancel)")
+            try:
+                rediscover.today()
+            finally:
+                kodi.run_builtin("Dialog.Close(busydialognocancel)")
+        kodi.run_builtin("SetProperty(sh_rediscover,%d,home)" % time.time())  # only the Rediscover row reloads
         kodi.notify("Rediscover: 20 different movies", time_ms=2500)
-        kodi.run_builtin("SetProperty(sh_refresh,%d,home)" % time.time())
+        rediscover.prepare_next()  # and the set after that, while you look at these
         return
     if action == "rediscover_hide":
         t = rediscover.find(jw_id)

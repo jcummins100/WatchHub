@@ -92,6 +92,7 @@ def warm_caches():
     try:
         from resources.lib import rediscover
         rediscover.today()  # picks the day's row in the background (pool, TMDB collections)
+        rediscover.prepare_next()  # and the next 20, for "Show me 20 different movies"
     except Exception as exc:
         kodi.log("warm rediscover failed: %s" % exc)
     if kodi.setting_bool("src_sportsdb", False):

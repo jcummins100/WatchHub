@@ -185,12 +185,47 @@ def _seen(t, watched):
     return t.get("tmdb_id") in watched["tmdb"] or t.get("imdb_id") in watched["imdb"]
 
 
-def reshuffle():
-    """Long-press > Show me 20 different movies: today's picks go into the two-week cooldown and a new
-    20 are picked now (the next day still brings its own)."""
+def _candidates(state, all_):
+    hidden = set(state.get("hidden") or [])
+    cutoff = time.time() - COOLDOWN_DAYS * 86400
+    shown = {k: v for k, v in (state.get("shown") or {}).items() if v >= cutoff}
+    watched = trakt.watched_movie_ids()
+    unseen_only = kodi.setting_bool("rediscover_unseen_only", False)
+    elsewhere = _elsewhere()
+    return [t for t in all_ if t["jw_id"] not in hidden and t["jw_id"] not in shown
+            and t["jw_id"] not in elsewhere and not (unseen_only and _seen(t, watched))]
+
+
+def prepare_next():
+    """Keep the next 20 ready (the service, after each refresh; and right after a reshuffle), so
+    "Show me 20 different movies" is instant. Picking takes ~25 s: TMDB collections for one per franchise."""
     state = _load()
-    state.pop("day", None)
+    if state.get("next"):
+        return
+    exclude = set(state.get("picks") or [])
+    cands = [t for t in _candidates(state, pool()) if t["jw_id"] not in exclude]
+    nxt = _pick(cands, state, "next-%d" % int(time.time()))
+    latest = _load()
+    latest["next"] = [t["jw_id"] for t in nxt]
+    _save(latest)
+    kodi.log("rediscover: next %d ready" % len(nxt))
+
+
+def reshuffle():
+    """Long-press > Show me 20 different movies: the prepared next 20 replace today's (which go into the
+    two-week cooldown); without a prepared set, today's are picked again from scratch."""
+    state = _load()
+    nxt = state.pop("next", None)
+    if nxt:
+        now = time.time()
+        shown = state.get("shown") or {}
+        for jid in nxt:
+            shown[jid] = now
+        state.update({"picks": nxt, "day": _today(), "shown": shown})
+    else:
+        state.pop("day", None)
     _save(state)
+    return bool(nxt)
 
 
 def find(jw_id):
