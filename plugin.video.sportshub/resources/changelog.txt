@@ -1,3 +1,6 @@
+0.7.24 - Oct 17
+Long-press menus use one order on every row: play / watch on, trailer, schedule, Up Next moves, show me different, more like this, favorites, Trakt watchlist, Trakt watched, pin, hide.
+
 0.7.23 - Oct 16
 Xumo Play channels now play directly (Saved by the Bell and the other 400+), instead of opening Xumo's guide.
 

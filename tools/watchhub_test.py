@@ -874,13 +874,21 @@ class OnDevice:
         d.rpc("Input.ContextMenu"); time.sleep(2)
         menu = d.is_("Window.IsActive(contextmenu)").get("Window.IsActive(contextmenu)")
         d.shot("guide-long-press-menu")
-        d.key("Select"); time.sleep(2)
+
+        def pick(prefix):
+            """Select the menu entry starting with prefix (the menu follows uiworker.MENU_ORDER)."""
+            n = int(d.info("Container(996).NumItems").get("Container(996).NumItems") or 0)
+            labels = [d.info("Container(996).ListItemAbsolute(%d).Label" % k).get("Container(996).ListItemAbsolute(%d).Label" % k, "") for k in range(n)]
+            idx = next((k for k, l in enumerate(labels) if l.startswith(prefix)), 0)
+            d.key("Down", idx) if idx else None
+            d.key("Select"); time.sleep(2)
+        pick("Add to Favorites")
         favs = d.sh("cat %s 2>/dev/null" % favfile)
         first_tab = d.info("Container(300).ListItemAbsolute(1).Label").get("Container(300).ListItemAbsolute(1).Label")
         rep.add(B, "Guide: long-press > Add to Favorites", "PASS" if menu and first_tab == "Favorites" and favs.strip().startswith("[") else "FAIL",
                 "channel %s, saved %s, first tab %s" % (chan, favs.strip()[:80], first_tab))
         # 5. full schedule
-        d.rpc("Input.ContextMenu"); time.sleep(2); d.key("Down"); d.key("Select"); time.sleep(2)
+        d.rpc("Input.ContextMenu"); time.sleep(2); pick("Full schedule")
         sched = d.is_("Window.IsActive(selectdialog)").get("Window.IsActive(selectdialog)")
         rep.add(B, "Guide: long-press > Full schedule", "PASS" if sched else "FAIL", "", d.shot("guide-schedule"))
         d.key("Back"); time.sleep(1)

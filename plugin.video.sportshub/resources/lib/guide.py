@@ -665,12 +665,18 @@ class Guide(xbmcgui.WindowXMLDialog):
         self.setProperty("picking", "")
 
     def _menu(self, c, pos):
+        """Long-press on a channel, in WatchHub's menu order (uiworker.MENU_ORDER): watch on, schedule,
+        favorites, hide."""
         fav = c["key"] in self.favs
-        opts = ["Remove from Favorites" if fav else "Add to Favorites", "Full schedule"]
-        opts += ["Watch on %s" % a["service"] for a in c["alts"]]
-        opts += ["Hide this channel"]
-        choice = xbmcgui.Dialog().contextmenu(opts)
-        if choice == len(opts) - 1:
+        opts = [("Watch on %s" % a["service"], ("alt", i)) for i, a in enumerate(c["alts"])]
+        opts += [("Full schedule", ("schedule", 0)),
+                 ("Remove from Favorites" if fav else "Add to Favorites", ("fav", 0)),
+                 ("Hide this channel", ("hide", 0))]
+        choice = xbmcgui.Dialog().contextmenu([o[0] for o in opts])
+        if choice < 0:
+            return
+        what, i = opts[choice][1]
+        if what == "hide":
             if _write_json(_hidden_path(), self.hidden + [c["key"]]):
                 self.hidden.append(c["key"])
                 self.chans = [x for x in self.chans if x["key"] != c["key"]]
@@ -678,8 +684,7 @@ class Guide(xbmcgui.WindowXMLDialog):
                 self._fill(pos)
                 if not self.rows:
                     self.setFocusId(TABS)
-            return
-        if choice == 0:
+        elif what == "fav":
             new = [k for k in self.favs if k != c["key"]] if fav else self.favs + [c["key"]]
             if not _write_json(_fav_path(), new):
                 kodi.notify("Couldn't save your favorites")
@@ -689,20 +694,19 @@ class Guide(xbmcgui.WindowXMLDialog):
             self._fill(pos)
             if not self.rows:
                 self.setFocusId(TABS)
-        elif choice == 1:
+        elif what == "schedule":
             now, progs = time.time(), c["programs"]
             lines = []
-            for i, (start, title) in enumerate(progs):
-                end = progs[i + 1][0] if i + 1 < len(progs) else None
+            for j, (start, title) in enumerate(progs):
+                end = progs[j + 1][0] if j + 1 < len(progs) else None
                 if end is None:
                     lines.append("%s %s  %s  (end time not listed)" % (_day(start) if _day(start) != "Today" else "", _clock(start, True), title))
                 elif end > now:
                     lines.append("%s %s  %s" % (_day(start) if _day(start) != "Today" else "", _clock(start, True), title))
             xbmcgui.Dialog().select("%s - schedule" % c["name"], [l.strip() for l in lines[:60]] or ["No listings"])
-        elif choice >= 2:
+        elif what == "alt":
             remember_return(self.tab)
-            launcher.play(c["alts"][choice - 2]["play"])
-
+            launcher.play(c["alts"][i]["play"])
 
     def _unhide(self):
         names = {c["key"]: c["name"] for c in self.all_chans}

@@ -104,6 +104,28 @@ def warm_guide():
     threading.Thread(target=work, name="sh-guide-build", daemon=True).start()
 
 
+# Long-press menus list their entries in one order everywhere (a row only shows the ones that apply):
+# play / watch on, trailer, schedule, Up Next moves, row refresh, more like this, favorites, Trakt
+# watchlist, Trakt watched, pin, hide. Matched on the label's start.
+MENU_ORDER = [
+    ("Play", "Watch on"), ("Watch trailer",), ("Full schedule",),
+    ("Move to the top", "Move up", "Move to the end", "Move back", "Put back"),
+    ("Show me",), ("More like this",),
+    ("\u2605", "Add to Favorites", "Remove from Favorites"),
+    ("Trakt: add to watchlist", "Trakt: remove from watchlist"),
+    ("Trakt: mark", "Trakt: unmark"),
+    ("Pin", "Unpin"),
+    ("Hide", "Undo hide"),
+]
+
+
+def menu_rank(label):
+    for i, starts in enumerate(MENU_ORDER):
+        if label.startswith(starts):
+            return i
+    return len(MENU_ORDER)
+
+
 def show_menu():
     """Long-press OK on a WatchHub card: just the card's own entries, without Kodi's (Play next, Queue item,
     Add to favourites...). Anything that isn't a WatchHub card gets Kodi's normal menu."""
@@ -118,6 +140,7 @@ def show_menu():
         xbmc.executebuiltin("Action(ContextMenu)")
         return
     entries = [[_fav_label(label, cmd), cmd] for label, cmd in entries]
+    entries.sort(key=lambda e: menu_rank(e[0]))   # one order on every row (stable within a group)
     pick = xbmcgui.Dialog().contextmenu([e[0] for e in entries])
     if pick >= 0:
         xbmc.executebuiltin(entries[pick][1])
