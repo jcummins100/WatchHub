@@ -65,6 +65,9 @@ class Worker(threading.Thread):
         elif action == "browse":
             from resources.lib import browse
             browse.show(params.get("cat") or "Comedy")
+        elif action == "calendar":
+            from resources.lib import calendarwin
+            calendarwin.show(params.get("league") or "nfl")
         else:
             kodi.log("unknown window request: %s" % req)
             return

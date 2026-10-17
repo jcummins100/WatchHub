@@ -1,3 +1,6 @@
+0.7.13 - Oct 16
+Sports calendar: Sports page > Schedules - NFL, college football, NBA, college basketball, MLB and NHL by week, grouped by division or conference, your teams first, with times, channels and scores. Today's Games now shows only today.
+
 0.7.12 - Oct 16
 TV Guide opens on All, now the first tab (All · Favorites · Categories · Sports · News · Movies · Game Shows · Kids).
 

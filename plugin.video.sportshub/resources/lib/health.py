@@ -100,6 +100,21 @@ def warm_caches():
         except Exception as exc:
             kodi.log("warm sportsdb failed: %s" % exc)
     _warm_service_views()
+    _warm_schedules()
+
+
+def _warm_schedules():
+    """The Sports page's calendars: standings (daily) and this week's games, so a league opens at once."""
+    import threading
+
+    def work():
+        from resources.lib import schedule
+        for lid in schedule.ORDER:
+            try:
+                schedule.week(lid, 0)
+            except Exception as exc:
+                kodi.log("warm schedule %s failed: %s" % (lid, exc))
+    threading.Thread(target=work, name="sh-schedules", daemon=True).start()
 
 
 _service_warm = {"running": False}

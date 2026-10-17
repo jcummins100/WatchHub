@@ -170,7 +170,9 @@ def my_games():
     if not teams:
         return []
     now = time.time()
-    board = games([lid for lid in {l for l, _ in teams}])
+    lt = time.localtime(now)
+    end_of_today = time.mktime((lt.tm_year, lt.tm_mon, lt.tm_mday, 23, 59, 59, 0, 0, -1))
+    board = [g for g in games([lid for lid in {l for l, _ in teams}]) if g["state"] == "in" or g["start"] <= end_of_today]
     out, ids = [], set()
 
     def next_from_schedule(lid, abbr):
@@ -178,7 +180,8 @@ def my_games():
         data = cache.fetch_json(SCHEDULE % (slug, abbr.lower()), 3600) or {}
         for ev in data.get("events") or []:
             g = _make(lid, name, sport, ev)
-            if g["state"] == "in" or (g["start"] and now - PAST_S <= g["start"] <= now + NEXT_WITHIN_S and g["state"] != "post"):
+            # Today's Games is today only; later games are in the Sports page's calendar
+            if g["state"] == "in" or (g["start"] and now - PAST_S <= g["start"] <= end_of_today and g["state"] != "post"):
                 return g
         return None
 

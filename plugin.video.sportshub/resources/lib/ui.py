@@ -273,6 +273,24 @@ def upnext_action(action, params):
     kodi.run_builtin("SetProperty(sh_refresh,%d,home)" % time.time())  # Up Next reloads in the new order
 
 
+CAL_COLORS = {"nfl": "FF13294B", "ncaaf": "FF5A1F1F", "nba": "FF1D428A", "ncaab": "FF2F5D3A", "mlb": "FF0E3386", "nhl": "FF2A2A2A"}
+
+
+def calendars():
+    """Sports page row SCHEDULES: one tile per league; each opens the week's calendar (calendarwin)."""
+    kodi.set_content("videos")
+    from resources.lib import schedule
+    mine = {}
+    for lid, abbr in espn.my_teams():
+        mine.setdefault(lid, []).append(abbr)
+    for lid in schedule.ORDER:
+        label, _, _, by_week = schedule.LEAGUES[lid]
+        meta = ("Your teams: %s" % ", ".join(mine[lid]) if lid in mine else "") or ("By week, by conference" if lid.startswith("ncaa") else "This week, by division")
+        kodi.add_item(label, kodi.build_url(action="calendar", league=lid), False, art={"icon": ICON_FOLDER},
+                      props={"kind": "tile", "color": CAL_COLORS.get(lid, "FF2A3550"), "title": "%s schedule" % label, "meta": meta})
+    kodi.end_directory()
+
+
 def sports_page():
     """The header's Sports icon: everything sports in one place (Live now and Starting soon left Home)."""
     kodi.set_content("videos")
@@ -1227,6 +1245,13 @@ def dispatch(params):
         sports_menu()
     elif action == "sports_page":
         sports_page()
+    elif action == "calendars":
+        calendars()
+    elif action == "calendar":
+        kodi.resolve_none()
+        from resources.lib import calendarwin, uiworker
+        if not uiworker.request(kodi.build_url(action="calendar", league=params.get("league", "nfl"))):
+            calendarwin.show(params.get("league", "nfl"))
     elif action in ("upnext_top", "upnext_up", "upnext_back", "upnext_front", "upnext_hide", "upnext_hidden"):
         kodi.resolve_none()
         upnext_action(action, params)

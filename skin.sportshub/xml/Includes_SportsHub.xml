@@ -64,6 +64,7 @@
 		<value condition="$EXP[SH_Focus9960]">$INFO[Container(9960).ListItem.Property(kicker)]</value>
 		<value condition="$EXP[SH_Focus9700]">BROWSE</value>
 		<value condition="Control.HasFocus(9150)">BY SPORT</value>
+		<value condition="Control.HasFocus(9160)">SCHEDULES</value>
 		<value condition="$EXP[SH_Focus9600]">KODI</value>
 		<value></value>
 	</variable>
@@ -123,6 +124,7 @@
 		<value condition="$EXP[SH_Focus9960]">$INFO[Container(9960).ListItem.Property(title)]</value>
 		<value condition="$EXP[SH_Focus9700]">$INFO[Container(9700).ListItem.Label]</value>
 		<value condition="Control.HasFocus(9150)">$INFO[Container(9150).ListItem.Label]</value>
+		<value condition="Control.HasFocus(9160)">$INFO[Container(9160).ListItem.Property(title)]</value>
 		<value condition="$EXP[SH_Focus9600]">$INFO[Container(9600).ListItem.Label]</value>
 		<value>WatchHub</value>
 	</variable>
@@ -149,6 +151,7 @@
 		<value condition="$EXP[SH_Focus9960]">$INFO[Container(9960).ListItem.Property(meta)]</value>
 		<value condition="$EXP[SH_Focus9700]">$INFO[Container(9700).ListItem.Property(meta)]</value>
 		<value condition="Control.HasFocus(9150)">$INFO[Container(9150).ListItem.Property(meta)]</value>
+		<value condition="Control.HasFocus(9160)">$INFO[Container(9160).ListItem.Property(meta)]</value>
 		<value condition="$EXP[SH_Focus9600]">$INFO[Container(9600).ListItem.Property(meta)]</value>
 		<value></value>
 	</variable>
@@ -209,8 +212,8 @@
 					<visible>Integer.IsGreater(Container($PARAM[list_id]).NumItems,0) | Container($PARAM[list_id]).IsUpdating</visible>
 					<!-- Kodi appends its own "More..." item (no card kind) when a row hits its limit: open the full list -->
 					<!-- info pages and the TV Guide: hand the request straight to WatchHub's service (no Python start-up per click) -->
-					<onclick condition="String.Contains(ListItem.FileNameAndPath,action=info) | String.Contains(ListItem.FileNameAndPath,action=guide) | String.Contains(ListItem.FileNameAndPath,action=browse&amp;)">SetProperty(sh_ui_request,$INFO[ListItem.FileNameAndPath],home)</onclick>
-					<onclick condition="!String.IsEmpty(ListItem.Property(kind)) + !String.IsEqual(ListItem.Property(kind),guide) + !String.Contains(ListItem.FileNameAndPath,action=info) + !String.Contains(ListItem.FileNameAndPath,action=browse&amp;)">$PARAM[onclick]</onclick>
+					<onclick condition="String.Contains(ListItem.FileNameAndPath,action=info) | String.Contains(ListItem.FileNameAndPath,action=guide) | String.Contains(ListItem.FileNameAndPath,action=browse&amp;) | String.Contains(ListItem.FileNameAndPath,action=calendar&amp;)">SetProperty(sh_ui_request,$INFO[ListItem.FileNameAndPath],home)</onclick>
+					<onclick condition="!String.IsEmpty(ListItem.Property(kind)) + !String.IsEqual(ListItem.Property(kind),guide) + !String.Contains(ListItem.FileNameAndPath,action=info) + !String.Contains(ListItem.FileNameAndPath,action=browse&amp;) + !String.Contains(ListItem.FileNameAndPath,action=calendar&amp;)">$PARAM[onclick]</onclick>
 					<onclick condition="String.IsEmpty(ListItem.Property(kind))">ActivateWindow(Videos,$INFO[ListItem.FolderPath],return)</onclick>
 					<onback>$PARAM[onback]</onback>
 					<scrolltime tween="cubic" easing="out">300</scrolltime>
