@@ -51,8 +51,10 @@ SERVICES = {
         "url": "xumo:",
         "layout": "xumo",
         "package": "com.xumo.xumo.tv",
-        # Xumo's app has no channel link: this opens its Live guide, so Xumo ranks after every other service
-        "deeplink": "https://www.xumo.tv/free-live-channels/{slug}/{id}",
+        # Xumo's app reads deepLinkType/channelId from www.xumo.tv links, but only when the link has a path
+        # (it ignores "https://www.xumo.tv/?..."); channel_no_ui plays the channel full screen (verified on
+        # the Shield Pro, Oct 16: Saved by the Bell)
+        "deeplink": "https://www.xumo.tv/live?deepLinkType=channel_no_ui&channelId={id}",
         "setting": "src_xumo",
         "color": "FF7B2FF7",
     },

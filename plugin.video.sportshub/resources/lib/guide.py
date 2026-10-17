@@ -526,7 +526,7 @@ class Guide(xbmcgui.WindowXMLDialog):
             li = xbmcgui.ListItem(c["name"])
             li.setArt({"thumb": c["logo"]})
             li.setProperty("service", ("[COLOR FF4CD27F]LOCAL[/COLOR] \u00b7 " if categories.LOCAL in c["cats"] else "")
-                           + c["service"] + (" \u00b7 opens its guide" if c["sid"] == "xumo" else "")
+                           + c["service"]
                            + (" +%d" % len(c["alts"]) if c["alts"] else "")
                            + ("  [COLOR FFFFC93D]★[/COLOR]" if c["key"] in self.favs else ""))
             row = cells(c["programs"], self.t0)

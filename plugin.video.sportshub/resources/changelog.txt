@@ -1,3 +1,6 @@
+0.7.23 - Oct 16
+Xumo Play channels now play directly (Saved by the Bell and the other 400+), instead of opening Xumo's guide.
+
 0.7.22 - Oct 16
 TV Guide opens with the highlight on the All tab (coming back from a channel still returns to it).
 

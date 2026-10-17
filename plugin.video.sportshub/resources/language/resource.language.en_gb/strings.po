@@ -306,5 +306,5 @@ msgid "Tubi (official app)"
 msgstr ""
 
 msgctxt "#30141"
-msgid "Xumo Play (official app; opens its own guide)"
+msgid "Xumo Play (official app)"
 msgstr ""
