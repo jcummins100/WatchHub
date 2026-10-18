@@ -118,9 +118,11 @@ def _play_sportsdb(params):
             friendly, pkg, _ = options[choice]
             return _launch_app(pkg, "", friendly)
         return False
+    paid = next((apps.needs(c) for c in channels if apps.needs(c)), "")
     xbmcgui.Dialog().ok(
         kodi.ADDON_NAME,
-        "%s\n\nOn: %s\n\nNo matching Live TV channel or app found on this device."
-        % (params.get("title", ""), ", ".join(channels) or "unknown"),
+        "%s\n\nOn: %s\n\n%s"
+        % (params.get("title", ""), ", ".join(channels) or "unknown",
+           "Watching this needs %s." % paid if paid else "No matching Live TV channel or app found on this device."),
     )
     return False

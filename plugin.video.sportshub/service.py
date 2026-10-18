@@ -21,6 +21,17 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 ADDON_ID = "plugin.video.sportshub"
 
 
+def _warm_sports_page(r):
+    def work():
+        from resources.lib import kodi
+        try:
+            from resources.lib import ui
+            ui.warm_sports_page(r)
+        except Exception as exc:
+            kodi.log("sports page warm failed: %s" % exc)
+    threading.Thread(target=work, name="sh-warm-sports", daemon=True).start()
+
+
 def _int_setting(addon, key, default):
     try:
         return int(addon.getSetting(key) or default)
@@ -121,8 +132,12 @@ def main():
         # back more than 15 minutes, or scores and "on now" listings go stale.
         if reload_pending and (not xbmc.getCondVisibility("Window.IsActive(home)") or xbmc.getCondVisibility("System.IdleTime(90)")
                                or now - reload_pending > 15 * 60):
-            home.setProperty("sh_refresh", str(int(time.time())))
+            r = str(int(time.time()))
+            home.setProperty("sh_refresh", r)
             reload_pending = 0
+            # the Sports page isn't on screen: have its rows ready for when it opens (built off-screen)
+            if not xbmc.getCondVisibility("Window.IsActive(1120)"):
+                _warm_sports_page(r)
             # the reload puts every row back on its first card: someone off in an app comes back to theirs
             # (only while no key has been pressed in Kodi since that app was launched)
             spot = homefilter.pending_spot()

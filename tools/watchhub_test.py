@@ -731,6 +731,10 @@ class OnDevice:
             rep.add(B, "Home rows: this Shield's saved order", "INFO", ", ".join(n for _, n in ALL_ROWS))
         if os.environ.get("WH_ONLY_FILTERS"):
             return self._filters(B)
+        if os.environ.get("WH_RERUN_HEADER"):   # the header buttons (Sports page, settings list, search) after a script fix
+            self._header_tests(B)
+            self._calendar_check(B)
+            return self._search_back(B)
         if os.environ.get("WH_RERUN_GUIDE"):   # just the TV Guide and the 0.7 features (a re-check after a script fix)
             self._guide_tests(B)
             self._new_features(B)
@@ -884,45 +888,7 @@ class OnDevice:
             d.key("Back")
         rep.add(B, "Long-press: Trakt mark watched / add to watchlist", "SKIP", "would change your Trakt data")
 
-        # ---------------- header buttons (807 Sports, 801 Search, 802 Settings, 804 Power; Right wraps around)
-        for bname, bid in (("Sports", 807), ("Search", 801), ("Settings", 802), ("Power", 804)):
-            d.home(); d.goto_row(9050, ALL_ROWS); d.key("Up")
-            for _ in range(6):
-                if d.focus() == bid:
-                    break
-                d.key("Right")
-            if d.focus() != bid:
-                rep.add(B, "Header: %s" % bname, "FAIL", "could not focus button %d (focus=%s)" % (bid, d.focus()))
-                continue
-            if bname == "Sports":
-                # the ball icon opens the skin's Sports page (window 1120) with its own rows
-                self.click(B, "Header: Sports opens the Sports page", lambda l, s_, dl: "Window.IsActive(1120)" in dl, back=False)
-                d.wait(lambda: d.info("Container(9160).NumItems").get("Container(9160).NumItems") not in (None, "", "0"), 20)
-                st = d.info(*["Container(%d).NumItems" % r for r in (9100, 9200, 9160, 9300, 9150)])
-                rep.add(B, "Sports page: Live sports now, games, Schedules, Starting soon, By sport", "PASS" if int(st.get("Container(9160).NumItems") or 0) >= 5 else "FAIL",
-                        json.dumps(st), d.shot("sports-page"))
-                d.key("Back"); time.sleep(1.5)
-                continue
-            if bname == "Power":
-                self.click(B, "Header: Power (menu only, nothing chosen)", lambda l, s_, dl: "Window.IsActive(shutdownmenu)" in dl, back=False)
-                d.key("Back")
-                continue
-            if bname == "Settings":
-                # the gear opens WatchHub's own settings list (a select dialog run by the service)
-                self.click(B, "Header: Settings opens WatchHub settings", lambda l, s_, dl: "Window.IsActive(selectdialog)" in dl, back=False)
-                n = max(int(d.info("Container(%d).NumItems" % c).get("Container(%d).NumItems" % c) or 0) for c in (3, 6))   # plain / detailed list
-                rep.add(B, "WatchHub settings entries", "PASS" if n >= 8 else "FAIL", "%d entries" % n, d.shot("wh-settings"))
-                d.key("Back"); time.sleep(1.5)
-            if bname == "Search":
-                self.click(B, "Header: Search opens WatchHub search (keyboard)", lambda l, s_, dl: "Window.IsActive(virtualkeyboard)" in dl, back=False)
-                if d.is_("Window.IsActive(virtualkeyboard)").get("Window.IsActive(virtualkeyboard)"):
-                    d.rpc("Input.SendText", {"text": "ted lasso", "done": True})
-                    d.wait(lambda: int(d.info("Container.NumItems").get("Container.NumItems") or 0) > 0, 20)
-                    time.sleep(2)
-                    res = d.info("System.CurrentWindow", "Container.NumItems", "Container.FolderPath", "Container.ListItemAbsolute(0).Label")
-                    ok = int(res.get("Container.NumItems") or 0) > 0 and "plugin.video.sportshub" in res.get("Container.FolderPath", "")
-                    rep.add(B, "Search 'ted lasso' shows WatchHub results", "PASS" if ok else "FAIL", json.dumps(res), d.shot("search-results"))
-            d.home()
+        self._header_tests(B)
 
         self._filters(B)
         self._after_filters(B)
@@ -942,6 +908,19 @@ class OnDevice:
         rep.add(B, "Kodi cold starts after returning from an app (this run)", "INFO", "%d" % getattr(d, "restarts", 0))
 
     def _guide_tests(self, B):
+        """Your guide Favorites and Hidden lists are set aside while the guide is tested, and put back after."""
+        prof = KODI_HOME + "/userdata/addon_data/plugin.video.sportshub/"
+        keep = ["guide_favorites.json", "guide_hidden.json"]
+        d = self.d
+        for f in keep:
+            d.sh("rm -f %s%s.wh-test-bak; [ -f %s%s ] && cp %s%s %s%s.wh-test-bak" % (prof, f, prof, f, prof, f, prof, f))
+        try:
+            self._guide_checks(B)
+        finally:
+            for f in keep:
+                d.sh("if [ -f %s%s.wh-test-bak ]; then mv %s%s.wh-test-bak %s%s; else rm -f %s%s; fi" % (prof, f, prof, f, prof, f, prof, f))
+
+    def _guide_checks(self, B):
         """TV Guide: both ways in, time, tabs, favorites, schedule, watching a channel."""
         d, rep = self.d, self.rep
         G = "Window.IsActive(Guide.xml)"
@@ -1072,6 +1051,39 @@ class OnDevice:
         d.sh("rm -f %s" % favfile)  # leave no test favorites behind
         d.home()
 
+    def _calendar_check(self, B):
+        """The Sports page from the header's ball icon, and a league's calendar with its Next week button."""
+        d, rep = self.d, self.rep
+        lab = lambda c, k: d.info("Container(%d).ListItemAbsolute(%d).Label" % (c, k)).get("Container(%d).ListItemAbsolute(%d).Label" % (c, k), "")
+        num = lambda c: int(d.info("Container(%d).NumItems" % c).get("Container(%d).NumItems" % c) or 0)
+        active = lambda w: d.is_("Window.IsActive(%s)" % w).get("Window.IsActive(%s)" % w)
+        # ---- Sports page (header ball icon) and its calendar
+        d.home(); d.goto_row(9050, ALL_ROWS); d.builtin("SetFocus(807)"); time.sleep(1)
+        t = time.time()
+        d.key("Select")
+        opened = d.wait(lambda: active(1120), 15)
+        d.wait(lambda: num(9200) > 0 and num(9160) > 0 and num(9100) > 0, 30, 1)
+        rows = {r: num(r) for r in (9100, 9200, 9160, 9300, 9150)}
+        rep.add(B, "Sports page: opens from the ball icon with its rows", "PASS" if opened and rows[9160] >= 6 and rows[9200] > 0 else "FAIL",
+                "rows (live, games, schedules, soon, by sport) = %s, %.1fs" % (list(rows.values()), time.time() - t), d.shot("sports-page"))
+        d.builtin("SetFocus(9160)"); time.sleep(2)
+        d.key("Select")
+        cal = d.wait(lambda: active("Calendar.xml"), 15)
+        d.wait(lambda: num(100) > 0, 20)
+        g, first = num(100), lab(200, 0)
+        rep.add(B, "Calendar: a league's week, grouped", "PASS" if cal and g >= 5 else "FAIL",
+                "%d groups, first game %s" % (g, first), d.shot("calendar"))
+        for _ in range(3):   # OK only once the highlight is really on Next week (else it opens a game)
+            d.builtin("SetFocus(302)"); time.sleep(1.5)
+            if d.focus() == 302:
+                break
+        changed = False
+        if d.focus() == 302:
+            d.key("Select")
+            changed = d.wait(lambda: lab(200, 0) and lab(200, 0) != first, 20)
+        rep.add(B, "Calendar: Next week", "PASS" if changed else "ISSUE", "first game %s -> %s (focus %s)" % (first, lab(200, 0), d.focus()), d.shot("calendar-next"))
+        d.home()
+
     def _new_features(self, B):
         """B: what 0.6.1-0.7.28 added, on the TV. State the test changes (Rediscover picks, pins, Up Next order,
         Recommended) is backed up first and put back after; nothing is written to Trakt."""
@@ -1086,26 +1098,7 @@ class OnDevice:
         num = lambda c: int(d.info("Container(%d).NumItems" % c).get("Container(%d).NumItems" % c) or 0)
         active = lambda w: d.is_("Window.IsActive(%s)" % w).get("Window.IsActive(%s)" % w)
         try:
-            # ---- Sports page (header ball icon) and its calendar
-            d.home(); d.goto_row(9050, ALL_ROWS); d.builtin("SetFocus(807)"); time.sleep(1)
-            t = time.time()
-            d.key("Select")
-            opened = d.wait(lambda: active(1120), 15)
-            d.wait(lambda: num(9200) > 0 and num(9160) > 0 and num(9100) > 0, 30, 1)
-            rows = {r: num(r) for r in (9100, 9200, 9160, 9300, 9150)}
-            rep.add(B, "Sports page: opens from the ball icon with its rows", "PASS" if opened and rows[9160] >= 6 and rows[9200] > 0 else "FAIL",
-                    "rows (live, games, schedules, soon, by sport) = %s, %.1fs" % (list(rows.values()), time.time() - t), d.shot("sports-page"))
-            d.builtin("SetFocus(9160)"); time.sleep(2)
-            d.key("Select")
-            cal = d.wait(lambda: active("Calendar.xml"), 15)
-            d.wait(lambda: num(100) > 0, 20)
-            g, first = num(100), lab(200, 0)
-            rep.add(B, "Calendar: a league's week, grouped", "PASS" if cal and g >= 5 else "FAIL",
-                    "%d groups, first game %s" % (g, first), d.shot("calendar"))
-            d.builtin("SetFocus(302)"); time.sleep(1.5); d.key("Select")
-            changed = d.wait(lambda: lab(200, 0) and lab(200, 0) != first, 20)
-            rep.add(B, "Calendar: Next week", "PASS" if changed else "ISSUE", "first game %s -> %s" % (first, lab(200, 0)), d.shot("calendar-next"))
-            d.home()
+            self._calendar_check(B)
 
             # ---- WatchHub's long-press menu on a Rediscover poster: one order, groups
             d.goto_row(9400, ALL_ROWS); d.goto_item(9400, 1)
@@ -1369,6 +1362,48 @@ class OnDevice:
         st = d.info("Window(Home).Property(sh_provider)", "System.CurrentControlId", "Container(9050).ListItem.Label")
         rep.add(B, "Pick 'All services' returns to All view", "PASS" if not st.get("Window(Home).Property(sh_provider)") and st.get("System.CurrentControlId") == "9050" else "FAIL",
                 json.dumps(st), d.shot("back-to-all"))
+
+    def _header_tests(self, B):
+        d, rep = self.d, self.rep
+        # ---------------- header buttons (807 Sports, 801 Search, 802 Settings, 804 Power; Right wraps around)
+        for bname, bid in (("Sports", 807), ("Search", 801), ("Settings", 802), ("Power", 804)):
+            d.home(); d.goto_row(9050, ALL_ROWS); d.key("Up")
+            for _ in range(6):
+                if d.focus() == bid:
+                    break
+                d.key("Right")
+            if d.focus() != bid:
+                rep.add(B, "Header: %s" % bname, "FAIL", "could not focus button %d (focus=%s)" % (bid, d.focus()))
+                continue
+            if bname == "Sports":
+                # the ball icon opens the skin's Sports page (window 1120) with its own rows
+                self.click(B, "Header: Sports opens the Sports page", lambda l, s_, dl: "Window.IsActive(1120)" in dl, back=False)
+                d.wait(lambda: d.info("Container(9160).NumItems").get("Container(9160).NumItems") not in (None, "", "0"), 20)
+                st = d.info(*["Container(%d).NumItems" % r for r in (9100, 9200, 9160, 9300, 9150)])
+                rep.add(B, "Sports page: Live sports now, games, Schedules, Starting soon, By sport", "PASS" if int(st.get("Container(9160).NumItems") or 0) >= 5 else "FAIL",
+                        json.dumps(st), d.shot("sports-page"))
+                d.key("Back"); time.sleep(1.5)
+                continue
+            if bname == "Power":
+                self.click(B, "Header: Power (menu only, nothing chosen)", lambda l, s_, dl: "Window.IsActive(shutdownmenu)" in dl, back=False)
+                d.key("Back")
+                continue
+            if bname == "Settings":
+                # the gear opens WatchHub's own settings list (a select dialog run by the service)
+                self.click(B, "Header: Settings opens WatchHub settings", lambda l, s_, dl: "Window.IsActive(selectdialog)" in dl, back=False)
+                n = max(int(d.info("Container(%d).NumItems" % c).get("Container(%d).NumItems" % c) or 0) for c in (3, 6))   # plain / detailed list
+                rep.add(B, "WatchHub settings entries", "PASS" if n >= 8 else "FAIL", "%d entries" % n, d.shot("wh-settings"))
+                d.key("Back"); time.sleep(1.5)
+            if bname == "Search":
+                self.click(B, "Header: Search opens WatchHub search (keyboard)", lambda l, s_, dl: "Window.IsActive(virtualkeyboard)" in dl, back=False)
+                if d.is_("Window.IsActive(virtualkeyboard)").get("Window.IsActive(virtualkeyboard)"):
+                    d.rpc("Input.SendText", {"text": "ted lasso", "done": True})
+                    d.wait(lambda: int(d.info("Container.NumItems").get("Container.NumItems") or 0) > 0, 20)
+                    time.sleep(2)
+                    res = d.info("System.CurrentWindow", "Container.NumItems", "Container.FolderPath", "Container.ListItemAbsolute(0).Label")
+                    ok = int(res.get("Container.NumItems") or 0) > 0 and "plugin.video.sportshub" in res.get("Container.FolderPath", "")
+                    rep.add(B, "Search 'ted lasso' shows WatchHub results", "PASS" if ok else "FAIL", json.dumps(res), d.shot("search-results"))
+            d.home()
 
     def _search_back(self, B):
         d, rep = self.d, self.rep

@@ -468,6 +468,10 @@ def _add_game(g, show_league=True):
         ctx.append(("Watch on %s (%s)" % (friendly, net), "RunPlugin(%s)" % kodi.build_url(action="play", src="app", id=pkg, name=friendly)))
         if not need:
             need = friendly
+    paid = [apps.needs(n) for n in (g["channel"] or "").split(",") if apps.needs(n)]
+    if paid and not seen_pkgs:
+        props["network"] = "%s • needs %s" % (props["network"], paid[0])
+        props["meta"] = "%s • needs %s" % (props["meta"], paid[0])
     if seen_pkgs and not any(health.app_installed(p) is not False for p in seen_pkgs):
         props["network"] = "%s • needs %s app" % (props["network"], need)
         props["meta"] = "%s • needs the %s app" % (props["meta"], need)
@@ -1287,6 +1291,29 @@ def _inputs_stamp():
     # off-device runs (tools/dev_run.py) set settings and installed apps through SH_* variables
     parts += sorted("%s=%s" % kv for kv in os.environ.items() if kv[0].startswith("SH_"))
     return "|".join(parts)
+
+
+SPORTS_PAGE_ROWS = ("live", "soon", "sports")   # the Sports page's own rows (Today's Games is shared with Home)
+
+
+def warm_sports_page(r):
+    """Run by the service after each refresh: build the Sports page's rows quietly and save them under the new
+    refresh counter r, so opening the page shows them at once (they took ~15 s each to build on the spot)."""
+    t0 = time.time()
+    stamp = _inputs_stamp()
+    for action in SPORTS_PAGE_ROWS:
+        params = {"action": action, "skin": "1"}
+        key = json.dumps(dict(sorted(params.items())))
+        kodi.record_start(dry=True)
+        try:
+            dispatch(dict(params, _norow="1"))
+        except Exception as exc:
+            kodi.log("sports page %s not warmed: %s" % (action, exc))
+            continue
+        finally:
+            items, view = kodi.record_stop()
+        kodi.save_row(key, {"at": time.time(), "r": r, "stamp": stamp, "items": items, "view": view, "fresh": False})
+    kodi.log("sports page rows warmed in %.1fs" % (time.time() - t0))
 
 
 def _home_row(params):

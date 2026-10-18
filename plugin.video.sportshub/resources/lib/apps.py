@@ -39,6 +39,18 @@ _APPS = [
 ]
 APPS = [(re.compile(rx, re.I), pkg, name) for rx, pkg, name in _APPS]
 
+# apps that only play with a cable login or their own paid plan, which you don't have: games on their networks
+# say what they need instead of opening an app that asks you to sign in or pay (Oct 17: FOX One)
+PAID_ONLY = {"com.fox.foxone": "cable or a FOX One subscription"}
+
+
+def needs(name):
+    """'cable or a FOX One subscription' when a network is only on a paid-only app, else ''."""
+    for rx, pkg, _ in APPS:
+        if rx.search(name or ""):
+            return PAID_ONLY.get(pkg, "")
+    return ""
+
 
 def for_network(name):
     """Return (package, friendly_name) for a network/service string, or (None, None)."""
@@ -46,6 +58,8 @@ def for_network(name):
         return None, None
     for rx, pkg, friendly in APPS:
         if rx.search(name):
+            if pkg in PAID_ONLY:
+                return None, None
             if pkg == "com.cbs.ott":
                 return _paramount_via_prime(pkg, friendly)
             return pkg, friendly
@@ -69,7 +83,7 @@ LAUNCHABLE = [
     ("Netflix", "com.netflix.ninja"), ("Prime Video", "com.amazon.amazonvideo.livingroom"),
     ("Apple TV", "com.apple.atve.androidtv.appletv"), ("Hulu", "com.hulu.livingroomplus"),
     ("Peacock", "com.peacocktv.peacockandroid"), ("YouTube", "com.google.android.youtube.tv"),
-    ("ESPN", "com.espn.score_center"), ("FOX One", "com.fox.foxone"), ("FOX Sports", "com.foxsports.android"),
+    ("ESPN", "com.espn.score_center"), ("FOX Sports", "com.foxsports.android"),
     ("NBC Sports", "com.nbcsports.apps.tv"), ("truTV", "com.turner.trutv"), ("FloSports", "tv.flosports"),
     ("Pluto TV", "tv.pluto.android"), ("Plex", "com.plexapp.android"), ("The Roku Channel", "com.roku.web.trc"),
     ("Tubi", "com.tubitv"), ("Xumo Play", "com.xumo.xumo.tv"), ("The CW", "com.cw.fullepisodes.android"),
