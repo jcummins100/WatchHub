@@ -1,3 +1,6 @@
+0.7.36 (skin 0.7.16) - Oct 18
+New row on the Sports page: Sports Streams, for your own Kodi video add-ons. It starts with samples (YouTube, Twitch, Vimeo); "Edit this row" at the end, or a long press on a card, adds, moves and removes them. OK opens an add-on, turns it on if it's off, or offers to install it.
+
 0.7.35 - Oct 18
 Fixed: the Sports page schedules (and the TV Guide, info pages) could stop opening after the skin reloaded under the TV Guide; each screen now opens on its own. Live Sports Now, Starting Soon, By sport and Search read a small saved list of sports channels instead of every service's full guide (By sport took 42 s and Kodi gave up).
 

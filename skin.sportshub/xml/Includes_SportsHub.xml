@@ -44,6 +44,7 @@
 		<value condition="$EXP[SH_Focus9300]">$INFO[Container(9300).ListItem.Art(thumb)]</value>
 		<value condition="$EXP[SH_Focus9200]">$INFO[Container(9200).ListItem.Property(league_logo)]</value>
 		<value condition="$EXP[SH_Focus9500]">$INFO[Container(9500).ListItem.Art(thumb)]</value>
+		<value condition="Control.HasFocus(9170)">$INFO[Container(9170).ListItem.Art(thumb)]</value>
 		<value></value>
 	</variable>
 	<variable name="SH_HeroKicker">
@@ -67,6 +68,7 @@
 		<value condition="$EXP[SH_Focus9700]">BROWSE</value>
 		<value condition="Control.HasFocus(9150)">BY SPORT</value>
 		<value condition="Control.HasFocus(9160)">SCHEDULES</value>
+		<value condition="Control.HasFocus(9170)">SPORTS STREAMS</value>
 		<value condition="$EXP[SH_Focus9600]">KODI</value>
 		<value condition="Control.HasFocus(808) + !String.IsEmpty(Window(Home).Property(sh_vpn_where))">$INFO[Window(Home).Property(sh_vpn_kicker)]</value>
 		<value></value>
@@ -139,6 +141,7 @@
 		<value condition="$EXP[SH_Focus9700]">$INFO[Container(9700).ListItem.Label]</value>
 		<value condition="Control.HasFocus(9150)">$INFO[Container(9150).ListItem.Label]</value>
 		<value condition="Control.HasFocus(9160)">$INFO[Container(9160).ListItem.Property(title)]</value>
+		<value condition="Control.HasFocus(9170)">$INFO[Container(9170).ListItem.Property(title)]</value>
 		<value condition="$EXP[SH_Focus9600]">$INFO[Container(9600).ListItem.Label]</value>
 		<value>WatchHub</value>
 	</variable>
@@ -170,6 +173,7 @@
 		<value condition="$EXP[SH_Focus9700]">$INFO[Container(9700).ListItem.Property(meta)]</value>
 		<value condition="Control.HasFocus(9150)">$INFO[Container(9150).ListItem.Property(meta)]</value>
 		<value condition="Control.HasFocus(9160)">$INFO[Container(9160).ListItem.Property(meta)]</value>
+		<value condition="Control.HasFocus(9170)">$INFO[Container(9170).ListItem.Property(meta)]</value>
 		<value condition="$EXP[SH_Focus9600]">$INFO[Container(9600).ListItem.Property(meta)]</value>
 		<value></value>
 	</variable>

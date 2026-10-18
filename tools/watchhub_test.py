@@ -370,7 +370,7 @@ class Offline:
             "from resources.lib import settingsmenu as m\nt=m.about_text()\nprint(json.dumps({'ok':\"What's new\" in t,'first':t.split('\\n')[6:8]}))",
             lambda r: (r["ok"], json.dumps(r["first"])))
         for name, q in [("Recommended for you", "action=trakt&row=recommended&skin=1"), ("Trailers", "action=trailers&skin=1"),
-                        ("Sports page: Schedules", "action=calendars&skin=1")]:
+                        ("Sports page: Schedules", "action=calendars&skin=1"), ("Sports page: Sports Streams", "action=addons&skin=1")]:
             r = self.run(q)
             n = len(r["items"])
             res = "FAIL" if r["err"] else ("PASS" if n else "INFO")
@@ -1153,9 +1153,9 @@ class OnDevice:
         d.key("Select")
         opened = d.wait(lambda: active(1120), 15)
         d.wait(lambda: num(9200) > 0 and num(9160) > 0 and num(9100) > 0, 30, 1)
-        rows = {r: num(r) for r in (9100, 9200, 9160, 9300, 9150)}
-        rep.add(B, "Sports page: opens from the ball icon with its rows", "PASS" if opened and rows[9160] >= 6 and rows[9200] > 0 else "FAIL",
-                "rows (live, games, schedules, soon, by sport) = %s, %.1fs" % (list(rows.values()), time.time() - t), d.shot("sports-page"))
+        rows = {r: num(r) for r in (9100, 9200, 9160, 9300, 9150, 9170)}
+        rep.add(B, "Sports page: opens from the ball icon with its rows", "PASS" if opened and rows[9160] >= 6 and rows[9200] > 0 and rows[9170] > 0 else "FAIL",
+                "rows (live, games, schedules, soon, by sport, sports streams) = %s, %.1fs" % (list(rows.values()), time.time() - t), d.shot("sports-page"))
         d.builtin("SetFocus(9160)"); time.sleep(2)
         d.key("Select")
         cal = d.wait(lambda: active("Calendar.xml"), 15)

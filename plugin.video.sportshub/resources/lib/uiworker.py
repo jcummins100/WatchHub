@@ -128,7 +128,7 @@ def warm_guide():
 # watchlist, Trakt watched, pin, hide. Matched on the label's start.
 MENU_ORDER = [
     ("Play",), ("Watch on",), ("Watch trailer",), ("Full schedule",),
-    ("Move to the top", "Move up", "Move to the end", "Move back", "Put back"),
+    ("Move to the top", "Move up", "Move to the end", "Move back", "Put back", "Move left", "Move right"),
     ("Show me",), ("More like this",),
     ("\u2605", "Add to Favorites", "Remove from Favorites"),
     ("Trakt: add to watchlist", "Trakt: remove from watchlist"),

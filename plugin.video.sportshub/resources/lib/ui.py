@@ -1395,6 +1395,22 @@ def dispatch(params):
         sports_page()
     elif action == "calendars":
         calendars()
+    elif action == "addons":
+        from resources.lib import addonrow
+        addonrow.row()
+    elif action in ("addon_open", "addons_add", "addons_remove", "addons_move", "addons_edit"):
+        kodi.resolve_none()
+        from resources.lib import addonrow
+        if action == "addon_open":
+            addonrow.open_addon(params.get("id", ""))
+        elif action == "addons_add":
+            addonrow.add()
+        elif action == "addons_remove":
+            addonrow.remove(params.get("id", ""))
+        elif action == "addons_move":
+            addonrow.move(params.get("id", ""), int(params.get("by", "0")))
+        else:
+            addonrow.edit()
     elif action == "trailers":
         trailers_list()
     elif action in ("recs_new", "recs_pin", "recs_unpin"):
