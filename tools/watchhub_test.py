@@ -1058,7 +1058,11 @@ class OnDevice:
         num = lambda c: int(d.info("Container(%d).NumItems" % c).get("Container(%d).NumItems" % c) or 0)
         active = lambda w: d.is_("Window.IsActive(%s)" % w).get("Window.IsActive(%s)" % w)
         # ---- Sports page (header ball icon) and its calendar
-        d.home(); d.goto_row(9050, ALL_ROWS); d.builtin("SetFocus(807)"); time.sleep(1)
+        d.home(); d.goto_row(9050, ALL_ROWS)
+        for _ in range(3):   # OK only once the highlight is really on the ball icon (a closing menu can eat SetFocus)
+            d.builtin("SetFocus(807)"); time.sleep(1.5)
+            if d.focus() == 807:
+                break
         t = time.time()
         d.key("Select")
         opened = d.wait(lambda: active(1120), 15)
@@ -1408,9 +1412,16 @@ class OnDevice:
     def _search_back(self, B):
         d, rep = self.d, self.rep
         # Search -> open a title -> Back keeps the results
-        d.home(); d.goto_row(9050, ALL_ROWS); d.builtin("SetFocus(801)"); time.sleep(1)
-        d.key("Select")
-        if d.wait(lambda: d.is_("Window.IsActive(virtualkeyboard)").get("Window.IsActive(virtualkeyboard)"), 10):
+        kb = lambda: d.is_("Window.IsActive(virtualkeyboard)").get("Window.IsActive(virtualkeyboard)")
+        d.home(); d.goto_row(9050, ALL_ROWS)
+        time.sleep(4)   # let a rows reload (Back on Home resets the Services filter) finish: it swallows key presses
+        for _ in range(2):
+            d.builtin("SetFocus(801)"); time.sleep(1)
+            if d.focus() == 801:
+                d.key("Select")
+                if d.wait(kb, 15):
+                    break
+        if kb():
             d.rpc("Input.SendText", {"text": "ted lasso", "done": True})
             d.wait(lambda: int(d.info("Container.NumItems").get("Container.NumItems") or 0) > 0, 20)
             time.sleep(2)

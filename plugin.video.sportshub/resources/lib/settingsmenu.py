@@ -33,6 +33,19 @@ FREE_APPS = [("Pluto TV", "tv.pluto.android"), ("Plex", "com.plexapp.android"), 
              ("Tubi", "com.tubitv"), ("Xumo Play", "com.xumo.xumo.tv"), ("YouTube", "com.google.android.youtube.tv")]
 
 
+def _local_line():
+    """'Automatic - Pittsburgh (KDKA, WPXI...)' or the words typed in."""
+    words = kodi.setting("local_market", "auto")
+    if words.strip().lower() != "auto":
+        return words or "none"
+    from resources.lib import location
+    data = location.load()
+    if not data.get("market"):
+        return "Automatic - finding where this Shield is"
+    calls = data.get("calls") or []
+    return "Automatic - %s%s (where this Shield appears to be)" % (data["market"], " · " + ", ".join(calls[:6]) if calls else "")
+
+
 def free_apps():
     """The free services' apps, installed or not; picking a missing one opens its Play Store page (True)."""
     from resources.lib import health
@@ -89,7 +102,7 @@ def show():
             ("live", "Free live TV in the guide", ", ".join(fast.SERVICES[s]["name"] + (" (no app)" if s in missing else "") for s in live) or "none"),
             ("order", "When a channel is on several services, play it on", " → ".join(fast.SERVICES[s]["name"] for s in order if s in LIVE_SERVICES)),
             ("spanish", "Hide Spanish-language channels", _on(kodi.setting_bool("hide_spanish", True))),
-            ("local", "Your local stations", kodi.setting("local_market", "") or "none"),
+            ("local", "Your local stations", _local_line()),
             ("teams", "Your teams (first in Today's Games)", ", ".join(n for lid, a, n in _team_names() if (lid, a) in set(espn.my_teams())) or "none"),
             ("unseen", "Rediscover: only movies I haven't seen", _on(kodi.setting_bool("rediscover_unseen_only", False))),
             ("free", "Free apps on this Shield", _free_apps_line()),
@@ -147,11 +160,21 @@ def show():
             kodi.ADDON.setSetting("hide_spanish", "false" if kodi.setting_bool("hide_spanish", True) else "true")
             changed_guide = True
         elif key == "local":
-            text = xbmcgui.Dialog().input("Your city and stations' call letters, comma-separated",
-                                          kodi.setting("local_market", ""))
-            if text is not None and text != kodi.setting("local_market", ""):
-                kodi.ADDON.setSetting("local_market", text)
+            auto = kodi.setting("local_market", "auto").strip().lower() == "auto"
+            how = xbmcgui.Dialog().select("Your local stations", [
+                "Automatic: wherever this Shield is (%s)" % (_local_line() if auto else "follows the internet connection; a VPN counts"),
+                "Type my own city and call letters"])
+            if how == 0 and not auto:
+                kodi.ADDON.setSetting("local_market", "auto")
+                from resources.lib import location
+                location.detect(force=True)
                 changed_guide = True
+            elif how == 1:
+                text = xbmcgui.Dialog().input("Your city and stations' call letters, comma-separated",
+                                              "" if auto else kodi.setting("local_market", ""))
+                if text and text != kodi.setting("local_market", ""):
+                    kodi.ADDON.setSetting("local_market", text)
+                    changed_guide = True
         elif key == "teams":
             teams = _team_names()
             mine = set(espn.my_teams())

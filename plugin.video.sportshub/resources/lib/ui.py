@@ -1,5 +1,6 @@
 """Menu tree and list rendering."""
 import json
+import threading
 import time
 
 import xbmc
@@ -1296,9 +1297,22 @@ def _inputs_stamp():
 SPORTS_PAGE_ROWS = ("live", "soon", "sports")   # the Sports page's own rows (Today's Games is shared with Home)
 
 
+_WARM_LOCK = threading.Lock()
+
+
 def warm_sports_page(r):
     """Run by the service after each refresh: build the Sports page's rows quietly and save them under the new
-    refresh counter r, so opening the page shows them at once (they took ~15 s each to build on the spot)."""
+    refresh counter r, so opening the page shows them at once (they took ~15 s each to build on the spot).
+    One at a time: a second refresh while one runs is skipped (the next refresh catches up)."""
+    if not _WARM_LOCK.acquire(blocking=False):
+        return
+    try:
+        _warm_sports_page(r)
+    finally:
+        _WARM_LOCK.release()
+
+
+def _warm_sports_page(r):
     t0 = time.time()
     stamp = _inputs_stamp()
     for action in SPORTS_PAGE_ROWS:
@@ -1312,7 +1326,8 @@ def warm_sports_page(r):
             continue
         finally:
             items, view = kodi.record_stop()
-        kodi.save_row(key, {"at": time.time(), "r": r, "stamp": stamp, "items": items, "view": view, "fresh": False})
+        if items:   # never save an empty row over a good one
+            kodi.save_row(key, {"at": time.time(), "r": r, "stamp": stamp, "items": items, "view": view, "fresh": False})
     kodi.log("sports page rows warmed in %.1fs" % (time.time() - t0))
 
 

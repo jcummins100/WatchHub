@@ -1,3 +1,6 @@
+0.7.32 - Oct 17
+Your local stations follow the Shield: WatchHub finds the nearest TV market from the internet connection (a VPN counts) and learns its stations from the guide (Pittsburgh: KDKA, WPXI, WTAE...). Settings > Your local stations shows what it found, or type your own. Fixed: two Sports page warm-ups at once could save empty rows.
+
 0.7.31 - Oct 17
 The Sports page opens with its rows ready: WatchHub builds them in the background after each refresh (they took about 15 s). FOX One is gone (it needs cable or its own subscription): games on FOX, FS1 and Big Ten Network say what they need instead of opening it.
 

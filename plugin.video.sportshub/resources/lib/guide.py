@@ -357,6 +357,12 @@ def _build_channels():
             row["alts"] = [{"service": f["service"], "play": f["play"]} for f in others.values()]
             row["cats"] = set().union(*(f["cats"] for f in c))
             rows.append(row)
+    if kodi.setting("local_market", "auto").strip().lower() == "auto":
+        try:   # the market's call letters, from its own channels' shows (used from the next build on)
+            from resources.lib import location
+            location.learn_calls([(c["name"], [t for _, t in c["programs"]]) for c in rows])
+        except Exception as exc:
+            kodi.log("local stations not learned: %s" % exc)
     return sorted(rows, key=lambda c: (c["name"].lower(), c["service"]))
 
 

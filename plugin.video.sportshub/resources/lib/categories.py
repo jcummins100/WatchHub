@@ -38,6 +38,9 @@ _local_rx = {"key": None, "rx": None}
 def _local_pattern():
     from resources.lib import kodi
     words = kodi.ADDON.getSetting("local_market")  # empty = cleared on purpose
+    if words.strip().lower() == "auto":   # where the Shield is (location.py), learned call letters included
+        from resources.lib import location
+        words = ", ".join(location.market_words())
     if _local_rx["key"] != words:
         terms = [re.escape(w.strip()) for w in words.split(",") if w.strip()]
         _local_rx.update(key=words, rx=re.compile(r"\b(%s)\b" % "|".join(terms), re.I) if terms else None)

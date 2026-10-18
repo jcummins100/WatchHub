@@ -32,6 +32,17 @@ def _warm_sports_page(r):
     threading.Thread(target=work, name="sh-warm-sports", daemon=True).start()
 
 
+def _detect_location():
+    """Only when Your local stations is Automatic; a typed-in market is left alone."""
+    from resources.lib import kodi
+    try:
+        if kodi.setting("local_market", "auto").strip().lower() == "auto":
+            from resources.lib import location
+            location.detect()
+    except Exception as exc:
+        kodi.log("location: %s" % exc)
+
+
 def _int_setting(addon, key, default):
     try:
         return int(addon.getSetting(key) or default)
@@ -118,6 +129,8 @@ def main():
         homerows.apply_saved()
     except Exception as exc:
         kodi.log("home rows not applied: %s" % exc)
+    # where this Shield is, for the guide's Local stations (cached; looked up again every few hours)
+    _detect_location()
     # the channel list first, from whatever listings are cached: the home rows read the copy it saves
     uiworker.warm_guide()
     if pending_guide:
@@ -160,6 +173,7 @@ def main():
             homefilter.forget_spot()
         if now >= next_refresh:
             try:
+                _detect_location()
                 health.warm_caches()
                 uiworker.warm_guide()
                 uiworker.fill_show_genres()

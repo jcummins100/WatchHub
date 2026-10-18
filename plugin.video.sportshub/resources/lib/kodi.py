@@ -171,7 +171,26 @@ def set_category(name):
 
 # ---------------------------------------------------------------- home-row snapshots
 # A home row records what it added; next time it can show that copy at once and rebuild behind it (ui.py).
-_REC = {"items": None, "view": None, "dry": False}
+import threading as _threading
+
+
+class _Rec(_threading.local):
+    """Per thread: the service warms rows on its own threads while other code runs (a shared dict let two
+    warm-ups record into each other's lists)."""
+    def __init__(self):
+        self.d = {"items": None, "view": None, "dry": False}
+
+    def __getitem__(self, k):
+        return self.d[k]
+
+    def __setitem__(self, k, v):
+        self.d[k] = v
+
+    def update(self, **kw):
+        self.d.update(kw)
+
+
+_REC = _Rec()
 
 
 def record_start(dry=False):
