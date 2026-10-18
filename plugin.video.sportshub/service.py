@@ -43,23 +43,23 @@ def _detect_location():
         kodi.log("location: %s" % exc)
 
 
-_vpn = {"busy": False, "focused": False}
+_vpn = {"busy": False, "focused": False, "at": 0}
 
 
-def _vpn_status(home, fresh=False):
-    """Checked on its own thread (the lookup can take a few seconds); the header reads sh_vpn / sh_vpn_title."""
+def _vpn_status(home, max_age=120):
+    """Checked on its own thread (the lookup can take a few seconds); the skin reads the sh_vpn_* properties."""
     if _vpn["busy"]:
         return
+    _vpn.update(busy=True, at=time.time())
 
     def work():
         from resources.lib import location
         try:
-            title, text = location.vpn_status(max_age=3 if fresh else 30)
-            home.setProperty("sh_vpn_title", title)
-            home.setProperty("sh_vpn", text)
+            st = location.vpn_status(max_age=max_age)
+            for k in ("state", "kicker", "where", "how", "local", "tip"):
+                home.setProperty("sh_vpn_" + k, st.get(k, ""))
         finally:
             _vpn["busy"] = False
-    _vpn["busy"] = True
     threading.Thread(target=work, name="sh-vpn", daemon=True).start()
 
 
@@ -182,11 +182,13 @@ def main():
             home.clearProperty("sh_rows_stale")
             reload_pending = reload_pending or now
         # the VPN button is highlighted: say whether the VPN is on and where the internet puts you
-        if xbmc.getCondVisibility("Control.HasFocus(808)"):
-            _vpn_status(home, fresh=not _vpn["focused"])   # just highlighted (maybe back from IPVanish): ask again
-            _vpn["focused"] = True
-        else:
-            _vpn["focused"] = False
+        # the VPN button: its badge (checked every 2 minutes) and, while highlighted, the status panel above the rows
+        focused = xbmc.getCondVisibility("Control.HasFocus(808)")
+        if focused and not _vpn["focused"]:
+            _vpn_status(home, max_age=3)   # just highlighted (maybe back from IPVanish): ask again
+        elif now - _vpn["at"] > 120:
+            _vpn_status(home, max_age=120)
+        _vpn["focused"] = focused
         # starred or unstarred a channel somewhere: refresh the ★ rows the home Live row reads
         try:
             from resources.lib import guide

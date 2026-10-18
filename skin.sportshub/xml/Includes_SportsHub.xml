@@ -14,7 +14,7 @@
 	<expression name="SH_Focus9960">Control.HasFocus(9960) | Control.HasFocus(9961)</expression>
 	<!-- Up Next card with its episode details: the hero shows Season/Episode, summary and progress (map 5.3) -->
 	<!-- a poster with its own hero lines (Up Next, New this week, Rediscover, Trending): headline, summary, details -->
-	<expression name="SH_UpNextHero">[Control.HasFocus(9960) + !String.IsEmpty(Container(9960).ListItem.Property(episode))] | [Control.HasFocus(9961) + !String.IsEmpty(Container(9961).ListItem.Property(episode))] | [Control.HasFocus(9950) + !String.IsEmpty(Container(9950).ListItem.Property(episode))] | [Control.HasFocus(9951) + !String.IsEmpty(Container(9951).ListItem.Property(episode))] | [Control.HasFocus(9400) + !String.IsEmpty(Container(9400).ListItem.Property(episode))] | [Control.HasFocus(9450) + !String.IsEmpty(Container(9450).ListItem.Property(episode))] | [Control.HasFocus(9470) + !String.IsEmpty(Container(9470).ListItem.Property(episode))] | [Control.HasFocus(9800) + !String.IsEmpty(Container(9800).ListItem.Property(episode))] | [Control.HasFocus(9801) + !String.IsEmpty(Container(9801).ListItem.Property(episode))]</expression>
+	<expression name="SH_UpNextHero">[Control.HasFocus(9960) + !String.IsEmpty(Container(9960).ListItem.Property(episode))] | [Control.HasFocus(9961) + !String.IsEmpty(Container(9961).ListItem.Property(episode))] | [Control.HasFocus(9950) + !String.IsEmpty(Container(9950).ListItem.Property(episode))] | [Control.HasFocus(9951) + !String.IsEmpty(Container(9951).ListItem.Property(episode))] | [Control.HasFocus(9400) + !String.IsEmpty(Container(9400).ListItem.Property(episode))] | [Control.HasFocus(9450) + !String.IsEmpty(Container(9450).ListItem.Property(episode))] | [Control.HasFocus(9470) + !String.IsEmpty(Container(9470).ListItem.Property(episode))] | [Control.HasFocus(9800) + !String.IsEmpty(Container(9800).ListItem.Property(episode))] | [Control.HasFocus(9801) + !String.IsEmpty(Container(9801).ListItem.Property(episode))] | [Control.HasFocus(808) + !String.IsEmpty(Window(Home).Property(sh_vpn_where))]</expression>
 	<expression name="SH_FocusChips">Control.HasFocus(9050) | Control.HasFocus(9051)</expression>
 
 	<expression name="SH_HeroIsLive">[$EXP[SH_Focus9100] + String.IsEqual(Container(9100).ListItem.Property(state),live)] | [$EXP[SH_Focus9200] + String.IsEqual(Container(9200).ListItem.Property(state),live)] | [$EXP[SH_Focus9300] + String.IsEqual(Container(9300).ListItem.Property(state),live)]</expression>
@@ -68,6 +68,7 @@
 		<value condition="Control.HasFocus(9150)">BY SPORT</value>
 		<value condition="Control.HasFocus(9160)">SCHEDULES</value>
 		<value condition="$EXP[SH_Focus9600]">KODI</value>
+		<value condition="Control.HasFocus(808) + !String.IsEmpty(Window(Home).Property(sh_vpn_where))">$INFO[Window(Home).Property(sh_vpn_kicker)]</value>
 		<value></value>
 	</variable>
 	<variable name="SH_HeroEpisode">
@@ -80,6 +81,7 @@
 		<value condition="Control.HasFocus(9470)">$INFO[Container(9470).ListItem.Property(episode)]</value>
 		<value condition="Control.HasFocus(9800)">$INFO[Container(9800).ListItem.Property(episode)]</value>
 		<value condition="Control.HasFocus(9801)">$INFO[Container(9801).ListItem.Property(episode)]</value>
+		<value condition="Control.HasFocus(808) + !String.IsEmpty(Window(Home).Property(sh_vpn_where))">$INFO[Window(Home).Property(sh_vpn_how)]</value>
 		<value></value>
 	</variable>
 	<variable name="SH_HeroSummary">
@@ -92,6 +94,7 @@
 		<value condition="Control.HasFocus(9470)">$INFO[Container(9470).ListItem.Property(summary)]</value>
 		<value condition="Control.HasFocus(9800)">$INFO[Container(9800).ListItem.Property(summary)]</value>
 		<value condition="Control.HasFocus(9801)">$INFO[Container(9801).ListItem.Property(summary)]</value>
+		<value condition="Control.HasFocus(808) + !String.IsEmpty(Window(Home).Property(sh_vpn_where))">$INFO[Window(Home).Property(sh_vpn_local)]</value>
 		<value></value>
 	</variable>
 	<variable name="SH_HeroChips">
@@ -104,6 +107,7 @@
 		<value condition="Control.HasFocus(9470)">$INFO[Container(9470).ListItem.Property(chips)]</value>
 		<value condition="Control.HasFocus(9800)">$INFO[Container(9800).ListItem.Property(chips)]</value>
 		<value condition="Control.HasFocus(9801)">$INFO[Container(9801).ListItem.Property(chips)]</value>
+		<value condition="Control.HasFocus(808) + !String.IsEmpty(Window(Home).Property(sh_vpn_where))">$INFO[Window(Home).Property(sh_vpn_tip)]</value>
 		<value></value>
 	</variable>
 	<variable name="SH_HeroTitle">
@@ -111,7 +115,7 @@
 		<value condition="Control.HasFocus(806)">Favorites</value>
 		<value condition="Control.HasFocus(807)">Sports</value>
 		<value condition="Control.HasFocus(801)">Search</value>
-		<value condition="Control.HasFocus(808) + !String.IsEmpty(Window(Home).Property(sh_vpn_title))">$INFO[Window(Home).Property(sh_vpn_title)]</value>
+		<value condition="Control.HasFocus(808) + !String.IsEmpty(Window(Home).Property(sh_vpn_where))">$INFO[Window(Home).Property(sh_vpn_where)]</value>
 		<value condition="Control.HasFocus(808)">VPN</value>
 		<value condition="Control.HasFocus(802)">WatchHub settings</value>
 		<value condition="Control.HasFocus(804)">Power</value>
@@ -143,7 +147,6 @@
 		<value condition="Control.HasFocus(806)">Your starred channels, shows, movies and games</value>
 		<value condition="Control.HasFocus(807)">Live sports, today's games, schedules by conference and division</value>
 		<value condition="Control.HasFocus(801)">Movies, shows and channels on your services</value>
-		<value condition="Control.HasFocus(808) + !String.IsEmpty(Window(Home).Property(sh_vpn))">$INFO[Window(Home).Property(sh_vpn)]</value>
 		<value condition="Control.HasFocus(808)">Checking the connection... OK opens IPVanish.</value>
 		<value condition="Control.HasFocus(802)">Sources, Trakt, region and display options</value>
 		<value condition="Control.HasFocus(804)">Exit Kodi</value>

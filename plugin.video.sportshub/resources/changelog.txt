@@ -1,3 +1,6 @@
+0.7.34 (skin 0.7.14) - Oct 17
+The VPN button shows its state at a glance (green check: on, grey bar: off; checked every 2 minutes). Highlighted, the panel above the rows reads like a show panel: PROTECTED or NOT PROTECTED, where the internet puts you, your connection, your local stations and a tip.
+
 0.7.33 (skin 0.7.13) - Oct 17
 VPN button in the top bar, between Settings and Power: opens IPVanish. Highlight it to see whether the VPN is on and where the internet puts you ("VPN · on - Chicago, Illinois"); your local stations follow when that changes. Local stations also pick up call letters from a channel's own name (WPXI).
 

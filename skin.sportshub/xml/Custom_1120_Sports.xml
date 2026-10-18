@@ -239,7 +239,7 @@
 					<param name="control_id" value="808"/>
 					<param name="height" value="80"/>
 					<param name="onclick" value="RunPlugin(plugin://plugin.video.sportshub/?action=play&amp;src=app&amp;id=com.ixolit.ipvanish&amp;name=IPVanish)"/>
-					<param name="icon" value="sportshub/vpn_shield.png"/>
+					<param name="icon" value="sportshub/vpn_shield$INFO[Window(Home).Property(sh_vpn_state),_,].png"/>
 					<param name="label" value="VPN"/>
 				</include>
 				<include content="IconButton">
