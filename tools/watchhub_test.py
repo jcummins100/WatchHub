@@ -707,7 +707,18 @@ class OnDevice:
             rep.add(B, "Cleanup: settings restored, JSON-RPC off, Kodi restarted", "INFO", "")
 
     def _ui_tests(self, B):
+        global ALL_ROWS
         d, rep = self.d, self.rep
+        # the rows in the order this Shield shows them (WatchHub settings > Home screen rows), hidden ones left out
+        try:
+            saved = json.loads(d.sh("cat %s/userdata/addon_data/plugin.video.sportshub/homerows.json 2>/dev/null" % KODI_HOME) or "{}")
+        except ValueError:
+            saved = {}
+        if saved.get("order"):
+            names = dict(ALL_ROWS)
+            mid = [(int(r), names[int(r)]) for r in saved["order"] if int(r) in names and r not in saved.get("hidden", [])]
+            ALL_ROWS = [ALL_ROWS[0]] + mid + [ALL_ROWS[-1]]
+            rep.add(B, "Home rows: this Shield's saved order", "INFO", ", ".join(n for _, n in ALL_ROWS))
         if os.environ.get("WH_ONLY_FILTERS"):
             return self._filters(B)
         gaps = bool(os.environ.get("WH_GAPS"))
@@ -719,7 +730,7 @@ class OnDevice:
             return self._free_tv_and_power(B)
         # ---------------- startup
         st = d.info("System.CurrentControlId", "System.CurrentWindow", "Window(Home).Property(sh_provider)", "Skin.CurrentTheme", "System.BuildVersion")
-        rep.add(B, "Startup lands on WatchHub home, Up Next focused", "PASS" if st.get("System.CurrentControlId") == "9960" else "ISSUE",
+        rep.add(B, "Startup lands on WatchHub home, first row (%s) focused" % ALL_ROWS[1][1], "PASS" if st.get("System.CurrentControlId") == str(ALL_ROWS[1][0]) else "ISSUE",
                 json.dumps(st), d.shot("startup"))
 
         # ---------------- All view: every row reachable in order, counts, hero
