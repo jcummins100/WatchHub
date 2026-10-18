@@ -209,6 +209,34 @@
 			</control>
 		</definition>
 	</include>
+	<include name="IconToggleButton">
+		<!-- an IconButton with two pictures: icon_on while "selected" is true, icon_off otherwise (the VPN badge) -->
+		<param name="height">120</param>
+		<param name="visible">true</param>
+		<definition>
+			<control type="radiobutton" id="$PARAM[control_id]">
+				<width>120</width>
+				<height>$PARAM[height]</height>
+				<align>center</align>
+				<aligny>center</aligny>
+				<onclick>$PARAM[onclick]</onclick>
+				<font></font>
+				<label>$PARAM[label]</label>
+				<texturefocus colordiffuse="button_focus">buttons/roundbutton-fo.png</texturefocus>
+				<texturenofocus />
+				<radioposx>40</radioposx>
+				<radioposy>0</radioposy>
+				<radiowidth>40</radiowidth>
+				<radioheight>40</radioheight>
+				<selected>$PARAM[selected]</selected>
+				<textureradioonfocus>$PARAM[icon_on]</textureradioonfocus>
+				<textureradioonnofocus colordiffuse="grey">$PARAM[icon_on]</textureradioonnofocus>
+				<textureradioofffocus>$PARAM[icon_off]</textureradioofffocus>
+				<textureradiooffnofocus colordiffuse="grey">$PARAM[icon_off]</textureradiooffnofocus>
+				<visible>$PARAM[visible]</visible>
+			</control>
+		</definition>
+	</include>
 	<include name="BottomMainMenuToggleItem">
 		<param name="height">120</param>
 		<definition>

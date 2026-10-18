@@ -36,7 +36,7 @@
     </assets>
   </extension>
 </addon>
-<addon id="skin.sportshub" version="0.7.14" name="WatchHub" provider-name="jcummins (based on Estuary by phil65, Ichabod Fletchman)">
+<addon id="skin.sportshub" version="0.7.15" name="WatchHub" provider-name="jcummins (based on Estuary by phil65, Ichabod Fletchman)">
 	<requires>
 		<import addon="xbmc.gui" version="5.17.0"/>
 	</requires>
