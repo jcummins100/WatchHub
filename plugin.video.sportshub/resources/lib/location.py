@@ -118,13 +118,41 @@ def learn_calls(channels):
     for name, titles in channels:
         if not rx.search(name or ""):
             continue
-        for text in [name] + list(titles):
+        for text, weight in [(name, 2)] + [(t, 1) for t in titles]:   # in the channel's own name: enough on its own
             for c in set(_CALLS.findall(text or "")):
                 if c not in _NOT_CALLS:
-                    seen[c] = seen.get(c, 0) + 1
+                    seen[c] = seen.get(c, 0) + weight
     calls = sorted(c for c, n in seen.items() if n >= 2)
     data = load()
     if calls and calls != data.get("calls"):
         data["calls"] = calls
         _save(data)
         kodi.log("location: %s stations learned: %s" % (data.get("market"), ", ".join(calls)))
+
+
+_STATUS = {"at": 0, "text": "", "title": ""}
+
+
+def vpn_status(max_age=30):
+    """(title, line) for the VPN button: is the internet connection a VPN (a data-centre address, which is what
+    VPN servers use) and where does it put you. ip-api.com, no account; checked only while the button is
+    highlighted. Kodi can't ask Android whether IPVanish is connected, so this is what the internet sees."""
+    if time.time() - _STATUS["at"] < max_age and _STATUS["text"]:
+        return _STATUS["title"], _STATUS["text"]
+    try:
+        import urllib.request
+        url = "http://ip-api.com/json/?fields=status,city,regionName,isp,proxy,hosting"
+        with urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": "Kodi WatchHub"}), timeout=6) as resp:
+            info = json.loads(resp.read().decode("utf-8"))
+        where = ", ".join(x for x in (info.get("city"), info.get("regionName")) if x) or "somewhere unknown"
+        if info.get("city") and info["city"] != load().get("city") and kodi.setting("local_market", "auto").strip().lower() == AUTO:
+            detect(force=True)   # moved (a VPN switched on or off): local stations follow now, not in 6 hours
+        if info.get("hosting") or info.get("proxy"):
+            title, text = "VPN · on", "Connected: the internet sees you in %s. Apps and your local stations follow it." % where
+        else:
+            title, text = "VPN · off", "Not connected: you're on %s in %s. OK opens IPVanish." % (info.get("isp") or "your own internet", where)
+    except Exception as exc:
+        kodi.log("vpn status: %s" % exc)
+        title, text = "VPN", "Couldn't check the connection right now. OK opens IPVanish."
+    _STATUS.update(at=time.time(), title=title, text=text)
+    return title, text

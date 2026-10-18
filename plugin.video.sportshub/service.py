@@ -43,6 +43,26 @@ def _detect_location():
         kodi.log("location: %s" % exc)
 
 
+_vpn = {"busy": False, "focused": False}
+
+
+def _vpn_status(home, fresh=False):
+    """Checked on its own thread (the lookup can take a few seconds); the header reads sh_vpn / sh_vpn_title."""
+    if _vpn["busy"]:
+        return
+
+    def work():
+        from resources.lib import location
+        try:
+            title, text = location.vpn_status(max_age=3 if fresh else 30)
+            home.setProperty("sh_vpn_title", title)
+            home.setProperty("sh_vpn", text)
+        finally:
+            _vpn["busy"] = False
+    _vpn["busy"] = True
+    threading.Thread(target=work, name="sh-vpn", daemon=True).start()
+
+
 def _int_setting(addon, key, default):
     try:
         return int(addon.getSetting(key) or default)
@@ -161,6 +181,12 @@ def main():
         if home.getProperty("sh_rows_stale"):
             home.clearProperty("sh_rows_stale")
             reload_pending = reload_pending or now
+        # the VPN button is highlighted: say whether the VPN is on and where the internet puts you
+        if xbmc.getCondVisibility("Control.HasFocus(808)"):
+            _vpn_status(home, fresh=not _vpn["focused"])   # just highlighted (maybe back from IPVanish): ask again
+            _vpn["focused"] = True
+        else:
+            _vpn["focused"] = False
         # starred or unstarred a channel somewhere: refresh the ★ rows the home Live row reads
         try:
             from resources.lib import guide

@@ -1,5 +1,5 @@
-0.7.32 (skin 0.7.12) - Oct 17
-VPN button in the top bar, between Settings and Power: opens IPVanish.
+0.7.33 (skin 0.7.13) - Oct 17
+VPN button in the top bar, between Settings and Power: opens IPVanish. Highlight it to see whether the VPN is on and where the internet puts you ("VPN · on - Chicago, Illinois"); your local stations follow when that changes. Local stations also pick up call letters from a channel's own name (WPXI).
 
 0.7.32 - Oct 17
 Your local stations follow the Shield: WatchHub finds the nearest TV market from the internet connection (a VPN counts) and learns its stations from the guide (Pittsburgh: KDKA, WPXI, WTAE...). Settings > Your local stations shows what it found, or type your own. Fixed: two Sports page warm-ups at once could save empty rows.
