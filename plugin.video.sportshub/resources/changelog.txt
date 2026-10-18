@@ -1,3 +1,6 @@
+0.7.37 - Oct 18
+Sports Streams: the first time you add an add-on yourself, WatchHub asks you to confirm that add-ons you add are your choice and your responsibility (it only opens them). Cards you added say "Added by you".
+
 0.7.36 (skin 0.7.16) - Oct 18
 New row on the Sports page: Sports Streams, for your own Kodi video add-ons. It starts with samples (YouTube, Twitch, Vimeo); "Edit this row" at the end, or a long press on a card, adds, moves and removes them. OK opens an add-on, turns it on if it's off, or offers to install it.
 

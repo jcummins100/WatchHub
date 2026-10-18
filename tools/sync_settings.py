@@ -20,6 +20,8 @@ import time
 KODI = "/sdcard/Android/data/org.xbmc.kodi/files/.kodi"
 PROFILE = KODI + "/userdata/addon_data/plugin.video.sportshub"
 NEVER = {"trakt_access_token", "trakt_refresh_token", "trakt_token_expires"}  # per Shield
+# Never add sports_addons.json: the add-ons a user puts on Sports Streams are theirs and private (not read,
+# copied or changed by tools or AI).
 FILES = ["favorites.json", "guide_favorites.json", "guide_hidden.json", "upnext_order.json", "homerows.json", "recommended.json"]
 SETTING = re.compile(r'<setting id="([^"]+)"([^>]*?)(?:/>|>(.*?)</setting>)', re.S)
 

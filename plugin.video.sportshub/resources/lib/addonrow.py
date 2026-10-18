@@ -1,6 +1,7 @@
 """Sports page row SPORTS STREAMS: Kodi video add-ons the user picks, as app cards.
 
-The list is the user's: sports_addons.json in WatchHub's profile folder ({"ids": [...]}, left to right).
+The list is the user's: sports_addons.json in WatchHub's profile folder ({"ids": [...]}, left to right, plus
+"accepted" once they've agreed that add-ons they add are their own responsibility).
 Until they change it, the row shows a few sample add-ons from Kodi's official add-on list. OK opens an
 installed add-on (or turns it on, or offers to install it); the last card, "Edit this row", and each card's
 long-press menu add, move and remove add-ons. Only this row reloads after an edit (sh_addons token)."""
@@ -13,30 +14,57 @@ import xbmcgui
 
 from resources.lib import kodi
 
+# The user's own list: private. Tools and AI assistants don't read, copy or change it (only this row does).
 FILE = os.path.join(kodi.PROFILE_PATH, "sports_addons.json")
 # shown until the user saves a list of their own (all in Kodi's official add-on repository)
 SAMPLES = ["plugin.video.youtube", "plugin.video.twitch", "plugin.video.vimeo"]
 SAMPLE_NAMES = {"plugin.video.youtube": "YouTube", "plugin.video.twitch": "Twitch", "plugin.video.vimeo": "Vimeo"}
 
 
-def load():
+def _read():
     try:
         with open(FILE) as f:
-            ids = json.load(f).get("ids")
-        if isinstance(ids, list):
-            return [i for i in ids if isinstance(i, str) and i]
-    except (OSError, ValueError, AttributeError):
-        pass
+            data = json.load(f)
+        return data if isinstance(data, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def _write(data):
+    os.makedirs(kodi.PROFILE_PATH, exist_ok=True)
+    tmp = FILE + ".tmp"
+    with open(tmp, "w") as f:
+        json.dump(data, f, indent=1)
+    os.replace(tmp, FILE)
+
+
+def load():
+    ids = _read().get("ids")
+    if isinstance(ids, list):
+        return [i for i in ids if isinstance(i, str) and i]
     return list(SAMPLES)
 
 
 def save(ids):
-    os.makedirs(kodi.PROFILE_PATH, exist_ok=True)
-    tmp = FILE + ".tmp"
-    with open(tmp, "w") as f:
-        json.dump({"ids": ids}, f, indent=1)
-    os.replace(tmp, FILE)
+    _write(dict(_read(), ids=ids))
     _reload_row()
+
+
+NOTICE = ("Add-ons you add to this row are your choice and your responsibility.\n\n"
+          "WatchHub only opens them. It doesn't check, install or support them, or what they show.")
+
+
+def accept():
+    """Before the first add-on added by hand: the user agrees they're responsible for it. Asked once per Shield."""
+    data = _read()
+    if data.get("accepted"):
+        return True
+    if not xbmcgui.Dialog().yesno("Adding your own add-ons", NOTICE, nolabel="Cancel", yeslabel="I understand"):
+        return False
+    data["accepted"] = time.strftime("%Y-%m-%d %H:%M")
+    data.setdefault("ids", load())
+    _write(data)
+    return True
 
 
 def _reload_row():
@@ -70,6 +98,8 @@ def row():
             meta = "Turned off in Kodi - OK turns it on and opens it"
         else:
             meta = "Open %s" % name
+        if addon_id not in SAMPLES:
+            meta += " · Added by you"
         ctx = []
         if i > 0:
             ctx.append(("Move left", "RunPlugin(%s)" % kodi.build_url(action="addons_move", id=addon_id, by="-1")))
@@ -110,6 +140,8 @@ def open_addon(addon_id):
 
 def add():
     """Pick installed video add-ons to put on the row (or type an add-on ID that isn't installed yet)."""
+    if not accept():
+        return
     ids = load()
     choices = [a for a in installed_video_addons() if a[0] not in ids]
     labels = ["%s  [COLOR 80FFFFFF](%s)[/COLOR]" % (n, i) for i, n in choices] + ["Type an add-on ID..."]

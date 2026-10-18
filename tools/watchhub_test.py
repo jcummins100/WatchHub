@@ -1153,6 +1153,8 @@ class OnDevice:
         d.key("Select")
         opened = d.wait(lambda: active(1120), 15)
         d.wait(lambda: num(9200) > 0 and num(9160) > 0 and num(9100) > 0, 30, 1)
+        # 9170 Sports Streams: only that it has cards. What the user added there is private: never open,
+        # focus or describe its cards, and never touch sports_addons.json.
         rows = {r: num(r) for r in (9100, 9200, 9160, 9300, 9150, 9170)}
         rep.add(B, "Sports page: opens from the ball icon with its rows", "PASS" if opened and rows[9160] >= 6 and rows[9200] > 0 and rows[9170] > 0 else "FAIL",
                 "rows (live, games, schedules, soon, by sport, sports streams) = %s, %.1fs" % (list(rows.values()), time.time() - t), d.shot("sports-page"))
