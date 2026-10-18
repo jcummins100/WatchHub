@@ -74,11 +74,12 @@ def warm_caches():
     """Pre-fetch everything the main screens need so they open instantly."""
     from resources.lib.sources import espn, fast, sportsdb
 
-    for sid in fast.enabled_services():
-        try:
-            fast.channels(sid)
-        except Exception as exc:
-            kodi.log("warm %s failed: %s" % (sid, exc))
+    t0 = time.time()
+    try:
+        fast.save_sports_slim()   # also fills each service's guide cache
+        kodi.log("sports channels saved in %.1fs" % (time.time() - t0))
+    except Exception as exc:
+        kodi.log("warm sports channels failed: %s" % exc)
     if kodi.setting_bool("src_scores", True):
         try:
             espn.games()

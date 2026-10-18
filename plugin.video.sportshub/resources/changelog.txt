@@ -1,3 +1,6 @@
+0.7.35 - Oct 18
+Fixed: the Sports page schedules (and the TV Guide, info pages) could stop opening after the skin reloaded under the TV Guide; each screen now opens on its own. Live Sports Now, Starting Soon, By sport and Search read a small saved list of sports channels instead of every service's full guide (By sport took 42 s and Kodi gave up).
+
 0.7.34 (skin 0.7.14) - Oct 17
 The VPN button shows its state at a glance (green check: on, grey bar: off; checked every 2 minutes). Highlighted, the panel above the rows reads like a show panel: PROTECTED or NOT PROTECTED, where the internet puts you, your connection, your local stations and a tip.
 

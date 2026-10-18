@@ -9,6 +9,7 @@ import threading
 import time
 from urllib.parse import parse_qsl, urlparse
 
+import xbmc
 import xbmcgui
 
 from resources.lib import kodi
@@ -30,18 +31,36 @@ class Worker(threading.Thread):
         super().__init__(name="sh-ui", daemon=True)
         self.monitor = monitor
 
+    # the window each request opens: a second press while it's on screen does nothing
+    WINDOWS = {"guide": "Guide.xml", "info": "TitleInfo.xml", "calendar": "Calendar.xml", "browse": "Browse.xml",
+               "wh_settings": "selectdialog", "ctx": "contextmenu"}
+
     def run(self):
+        """Each request runs on its own thread. One at a time used to be the rule, and a window that vanished
+        without closing (a skin reload under the TV Guide) left every later request waiting forever (Oct 17)."""
         home = xbmcgui.Window(10000)
+        running = {}
         while not self.monitor.abortRequested():
             req = home.getProperty(REQUEST)
             if req:
                 home.clearProperty(REQUEST)
-                try:
-                    self.handle(req)
-                except Exception as exc:
-                    kodi.log("window request failed (%s): %s" % (req, exc))
+                action = dict(parse_qsl(urlparse(req).query)).get("action", "")
+                busy = running.get(action)
+                win = self.WINDOWS.get(action)
+                if busy and busy.is_alive() and win and xbmc.getCondVisibility("Window.IsActive(%s)" % win):
+                    kodi.log("window request skipped, %s is already open" % action)
+                else:
+                    t = threading.Thread(target=self._safe, args=(req,), name="sh-ui-%s" % action, daemon=True)
+                    running[action] = t
+                    t.start()
             if self.monitor.waitForAbort(0.05):
                 break
+
+    def _safe(self, req):
+        try:
+            self.handle(req)
+        except Exception as exc:
+            kodi.log("window request failed (%s): %s" % (req, exc))
 
     @staticmethod
     def handle(req):

@@ -17,7 +17,7 @@
 </addon>
 <addon id="plugin.video.sportshub"
        name="WatchHub"
-       version="0.7.34"
+       version="0.7.35"
        provider-name="jcummins">
   <requires>
     <import addon="xbmc.python" version="3.0.1"/>

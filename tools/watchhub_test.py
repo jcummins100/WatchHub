@@ -731,6 +731,9 @@ class OnDevice:
             rep.add(B, "Home rows: this Shield's saved order", "INFO", ", ".join(n for _, n in ALL_ROWS))
         if os.environ.get("WH_ONLY_FILTERS"):
             return self._filters(B)
+        if os.environ.get("WH_RERUN_SPORTS"):   # every Sports page tile, then the reload/restart cases
+            self._sports_page_tiles(B)
+            return self._resilience(B)
         if os.environ.get("WH_RERUN_HEADER"):   # the header buttons (Sports page, settings list, search) after a script fix
             self._header_tests(B)
             self._calendar_check(B)
@@ -814,6 +817,8 @@ class OnDevice:
 
         self._guide_tests(B)
         self._new_features(B)
+        self._sports_page_tiles(B)
+        self._resilience(B)
 
         # ---------------- More row: every tile
         d.goto_row(9600, ALL_ROWS)
@@ -1050,6 +1055,87 @@ class OnDevice:
         d.key("Back"); time.sleep(1)
         d.sh("rm -f %s" % favfile)  # leave no test favorites behind
         d.home()
+
+    def _sports_page_tiles(self, B):
+        """Every Schedules tile opens its league's calendar, every By sport tile opens its list - each within a
+        time limit (over 10 s fails; Oct 17 a By sport list took 42 s and Kodi gave up on it)."""
+        d, rep = self.d, self.rep
+        lab = lambda c, k: d.info("Container(%d).ListItemAbsolute(%d).Label" % (c, k)).get("Container(%d).ListItemAbsolute(%d).Label" % (c, k), "")
+        num = lambda c: int(d.info("Container(%d).NumItems" % c).get("Container(%d).NumItems" % c) or 0)
+        active = lambda w: d.is_("Window.IsActive(%s)" % w).get("Window.IsActive(%s)" % w)
+        verdict = lambda secs, ok: "FAIL" if not ok or secs > 10 else ("ISSUE" if secs > 5 else "PASS")
+
+        def sports_page():
+            d.home(); d.goto_row(9050, ALL_ROWS)
+            for _ in range(3):
+                d.builtin("SetFocus(807)"); time.sleep(1.5)
+                if d.focus() == 807:
+                    break
+            d.key("Select")
+            return d.wait(lambda: active(1120), 15) and d.wait(lambda: num(9160) > 0 and num(9150) > 0, 30, 0.5)
+
+        if not sports_page():
+            rep.add(B, "Sports page tiles", "FAIL", "the Sports page didn't open with its rows", d.shot("sports-tiles"))
+            return
+        for k in range(num(9160)):
+            name = lab(9160, k)
+            d.builtin("SetFocus(9160,%d,absolute)" % k); time.sleep(1)
+            t = time.time()
+            d.key("Select")
+            opened = d.wait(lambda: active("Calendar.xml"), 12, 0.25)
+            filled = opened and d.wait(lambda: num(100) > 0 or "No " in (d.info("Window(Calendar.xml).Property(message)").get("Window(Calendar.xml).Property(message)") or ""), 15, 0.25)
+            secs = time.time() - t
+            rep.add(B, "Sports page: %s schedule opens" % name, verdict(secs, filled),
+                    "%s in %.1fs, %d groups" % ("opened" if opened else "did NOT open", secs, num(100) if opened else 0), d.shot("schedule-%s" % name))
+            if opened:
+                d.key("Back"); d.wait(lambda: not active("Calendar.xml"), 5)
+            if not active(1120) and not sports_page():
+                return
+        for k in range(num(9150)):
+            name = lab(9150, k)
+            d.builtin("SetFocus(9150,%d,absolute)" % k); time.sleep(1)
+            t = time.time()
+            d.key("Select")
+            ok = d.wait(lambda: active("videos") and int(d.info("Container.NumItems").get("Container.NumItems") or 0) > 0, 15, 0.25)
+            secs = time.time() - t
+            rep.add(B, "Sports page: By sport %s opens" % name, verdict(secs, ok),
+                    "%s in %.1fs, %s items" % ("listed" if ok else "did NOT list", secs, d.info("Container.NumItems").get("Container.NumItems")),
+                    d.shot("bysport-%s" % name) if not ok or secs > 5 else None)
+            if active("videos"):
+                d.key("Back"); d.wait(lambda: active(1120), 8)
+            if not active(1120) and not sports_page():
+                return
+        d.home()
+
+    def _resilience(self, B):
+        """WatchHub's screens keep opening after the things that broke them on Oct 17: a skin reload while the
+        TV Guide is open, and Kodi restarting with the guide open (it comes back on start)."""
+        d, rep = self.d, self.rep
+        active = lambda w: d.is_("Window.IsActive(%s)" % w).get("Window.IsActive(%s)" % w)
+        req = lambda url: d.builtin("SetProperty(sh_ui_request,%s,home)" % url)
+
+        def calendar_opens(label):
+            d.home()
+            t = time.time()
+            req("plugin://plugin.video.sportshub/?action=calendar&league=nfl")
+            ok = d.wait(lambda: active("Calendar.xml"), 12, 0.25)
+            rep.add(B, "Still works: calendar opens %s" % label, "PASS" if ok else "FAIL", "%.1fs" % (time.time() - t), d.shot("resilience-%s" % label.split()[1]))
+            if ok:
+                d.key("Back"); d.wait(lambda: not active("Calendar.xml"), 5)
+
+        d.home()
+        req("plugin://plugin.video.sportshub/?action=guide")
+        d.wait(lambda: active("Guide.xml"), 30)
+        d.builtin("ReloadSkin()"); time.sleep(6)
+        calendar_opens("after a skin reload under the TV Guide")
+        req("plugin://plugin.video.sportshub/?action=guide")
+        d.wait(lambda: active("Guide.xml"), 30)
+        took = d.restart_kodi()
+        reopened = d.wait(lambda: active("Guide.xml"), 40)
+        rep.add(B, "Kodi restart with the TV Guide open: guide comes back", "PASS" if reopened else "INFO", "home in %.0fs" % (took or -1), d.shot("resilience-restart"))
+        if reopened:
+            d.key("Back"); d.wait(lambda: not active("Guide.xml"), 8)
+        calendar_opens("after Kodi restarted")
 
     def _calendar_check(self, B):
         """The Sports page from the header's ball icon, and a league's calendar with its Next week button."""

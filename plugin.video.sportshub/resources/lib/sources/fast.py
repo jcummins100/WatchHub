@@ -249,8 +249,73 @@ def _load(sid):
     return out
 
 
-def channels(sid, sports_only=True):
-    """Return [(channel_id, channel_dict)] for a service, sports channels first/only."""
+# The sports channels with only their next hours of listings, saved by the service after each refresh: Live
+# Sports Now, Starting Soon, By sport and Search read this (a few hundred KB) instead of parsing every service's
+# full guide file (tens of MB; 30-40 s on the Shield when several rows did it at once).
+SLIM_FILE = "sports_channels.json"
+SLIM_MAX_AGE = 30 * 60
+_slim = {"data": None, "mtime": 0}
+
+
+def _slim_key():
+    return [sorted(enabled_services()), kodi.setting("region", "us"), kodi.setting_bool("hide_spanish", True)]
+
+
+def _slim_path():
+    import os
+    return os.path.join(kodi.ensure_profile_dir(), SLIM_FILE)
+
+
+def save_sports_slim():
+    """Run by the service: every enabled service's sports channels, listings from 3 hours ago to 12 hours ahead."""
+    import os
+    now = int(time.time())
+    out = {}
+    for sid in enabled_services():
+        rows = []
+        for cid, ch in channels(sid, fresh=True):
+            progs = [e for e in (ch.get("programs") or []) if isinstance(e, (list, tuple)) and len(e) > 1]
+            keep = []
+            for i, e in enumerate(progs):
+                try:
+                    start = int(e[0])
+                    nxt = int(progs[i + 1][0]) if i + 1 < len(progs) else start + 3600
+                except (TypeError, ValueError):
+                    continue
+                if nxt >= now - 3 * 3600 and start <= now + 12 * 3600:
+                    keep.append([start, str(e[1])])
+            slim = {k: ch[k] for k in ("name", "logo", "art", "fanart", "description", "groups", "group") if ch.get(k)}
+            slim["programs"] = keep
+            rows.append([cid, slim])
+        out[sid] = rows
+    tmp = _slim_path() + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as fh:
+        json.dump({"at": now, "key": _slim_key(), "services": out}, fh)
+    os.replace(tmp, _slim_path())
+
+
+def _sports_slim():
+    import os
+    try:
+        mtime = os.path.getmtime(_slim_path())
+        if time.time() - mtime > SLIM_MAX_AGE:
+            return None
+        if _slim["mtime"] != mtime:
+            with open(_slim_path(), encoding="utf-8") as fh:
+                _slim.update(data=json.load(fh), mtime=mtime)
+    except (OSError, ValueError):
+        return None
+    data = _slim["data"]
+    return data if data and data.get("key") == _slim_key() else None
+
+
+def channels(sid, sports_only=True, fresh=False):
+    """Return [(channel_id, channel_dict)] for a service, sports channels first/only. Sports channels come from
+    the service's saved copy when it's fresh (fresh=True always reads the full guide file)."""
+    if sports_only and not fresh:
+        slim = _sports_slim()
+        if slim and sid in slim["services"]:
+            return [(cid, ch) for cid, ch in slim["services"][sid]]
     result = []
     for cid, ch in _load(sid).items():
         groups = ch.get("groups") or ch.get("group")
