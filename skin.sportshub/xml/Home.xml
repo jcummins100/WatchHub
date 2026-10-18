@@ -307,10 +307,10 @@
 				<textcolor>B0FFFFFF</textcolor>
 			</control>
 			<control type="grouplist" id="700">
-				<!-- centred on the screen: 6 buttons x 120 -->
-				<left>600</left>
+				<!-- centred on the screen: 7 buttons x 120 -->
+				<left>540</left>
 				<top>26</top>
-				<width>720</width>
+				<width>840</width>
 				<height>80</height>
 				<orientation>horizontal</orientation>
 				<itemgap>0</itemgap>
@@ -352,6 +352,13 @@
 					<param name="onclick" value="SetProperty(sh_ui_request,plugin://plugin.video.sportshub/?action=wh_settings,home)"/>
 					<param name="icon" value="icons/settings.png"/>
 					<param name="label" value="$LOCALIZE[21417]"/>
+				</include>
+				<include content="IconButton">
+					<param name="control_id" value="808"/>
+					<param name="height" value="80"/>
+					<param name="onclick" value="RunPlugin(plugin://plugin.video.sportshub/?action=play&amp;src=app&amp;id=com.ixolit.ipvanish&amp;name=IPVanish)"/>
+					<param name="icon" value="sportshub/vpn_shield.png"/>
+					<param name="label" value="VPN"/>
 				</include>
 				<include content="IconButton">
 					<param name="control_id" value="804"/>

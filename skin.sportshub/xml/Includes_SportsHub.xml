@@ -111,6 +111,7 @@
 		<value condition="Control.HasFocus(806)">Favorites</value>
 		<value condition="Control.HasFocus(807)">Sports</value>
 		<value condition="Control.HasFocus(801)">Search</value>
+		<value condition="Control.HasFocus(808)">VPN</value>
 		<value condition="Control.HasFocus(802)">WatchHub settings</value>
 		<value condition="Control.HasFocus(804)">Power</value>
 		<value condition="Control.HasFocus(9050)">$INFO[Container(9050).ListItem.Label]</value>
@@ -141,6 +142,7 @@
 		<value condition="Control.HasFocus(806)">Your starred channels, shows, movies and games</value>
 		<value condition="Control.HasFocus(807)">Live sports, today's games, schedules by conference and division</value>
 		<value condition="Control.HasFocus(801)">Movies, shows and channels on your services</value>
+		<value condition="Control.HasFocus(808)">Open IPVanish. With the VPN on, apps and your local stations follow the VPN's location</value>
 		<value condition="Control.HasFocus(802)">Sources, Trakt, region and display options</value>
 		<value condition="Control.HasFocus(804)">Exit Kodi</value>
 		<value condition="Control.HasFocus(9050)">$INFO[Container(9050).ListItem.Property(meta)]</value>

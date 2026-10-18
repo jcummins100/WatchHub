@@ -1,3 +1,6 @@
+0.7.32 (skin 0.7.12) - Oct 17
+VPN button in the top bar, between Settings and Power: opens IPVanish.
+
 0.7.32 - Oct 17
 Your local stations follow the Shield: WatchHub finds the nearest TV market from the internet connection (a VPN counts) and learns its stations from the guide (Pittsburgh: KDKA, WPXI, WTAE...). Settings > Your local stations shows what it found, or type your own. Fixed: two Sports page warm-ups at once could save empty rows.
 
