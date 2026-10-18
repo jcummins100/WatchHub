@@ -10,7 +10,9 @@ from resources.lib import kodi, ui  # noqa: E402
 
 def main():
     try:
-        ui.dispatch(kodi.parse_params())
+        params = kodi.parse_params()
+        kodi.CALL = " ".join(str(params[k]) for k in ("action", "row", "cat", "league", "name", "svc") if params.get(k)) or "root"
+        ui.dispatch(params)
     except Exception:  # surface errors in the Kodi log instead of a silent empty list
         import traceback
 

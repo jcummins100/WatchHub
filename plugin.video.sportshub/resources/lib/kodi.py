@@ -14,6 +14,10 @@ import xbmcgui
 import xbmcplugin
 import xbmcvfs
 
+import time as _time
+START = _time.time()   # when this plugin call began: end_directory logs how long the screen took ("timing:")
+CALL = ""              # what this call is (set by addon.py), for the timing line
+
 ADDON = xbmcaddon.Addon()
 ADDON_ID = ADDON.getAddonInfo("id")
 ADDON_NAME = ADDON.getAddonInfo("name")
@@ -271,6 +275,7 @@ def end_directory(succeeded=True, cache=False, update_listing=False, view=None):
         if _REC["dry"]:
             return
     log("end_directory handle=%s ok=%s" % (HANDLE, succeeded))
+    log("timing: %s %.2fs" % (CALL or "plugin", _time.time() - START))
     if xbmc.getSkinDir() == "skin.sportshub" and HANDLE >= 0:
         # The WatchHub skin picks its layout from the content type (posters for "movies", channel/tile
         # cards otherwise) - SetViewMode alone races the window loading the list and sometimes loses.

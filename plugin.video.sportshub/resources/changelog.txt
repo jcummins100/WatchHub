@@ -1,3 +1,6 @@
+0.7.28 - Oct 17
+Every screen logs how long it took to appear (tools/perf_report.py lists the slowest), so slow spots can be found and sped up.
+
 0.7.27 - Oct 17
 Up Next and the episode list play the episode itself on Netflix, Prime Video, Apple TV and others (MobLand S2E05 starts after Prime's profile screen). Movie pages show "In the series" / "You may also like" right away; where each streams fills in after.
 
