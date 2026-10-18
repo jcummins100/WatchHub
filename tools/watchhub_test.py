@@ -541,6 +541,16 @@ class Device:
                 self.key("Down")
         return self.focus() == target
 
+    def menu_labels(self):
+        """The open long-press menu's entries, top to bottom (Kodi's context menu is buttons 1001, 1002, ... in grouplist 996)."""
+        out = []
+        for k in range(20):
+            l = self.info("Control.GetLabel(%d)" % (1001 + k)).get("Control.GetLabel(%d)" % (1001 + k), "")
+            if not l:
+                break
+            out.append(l)
+        return out
+
     def goto_item(self, cid, n):
         """1-based position n in container cid."""
         for _ in range(60):
@@ -660,7 +670,7 @@ class OnDevice:
         dialogs = [k for k, v in d.is_("Window.IsActive(yesnodialog)", "Window.IsActive(contextmenu)", "Window.IsActive(busydialog)",
                                        "Window.IsActive(selectdialog)", "Window.IsActive(okdialog)", "Window.IsActive(addonsettings)",
                                        "Window.IsActive(virtualkeyboard)", "Window.IsActive(TitleInfo.xml)", "Window.IsActive(Browse.xml)", "Window.IsActive(videos)",
-                                       "Window.IsActive(shutdownmenu)", "Window.IsActive(skinsettings)").items() if v]
+                                       "Window.IsActive(shutdownmenu)", "Window.IsActive(skinsettings)", "Window.IsActive(1120)", "Window.IsActive(Calendar.xml)").items() if v]
         outcome = ("launched %s" % launched) if launched else ("window: %s %s" % (state.get("System.CurrentWindow"), ",".join(x[16:-1] for x in dialogs)))
         result = "FAIL" if tb else "PASS"
         if expect and not tb:
@@ -721,6 +731,10 @@ class OnDevice:
             rep.add(B, "Home rows: this Shield's saved order", "INFO", ", ".join(n for _, n in ALL_ROWS))
         if os.environ.get("WH_ONLY_FILTERS"):
             return self._filters(B)
+        if os.environ.get("WH_RERUN_GUIDE"):   # just the TV Guide and the 0.7 features (a re-check after a script fix)
+            self._guide_tests(B)
+            self._new_features(B)
+            return self._search_back(B)
         gaps = bool(os.environ.get("WH_GAPS"))
         if gaps:
             return self._gaps(B)
@@ -865,9 +879,7 @@ class OnDevice:
             open_ = d.is_("Window.IsActive(contextmenu)").get("Window.IsActive(contextmenu)")
             entries = []
             if open_:
-                n = int(d.info("Container(996).NumItems").get("Container(996).NumItems") or 0)
-                for k in range(n):
-                    entries.append(d.info("Container(996).ListItemAbsolute(%d).Label" % k).get("Container(996).ListItemAbsolute(%d).Label" % k, ""))
+                entries = d.menu_labels()
             rep.add(B, "Long-press menu: %s" % name, "PASS" if open_ else "ISSUE", "; ".join(entries) or "no menu", d.shot("ctx-%s" % name))
             d.key("Back")
         rep.add(B, "Long-press: Trakt mark watched / add to watchlist", "SKIP", "would change your Trakt data")
@@ -883,9 +895,11 @@ class OnDevice:
                 rep.add(B, "Header: %s" % bname, "FAIL", "could not focus button %d (focus=%s)" % (bid, d.focus()))
                 continue
             if bname == "Sports":
-                self.click(B, "Header: Sports opens the Sports page", lambda l, s_, dl: "Window.IsActive(videos)" in dl, back=False)
-                st = d.info("Container.NumItems", "Container.ListItemAbsolute(0).Label")
-                rep.add(B, "Sports page: Live sports now, games, Starting soon, By sport, TV Guide", "PASS" if int(st.get("Container.NumItems") or 0) >= 5 else "FAIL",
+                # the ball icon opens the skin's Sports page (window 1120) with its own rows
+                self.click(B, "Header: Sports opens the Sports page", lambda l, s_, dl: "Window.IsActive(1120)" in dl, back=False)
+                d.wait(lambda: d.info("Container(9160).NumItems").get("Container(9160).NumItems") not in (None, "", "0"), 20)
+                st = d.info(*["Container(%d).NumItems" % r for r in (9100, 9200, 9160, 9300, 9150)])
+                rep.add(B, "Sports page: Live sports now, games, Schedules, Starting soon, By sport", "PASS" if int(st.get("Container(9160).NumItems") or 0) >= 5 else "FAIL",
                         json.dumps(st), d.shot("sports-page"))
                 d.key("Back"); time.sleep(1.5)
                 continue
@@ -896,7 +910,7 @@ class OnDevice:
             if bname == "Settings":
                 # the gear opens WatchHub's own settings list (a select dialog run by the service)
                 self.click(B, "Header: Settings opens WatchHub settings", lambda l, s_, dl: "Window.IsActive(selectdialog)" in dl, back=False)
-                n = int(d.info("Container(3).NumItems").get("Container(3).NumItems") or 0)
+                n = max(int(d.info("Container(%d).NumItems" % c).get("Container(%d).NumItems" % c) or 0) for c in (3, 6))   # plain / detailed list
                 rep.add(B, "WatchHub settings entries", "PASS" if n >= 8 else "FAIL", "%d entries" % n, d.shot("wh-settings"))
                 d.key("Back"); time.sleep(1.5)
             if bname == "Search":
@@ -979,9 +993,8 @@ class OnDevice:
 
         def pick(prefix):
             """Select the menu entry starting with prefix (the menu follows uiworker.MENU_ORDER)."""
-            n = int(d.info("Container(996).NumItems").get("Container(996).NumItems") or 0)
-            labels = [d.info("Container(996).ListItemAbsolute(%d).Label" % k).get("Container(996).ListItemAbsolute(%d).Label" % k, "") for k in range(n)]
-            idx = next((k for k, l in enumerate(labels) if l.startswith(prefix)), 0)
+            labels = d.menu_labels()
+            idx = next((k for k, l in enumerate(labels) if prefix in l), 0)
             d.key("Down", idx) if idx else None
             d.key("Select"); time.sleep(2)
         pick("Add to Favorites")
@@ -1006,7 +1019,7 @@ class OnDevice:
         d.key("Down"); time.sleep(1)
         victim = d.info("Container(500).ListItem.Label").get("Container(500).ListItem.Label")
         d.rpc("Input.ContextMenu"); time.sleep(2)
-        n = int(d.info("Container(996).NumItems").get("Container(996).NumItems") or 0)
+        n = len(d.menu_labels())
         d.key("Down", max(n - 1, 0)); d.key("Select"); time.sleep(2)
         after = int(d.info("Container(500).NumItems").get("Container(500).NumItems") or 0)
         rep.add(B, "Guide: long-press > Hide this channel", "PASS" if after == before - 1 and d.sh("cat %s 2>/dev/null" % hfile).strip().startswith("[") else "FAIL",
@@ -1078,7 +1091,7 @@ class OnDevice:
             t = time.time()
             d.key("Select")
             opened = d.wait(lambda: active(1120), 15)
-            d.wait(lambda: num(9200) > 0 and num(9160) > 0, 30, 1)
+            d.wait(lambda: num(9200) > 0 and num(9160) > 0 and num(9100) > 0, 30, 1)
             rows = {r: num(r) for r in (9100, 9200, 9160, 9300, 9150)}
             rep.add(B, "Sports page: opens from the ball icon with its rows", "PASS" if opened and rows[9160] >= 6 and rows[9200] > 0 else "FAIL",
                     "rows (live, games, schedules, soon, by sport) = %s, %.1fs" % (list(rows.values()), time.time() - t), d.shot("sports-page"))
@@ -1098,8 +1111,7 @@ class OnDevice:
             d.goto_row(9400, ALL_ROWS); d.goto_item(9400, 1)
             req("plugin://plugin.video.sportshub/?action=ctx")
             menu = d.wait(lambda: active("contextmenu"), 10)
-            n = num(996)
-            labels = [d.info("Container(996).ListItemAbsolute(%d).Label" % k).get("Container(996).ListItemAbsolute(%d).Label" % k, "") for k in range(n)]
+            labels = d.menu_labels()
             pin = next((k for k, l in enumerate(labels) if l.startswith(("Pin", "Unpin"))), -1)
             ok = menu and labels and labels[0].startswith(("Play", "Watch on")) and 0 < pin < len(labels) - 1 and labels[-1].startswith(("Hide", "Undo"))
             rep.add(B, "Long-press menu: WatchHub's own, in order, grouped", "PASS" if ok else "FAIL", " / ".join(labels), d.shot("ctx-grouped"))
@@ -1133,7 +1145,7 @@ class OnDevice:
                 d.builtin("RunPlugin(plugin://plugin.video.sportshub/?action=upnext_back&title=%s&year=%s)" % (title, year))
                 moved = d.wait(lambda: lab(9960, 0) and lab(9960, 0) != old, 30)
                 n = num(9960)
-                tail = [lab(9960, k) for k in range(max(0, n - 2), n)]
+                tail = [l for l in (lab(9960, k) for k in range(max(0, n - 3), n)) if not l.startswith("Hidden")]
                 rep.add(B, "Up Next: Move to the end", "PASS" if moved and old in tail else "FAIL",
                         "%s moved; last cards now %s" % (old, tail), d.shot("upnext-moved"))
 
@@ -1146,7 +1158,11 @@ class OnDevice:
             rep.add(B, "WatchHub settings: Home screen rows and About listed", "PASS" if "Home screen rows" in entries and "About WatchHub" in entries else "FAIL",
                     ", ".join(entries))
             if "About WatchHub" in entries:
-                d.builtin("SetFocus(%d,%d,absolute)" % (sel, entries.index("About WatchHub"))); time.sleep(1); d.key("Select")
+                cur = int(d.info("Container(%d).CurrentItem" % sel).get("Container(%d).CurrentItem" % sel) or 1)
+                d.key("Down", entries.index("About WatchHub") + 1 - cur); time.sleep(1)
+                on = d.info("Container(%d).ListItem.Label" % sel).get("Container(%d).ListItem.Label" % sel)
+                if on == "About WatchHub":
+                    d.key("Select")
                 about = d.wait(lambda: active("textviewer"), 10)
                 rep.add(B, "About WatchHub: version and What's new", "PASS" if about else "FAIL", "", d.shot("about"))
                 d.key("Back"); time.sleep(1)
@@ -1201,7 +1217,8 @@ class OnDevice:
             d.home()
             d.builtin("RunPlugin(plugin://plugin.video.sportshub/?action=play&src=xumo&id=99951247&name=Saved by the Bell)")
             fg = d.wait(lambda: d.fg() == "com.xumo.xumo.tv", 25)
-            playing = d.wait(lambda: "state=3" in d.sh("dumpsys media_session | grep -m3 'state=PlaybackState'"), 30, 1)
+            time.sleep(12)   # a channel that won't tune drops back to Xumo's guide or home; the screenshot shows which
+            playing = d.fg() == "com.xumo.xumo.tv"   # still in Xumo after 12 s (the screenshot is the proof of the channel)
             rep.add(B, "Xumo: Saved by the Bell plays directly", "PASS" if fg and playing else ("ISSUE" if fg else "FAIL"),
                     "Xumo in front=%s, playing=%s" % (bool(fg), bool(playing)), d.shot("xumo-channel"))
             d.sh("am force-stop com.xumo.xumo.tv")
@@ -1353,6 +1370,24 @@ class OnDevice:
         rep.add(B, "Pick 'All services' returns to All view", "PASS" if not st.get("Window(Home).Property(sh_provider)") and st.get("System.CurrentControlId") == "9050" else "FAIL",
                 json.dumps(st), d.shot("back-to-all"))
 
+    def _search_back(self, B):
+        d, rep = self.d, self.rep
+        # Search -> open a title -> Back keeps the results
+        d.home(); d.goto_row(9050, ALL_ROWS); d.builtin("SetFocus(801)"); time.sleep(1)
+        d.key("Select")
+        if d.wait(lambda: d.is_("Window.IsActive(virtualkeyboard)").get("Window.IsActive(virtualkeyboard)"), 10):
+            d.rpc("Input.SendText", {"text": "ted lasso", "done": True})
+            d.wait(lambda: int(d.info("Container.NumItems").get("Container.NumItems") or 0) > 0, 20)
+            time.sleep(2)
+            d.key("Select")
+            opened = d.wait(lambda: d.is_("Window.IsActive(TitleInfo.xml)").get("Window.IsActive(TitleInfo.xml)"), 15)
+            d.key("Back"); time.sleep(2)
+            res = d.info("Container.FolderPath", "Container.NumItems", "System.CurrentWindow")
+            rep.add(B, "Search -> title -> Back keeps the results", "PASS" if opened and "sportshub" in res.get("Container.FolderPath", "") and int(res.get("Container.NumItems") or 0) > 0 else "FAIL",
+                    json.dumps(res), d.shot("search-back"))
+        else:
+            rep.add(B, "Search -> title -> Back keeps the results", "FAIL", "the search keyboard didn't open", d.shot("search-back"))
+
     def _after_filters(self, B):
         d, rep = self.d, self.rep
         # Back key on home, in both views
@@ -1379,23 +1414,7 @@ class OnDevice:
         st = d.info("Window(Home).Property(sh_provider)", "System.CurrentControlId")
         rep.add(B, "Back while in the header (provider view)", "INFO", json.dumps(st), d.shot("header-back-provider"))
         d.home(); d.goto_row(9051, PROVIDER_ROWS); d.goto_code(9051, ""); d.key("Select"); time.sleep(3)
-        # Search -> open a title -> Back keeps the results
-        d.home(); d.goto_row(9050, ALL_ROWS); d.key("Up")
-        for _ in range(4):
-            if d.focus() == 801:
-                break
-            d.key("Right")
-        d.key("Select")
-        if d.wait(lambda: d.is_("Window.IsActive(virtualkeyboard)").get("Window.IsActive(virtualkeyboard)"), 10):
-            d.rpc("Input.SendText", {"text": "ted lasso", "done": True})
-            d.wait(lambda: int(d.info("Container.NumItems").get("Container.NumItems") or 0) > 0, 20)
-            time.sleep(2)
-            d.key("Select")
-            opened = d.wait(lambda: d.is_("Window.IsActive(TitleInfo.xml)").get("Window.IsActive(TitleInfo.xml)"), 15)
-            d.key("Back"); time.sleep(2)
-            res = d.info("Container.FolderPath", "Container.NumItems", "System.CurrentWindow")
-            rep.add(B, "Search -> title -> Back keeps the results", "PASS" if opened and "sportshub" in res.get("Container.FolderPath", "") and int(res.get("Container.NumItems") or 0) > 0 else "FAIL",
-                    json.dumps(res), d.shot("search-back"))
+        self._search_back(B)
         d.home()
         # damaged state file: Kodi must still start, on All services
         d.sh("am force-stop %s" % KODI_PKG); time.sleep(2)

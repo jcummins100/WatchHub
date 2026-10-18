@@ -71,6 +71,16 @@ def arrange(items):
     return [top[k] for k in data["top"] if k in top] + front + [back[k] for k in data["back"] if k in back]
 
 
+def fit(items, n):
+    """At most n of arrange()'s list, with the shows you pushed back still at the end (pushed back, not
+    removed): they keep up to half the row when there are more shows than fit."""
+    back_keys = _load()["back"]
+    back = [t for t in items if key(t["title"], t["year"]) in back_keys]
+    rest = [t for t in items if key(t["title"], t["year"]) not in back_keys]
+    nb = min(len(back), max(n - len(rest), n // 2))
+    return rest[:n - nb] + (back[-nb:] if nb else [])
+
+
 def is_moved(title, year):
     k = key(title, year)
     data = _load()

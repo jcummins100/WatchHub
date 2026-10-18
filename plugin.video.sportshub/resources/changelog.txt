@@ -1,3 +1,6 @@
+0.7.30 - Oct 17
+Home rows come up from their saved copies more often: Rediscover and Recommended no longer make every row rebuild after they change. A show moved to the end of Up Next stays at the end of the row instead of dropping off it.
+
 0.7.29 - Oct 17
 Long-press menus put Play first, then Watch on…, on every row. The full test now checks every feature added since 0.6 (Sports page, calendar, Pin, Up Next moves, guide Search, Xumo, episode links, load times).
 

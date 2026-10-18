@@ -1027,14 +1027,8 @@ def trakt_list(row, svc=""):
             return
         # a service view filters the list, so look further down the history first (the All view's top 20
         # can easily contain nothing from that service)
-        picks = []
         from resources.lib import upnext
-        for t in upnext.arrange(trakt.up_next(limit=60 if svc else 30)):
-            if svc and not _on_service(t, svc):
-                continue
-            picks.append(t)
-            if len(picks) >= 20:
-                break
+        picks = upnext.fit([t for t in upnext.arrange(trakt.up_next(limit=60 if svc else 30)) if not svc or _on_service(t, svc)], 20)
         from concurrent.futures import ThreadPoolExecutor
         with ThreadPoolExecutor(max_workers=6) as pool:
             summaries = list(pool.map(_episode_summary, picks))
@@ -1283,7 +1277,9 @@ def _inputs_stamp():
     doesn't bump the Home refresh counter): a snapshot made before that can't be shown."""
     import os
     parts = ["v" + kodi.ADDON.getAddonInfo("version")]  # an update changes what rows show: rebuild them once
-    for name in ("settings.xml", "favorites.json", "upnext_order.json", "recommended.json", "guide_favorites.json", "guide_hidden.json", "rediscover.json"):
+    # not rediscover.json / recommended.json: those rows write them while building (which made every row's copy
+    # stale), and they have their own reload tokens (sh_rediscover / sh_recommended in their paths)
+    for name in ("settings.xml", "favorites.json", "upnext_order.json", "guide_favorites.json", "guide_hidden.json"):
         try:
             parts.append("%s:%d" % (name, os.path.getmtime(os.path.join(kodi.PROFILE_PATH, name))))
         except OSError:
