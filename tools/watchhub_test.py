@@ -1100,7 +1100,7 @@ class OnDevice:
             secs = time.time() - t
             rep.add(B, "Sports page: By sport %s opens" % name, verdict(secs, ok),
                     "%s in %.1fs, %s items" % ("listed" if ok else "did NOT list", secs, d.info("Container.NumItems").get("Container.NumItems")),
-                    d.shot("bysport-%s" % name) if not ok or secs > 5 else None)
+                    d.shot("bysport-%s" % name) if not ok or secs > 5 else "")
             if active("videos"):
                 d.key("Back"); d.wait(lambda: active(1120), 8)
             if not active(1120) and not sports_page():
