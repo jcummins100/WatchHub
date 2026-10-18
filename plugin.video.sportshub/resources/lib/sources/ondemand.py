@@ -450,6 +450,61 @@ def upcoming(codes=None):
     return out
 
 
+_EPISODES = """
+query Episodes($country: Country!, $language: Language!, $filter: TitleFilter) {
+  popularTitles(country: $country, first: 1, filter: $filter) { edges { node { ... on Show {
+    content(country: $country, language: $language) { title originalReleaseYear }
+    seasons { content(country: $country, language: $language) { seasonNumber }
+      episodes { content(country: $country, language: $language) { episodeNumber }
+        offers(country: $country, platform: ANDROID_TV) { monetizationType presentationType retailPrice(language: $language)
+          standardWebURL deeplinkURL: deeplinkURL(platform: ANDROID_TV) package { packageId shortName clearName technicalName } } } } } } } }
+}
+"""
+
+
+def _intent_to_url(dl):
+    """intent://host/path?q#Intent;package=...;scheme=https;end -> https://host/path?q"""
+    if not dl.startswith("intent://"):
+        return dl
+    rest, _, tail = dl[len("intent://"):].partition("#Intent;")
+    scheme = next((p[len("scheme="):] for p in tail.split(";") if p.startswith("scheme=")), "https")
+    return "%s://%s" % (scheme, rest)
+
+
+def episode_link(title, year, season, episode):
+    """(package, url) that plays this episode on one of your services, or None (then open the show).
+    JustWatch carries episode offers with their own deep links (Prime: watch.amazon.com/watch?asin=...),
+    checked on the Shield Pro Oct 17: MobLand S2E05 started playing after Prime's profile screen."""
+    codes = installed_codes()
+    variables = {"country": kodi.setting("region", "us").upper(), "language": "en",
+                 "filter": {"searchQuery": title, "objectTypes": ["SHOW"]}}
+    key = "jw:episodes:%s:" % QV + json.dumps(variables, sort_keys=True)
+    data = cache.get(key, 6 * 3600)
+    if data is None:
+        body = json.dumps({"query": _EPISODES, "variables": variables}).encode("utf-8")
+        req = urllib.request.Request(API, data=body, headers={"Content-Type": "application/json", "User-Agent": "Mozilla/5.0 (Kodi SportsHub)"})
+        try:
+            with urllib.request.urlopen(req, timeout=20) as resp:
+                data = json.loads(resp.read().decode("utf-8")).get("data") or {}
+            cache.put(key, data)
+        except Exception as exc:
+            kodi.log("justwatch episodes failed: %s" % exc)
+            return None
+    edges = (data.get("popularTitles") or {}).get("edges") or []
+    node = (edges[0].get("node") or {}) if edges else {}
+    for sn in node.get("seasons") or []:
+        if str((sn.get("content") or {}).get("seasonNumber")) != str(season):
+            continue
+        for ep in sn.get("episodes") or []:
+            if str((ep.get("content") or {}).get("episodeNumber")) != str(episode):
+                continue
+            offer = _best_offer([o for o in ep.get("offers") or [] if o.get("deeplinkURL")], codes)
+            if offer:
+                code = offer["package"]["shortName"]
+                return BY_CODE[code][1], _intent_to_url(offer["deeplinkURL"])
+    return None
+
+
 def rows():
     """[(label, kind, arg)] for the on-demand menu; services limited to installed apps."""
     codes = installed_codes()

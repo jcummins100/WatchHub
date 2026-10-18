@@ -122,38 +122,46 @@ class TitleInfo(xbmcgui.WindowXMLDialog):
 
     def _fill_related(self):
         """Under the buttons: every movie in the series (oldest first, this one marked), then up to a dozen
-        recommendations, the ones on your services first. Green bar = on your services."""
+        recommendations. The posters go up at once (TMDB, ~0.3 s); where each one streams (JustWatch, a few
+        seconds) fills in after: green bar = on your services."""
         t = time.time()
         it, d = self.item, self.details
         name, parts, recs = tmdb.related(d.get("media") or ("movie" if it["type"] == "Movie" else "tv"), d["tmdb_id"])
         if len(parts) < 2:
             parts = []  # a "series" of one is just this movie
-        from concurrent.futures import ThreadPoolExecutor
-        with ThreadPoolExecutor(max_workers=6) as pool:
-            found = list(pool.map(lambda x: ondemand.lookup(x["title"], x["year"], x["type"]), parts + recs))
-        if self.closed.is_set():
+        recs = recs[:12]
+        if self.closed.is_set() or not (parts or recs):
             return
-        series = list(zip(parts, found[:len(parts)]))
-        more = list(zip(recs, found[len(parts):]))
-        more.sort(key=lambda pair: not (pair[1] and pair[1].get("playable")))  # on your services first
-        self.related = series + more[:12]
+        self.related = [(x, None) for x in parts + recs]
         items = []
-        for i, (x, od) in enumerate(self.related):
+        for i, x in enumerate(parts + recs):
             li = xbmcgui.ListItem(x["title"])
             li.setArt({"thumb": x["poster"]})
-            in_series = i < len(series)
-            li.setProperty("section", ("IN THE SERIES · %s" % name) if in_series and name else "IN THE SERIES" if in_series else "YOU MAY ALSO LIKE")
+            in_series = i < len(parts)
+            li.setProperty("section", ("IN THE SERIES \u00b7 %s" % name) if in_series and name else "IN THE SERIES" if in_series else "YOU MAY ALSO LIKE")
             li.setProperty("year", x["year"])
             current = in_series and x["tmdb_id"] == d.get("tmdb_id")
             li.setProperty("current", "1" if current else "")
-            playable = bool(od and od.get("playable"))
-            li.setProperty("mine", "1" if playable and not current else "")
-            li.setProperty("where", "this movie" if current else (od["service"] if playable else "not on your services"))
+            li.setProperty("where", "this movie" if current else "")
             items.append(li)
         lst = self.getControl(LIST_RELATED)
         lst.reset()
         lst.addItems(items)
-        kodi.log("info: %d in the series, %d you may also like (%.2fs)" % (len(series), len(more[:12]), time.time() - t))
+        kodi.log("info: %d in the series, %d you may also like on screen (%.2fs)" % (len(parts), len(recs), time.time() - t))
+        from concurrent.futures import ThreadPoolExecutor
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            found = list(pool.map(lambda x: ondemand.lookup(x["title"], x["year"], x["type"]), parts + recs))
+        if self.closed.is_set():
+            return
+        self.related = list(zip(parts + recs, found))
+        for i, (x, od) in enumerate(self.related):
+            li = lst.getListItem(i)
+            if li.getProperty("current"):
+                continue
+            playable = bool(od and od.get("playable"))
+            li.setProperty("mine", "1" if playable else "")
+            li.setProperty("where", od["service"] if playable else "not on your services")
+        kodi.log("info: where-to-watch filled in (%.2fs)" % (time.time() - t))
 
     def _fetch_seasons(self):
         it, d = self.item, self.details
@@ -201,6 +209,8 @@ class TitleInfo(xbmcgui.WindowXMLDialog):
             self.close()
             if self.focus_ep:  # opened from Up Next: that's the episode being watched
                 finish.remember(it["title"], it.get("year", ""), self.focus_ep[0], self.focus_ep[1], self.focus_name)
+                self._play_episode(self.focus_ep[0], self.focus_ep[1])
+                return
             kodi.start_android_activity(it["play"]["pkg"], action="android.intent.action.VIEW", data_uri=it["play"]["url"])
         elif control_id == BTN_TRAILER:
             url = tmdb.trailer_url(it["title"], it.get("year", ""), it["type"]) if tmdb.enabled() else ""
@@ -242,11 +252,25 @@ class TitleInfo(xbmcgui.WindowXMLDialog):
         elif control_id == LIST_EPISODES:
             pos = self.getControl(LIST_EPISODES).getSelectedPosition()
             if 0 <= pos < len(self.episodes) and it.get("play", {}).get("pkg"):
-                # Apps rarely deep-link to a specific episode; open the show and let the user pick.
                 self.close()
                 e = self.episodes[pos]
                 finish.remember(it["title"], it.get("year", ""), self.season_shown, e["number"], e.get("name", ""))
-                kodi.start_android_activity(it["play"]["pkg"], action="android.intent.action.VIEW", data_uri=it["play"]["url"])
+                self._play_episode(self.season_shown, e["number"])
+
+    def _play_episode(self, season, number):
+        """That episode itself when the service has an episode link (JustWatch), else the show's page."""
+        it = self.item
+        link = None
+        try:
+            link = ondemand.episode_link(it["title"], it.get("year", ""), season, number)
+        except Exception as exc:
+            kodi.log("info: episode link lookup failed: %s" % exc)
+        if link:
+            kodi.log("info: playing S%sE%s from its own link (%s)" % (season, number, link[0]))
+            kodi.start_android_activity(link[0], action="android.intent.action.VIEW", data_uri=link[1])
+        else:
+            kodi.log("info: no episode link for S%sE%s, opening the show" % (season, number))
+            kodi.start_android_activity(it["play"]["pkg"], action="android.intent.action.VIEW", data_uri=it["play"]["url"])
 
     def _focus_id(self):
         try:

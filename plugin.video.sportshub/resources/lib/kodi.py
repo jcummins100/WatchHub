@@ -201,8 +201,10 @@ def load_row(key):
 
 
 def save_row(key, snap):
+    import threading
     path = _row_file(key)
-    tmp = "%s.%d.tmp" % (path, os.getpid())
+    # every plugin call runs as a thread of Kodi's one process: the pid alone isn't unique
+    tmp = "%s.%d.%d.tmp" % (path, os.getpid(), threading.get_ident())
     try:
         with open(tmp, "w", encoding="utf-8") as fh:
             json.dump(snap, fh)

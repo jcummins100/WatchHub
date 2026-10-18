@@ -1,3 +1,6 @@
+0.7.27 - Oct 17
+Up Next and the episode list play the episode itself on Netflix, Prime Video, Apple TV and others (MobLand S2E05 starts after Prime's profile screen). Movie pages show "In the series" / "You may also like" right away; where each streams fills in after.
+
 0.7.26 - Oct 17
 Home screen rows: the Move up / Move down / Hide choices open as a centred list (they could land off screen).
 
