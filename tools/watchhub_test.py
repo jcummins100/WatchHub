@@ -287,6 +287,96 @@ class Offline:
               lambda r, b: (len(r["items"]) > 0, "first 3 now: %s" % ", ".join(labels(r)[:3])), service_priority="plex,pluto,roku,samsung")
 
 
+    def py(self, code):
+        """Run a snippet against WatchHub's code with the dev stubs (a scratch profile); it prints one JSON line."""
+        env = dict(os.environ, SH_skin="skin.sportshub", **self.env)
+        env.pop("SH_JSON", None)
+        src = ("import contextlib, io, json, os, runpy, sys, tempfile\n"
+               "sys.argv = [sys.argv[0], 'action=__none__']\n"
+               "with contextlib.redirect_stdout(io.StringIO()):\n"
+               "    runpy.run_path(%r, run_name='x')\n"
+               "sys.path.insert(0, %r)\n" % (os.path.join(ROOT, "tools/dev_run.py"), os.path.join(ROOT, "plugin.video.sportshub")) + code)
+        src = src.replace("print(json.dumps(", "print('@@R ' + json.dumps(")
+        p = subprocess.run([sys.executable, "-c", src], capture_output=True, text=True, env=env, timeout=300, cwd=ROOT)
+        try:
+            return json.loads([l[4:] for l in p.stdout.splitlines() if l.startswith("@@R ")][-1]), ""
+        except (ValueError, IndexError):
+            err = p.stderr[p.stderr.find("Traceback"):] if "Traceback" in p.stderr else (p.stderr or p.stdout)
+            return None, err[-400:]
+
+    def new_features(self):
+        """A8: the features added in 0.6.1-0.7.28, checked against WatchHub's own code (no Shield needed)."""
+        A = "A Logic"
+
+        def add(name, code, judge):
+            res, err = self.py(code)
+            if res is None:
+                self.rep.add(A, name, "FAIL", err)
+                return
+            ok, detail = judge(res)
+            self.rep.add(A, name, ok if isinstance(ok, str) else ("PASS" if ok else "FAIL"), detail)
+
+        add("Home rows: default order (Services ... Trailers, Browse, More)",
+            "from resources.lib import homerows as h\nx=open(os.path.join(%r,'skin.sportshub/xml/Home.xml')).read()\n"
+            "print(json.dumps({'cur':h.current(x),'default':h.DEFAULT,'same':h.render(x,h.DEFAULT,[])==x}))" % ROOT,
+            lambda r: (r["cur"] == r["default"] and r["same"], "skin order %s, re-rendering the default changes nothing: %s" % (r["cur"], r["same"])))
+        add("Home rows editor: move + hide renders, and back again exactly",
+            "from resources.lib import homerows as h\nx=open(os.path.join(%r,'skin.sportshub/xml/Home.xml')).read()\n"
+            "o=list(h.DEFAULT); o.insert(0,o.pop(o.index('9400')))\ny=h.render(x,o,['9200'])\n"
+            "print(json.dumps({'cur':h.current(y),'off':'content_path_off' in y,'back':h.render(y,h.DEFAULT,[])==x}))" % ROOT,
+            lambda r: (r["cur"][0] == "9400" and "9200" not in r["cur"] and r["off"] and r["back"], json.dumps(r)))
+        add("Up Next order: move up / top / end / usual place / hide",
+            "from resources.lib import upnext as u, kodi\nkodi.PROFILE_PATH=tempfile.mkdtemp()\n"
+            "it=[{'title':t,'year':2020,'next':'S01E01'} for t in 'ABCDE']\nK=lambda:[x['title'] for x in u.arrange(it)]\nkey=lambda:[u.key(x['title'],2020) for x in u.arrange(it)]\n"
+            "u.move_up('C',2020,key()); a=K(); u.move_top('E',2020); b=K(); u.move_back('A',2020); c=K(); u.hide('B',2020,'S01E01'); d=K()\n"
+            "it[1]['next']='S01E02'; e=K()\nprint(json.dumps([a,b,c,d,e]))",
+            lambda r: (r == [list("ACBDE"), list("EACBD"), list("ECBDA"), list("ECDA"), list("ECBDA")], json.dumps(r)))
+        add("Recommended: daily set, different picks, pins first",
+            "from resources.lib import recommend as r, kodi\nkodi.PROFILE_PATH=tempfile.mkdtemp()\nc=['k%02d'%i for i in range(45)]\n"
+            "a=r.choose(c); r.reshuffle(); b=r.choose(c); r.pin('k44','',''); k=r.key('k44','',''); r.reshuffle(); d=r.choose(c+[k])\n"
+            "print(json.dumps({'a':len(a),'overlap':len(set(a)&set(b)),'pin_first':d[0]==k,'n':len(d)}))",
+            lambda r: (r["a"] == 20 and r["overlap"] == 0 and r["pin_first"] and r["n"] == 20, json.dumps(r)))
+        add("Long-press menu: one order, Watch on / Move / Trakt grouped",
+            "from resources.lib import uiworker as u\n"
+            "L=['Hide this movie','Trakt: mark as watched','Pin (keep it when the row changes)','Watch on Hulu','Play on Netflix','Watch on Apple TV','Watch trailer','\u2605 Add to Favorites','Trakt: add to watchlist','Move up one','Move to the top of Up Next','More like this']\n"
+            "e=[[l,'c'] for l in L]; e.sort(key=lambda x:u.menu_rank(x[0]))\nprint(json.dumps([[n, [x[0] for x in s] if isinstance(s,list) else ''] for n,s in u.group_menu(e)]))",
+            lambda r: ([n for n, _ in r] == ["Play on Netflix", "Watch on\u2026", "Watch trailer", "Move\u2026", "More like this", "\u2605 Add to Favorites",
+                                              "Trakt\u2026", "Pin (keep it when the row changes)", "Hide this movie"], " / ".join(n for n, _ in r)))
+        add("Rediscover: Pin kept through \"Show me 20 different movies\"",
+            "from resources.lib import rediscover as rd, kodi\nkodi.PROFILE_PATH=tempfile.mkdtemp()\n"
+            "rd._save({'picks':['a','b','c'],'next':['x','y','z'],'pinned':['b'],'day':'d'})\nrd.reshuffle()\nprint(json.dumps(rd._load()['picks']))",
+            lambda r: (r[0] == "b" and "x" in r and "a" not in r, json.dumps(r)))
+        add("TV Guide: All first, Search last; a search shows under the Search tab",
+            "from resources.lib import guide as g\nch=g.channels()\nr=g.in_tab(ch,'\u201cprice\u201d',[])\n"
+            "print(json.dumps({'tabs':g.tabs('\u201cprice\u201d'),'n':len(r),'first':[c['name'] for c in r[:3]]}))",
+            lambda r: (r["tabs"][0] == "All" and r["tabs"][-1] == "Search" and not any(t.startswith("\u201c") for t in r["tabs"]) and r["n"] > 0,
+                       "tabs %s; 'price' finds %d: %s" % (r["tabs"], r["n"], r["first"])))
+        add("Xumo: channel link tunes (deepLinkType=channel_no_ui with a path)",
+            "from resources.lib.sources import fast\nprint(json.dumps(fast.SERVICES['xumo']['deeplink']))",
+            lambda r: ("www.xumo.tv/live?" in r and "channel_no_ui" in r and "{id}" in r, r))
+        add("Sports calendar: NFL week grouped by division",
+            "from resources.lib import schedule\nw=schedule.week('nfl',0)\nprint(json.dumps({'range':w['range'],'groups':[[n,len(g)] for n,g in w['groups']]}))",
+            lambda r: (len([g for g in r["groups"] if g[0].startswith(("AFC", "NFC"))]) >= 6 or "No games" in r["range"],
+                       "%s: %s" % (r["range"], ", ".join("%s %d" % tuple(g) for g in r["groups"][:6]))))
+        add("Episode links: MobLand S2E05 has its own link",
+            "from resources.lib.sources import ondemand\nprint(json.dumps(ondemand.episode_link('MobLand','2025',2,5)))",
+            lambda r: ("ISSUE" if not r else "watch" in r[1] or "/episode/" in r[1], json.dumps(r)))
+        add("Info page: The Dark Knight series + You may also like",
+            "from resources.lib.sources import tmdb\nok=tmdb.enabled()\nd=tmdb.details('The Dark Knight','2008','Movie') if ok else {}\n"
+            "n,p,r=tmdb.related(d.get('media'),d.get('tmdb_id')) if ok else ('',[],[])\nprint(json.dumps({'key':ok,'series':[x['title'] for x in p],'recs':len(r)}))",
+            lambda r: ("INFO" if not r["key"] else len(r["series"]) >= 3 and r["recs"] > 3,
+                       "no TMDB key off-device" if not r["key"] else "%s; %d recommendations" % (r["series"], r["recs"])))
+        add("About WatchHub: version and What's new",
+            "from resources.lib import settingsmenu as m\nt=m.about_text()\nprint(json.dumps({'ok':\"What's new\" in t,'first':t.split('\\n')[6:8]}))",
+            lambda r: (r["ok"], json.dumps(r["first"])))
+        for name, q in [("Recommended for you", "action=trakt&row=recommended&skin=1"), ("Trailers", "action=trailers&skin=1"),
+                        ("Sports page: Schedules", "action=calendars&skin=1")]:
+            r = self.run(q)
+            n = len(r["items"])
+            res = "FAIL" if r["err"] else ("PASS" if n else "INFO")
+            self.rep.add(A, "Home row: %s" % name, res, "%d items in %.1fs%s" % (n, r["took"], " (needs Trakt / TMDB, off-device has neither)" if not n else ""))
+
+
 # ====================================================================== part B: on-device
 
     def favorites_check(self):
@@ -694,6 +784,7 @@ class OnDevice:
         d.home()
 
         self._guide_tests(B)
+        self._new_features(B)
 
         # ---------------- More row: every tile
         d.goto_row(9600, ALL_ROWS)
@@ -957,6 +1048,167 @@ class OnDevice:
         d.sh("rm -f %s" % favfile)  # leave no test favorites behind
         d.home()
 
+    def _new_features(self, B):
+        """B: what 0.6.1-0.7.28 added, on the TV. State the test changes (Rediscover picks, pins, Up Next order,
+        Recommended) is backed up first and put back after; nothing is written to Trakt."""
+        d, rep = self.d, self.rep
+        prof = KODI_HOME + "/userdata/addon_data/plugin.video.sportshub/"
+        keep = ["rediscover.json", "upnext_order.json", "recommended.json"]
+        for f in keep:
+            d.sh("cp %s%s %s%s.wh-test-bak 2>/dev/null" % (prof, f, prof, f))
+        req = lambda url: d.builtin("SetProperty(sh_ui_request,%s,home)" % url)
+        lab = lambda c, k: d.info("Container(%d).ListItemAbsolute(%d).Label" % (c, k)).get("Container(%d).ListItemAbsolute(%d).Label" % (c, k), "")
+        prop = lambda c, k, p: d.info("Container(%d).ListItemAbsolute(%d).Property(%s)" % (c, k, p)).get("Container(%d).ListItemAbsolute(%d).Property(%s)" % (c, k, p), "")
+        num = lambda c: int(d.info("Container(%d).NumItems" % c).get("Container(%d).NumItems" % c) or 0)
+        active = lambda w: d.is_("Window.IsActive(%s)" % w).get("Window.IsActive(%s)" % w)
+        try:
+            # ---- Sports page (header ball icon) and its calendar
+            d.home(); d.goto_row(9050, ALL_ROWS); d.builtin("SetFocus(807)"); time.sleep(1)
+            t = time.time()
+            d.key("Select")
+            opened = d.wait(lambda: active(1120), 15)
+            d.wait(lambda: num(9200) > 0 and num(9160) > 0, 30, 1)
+            rows = {r: num(r) for r in (9100, 9200, 9160, 9300, 9150)}
+            rep.add(B, "Sports page: opens from the ball icon with its rows", "PASS" if opened and rows[9160] >= 6 and rows[9200] > 0 else "FAIL",
+                    "rows (live, games, schedules, soon, by sport) = %s, %.1fs" % (list(rows.values()), time.time() - t), d.shot("sports-page"))
+            d.builtin("SetFocus(9160)"); time.sleep(2)
+            d.key("Select")
+            cal = d.wait(lambda: active("Calendar.xml"), 15)
+            d.wait(lambda: num(100) > 0, 20)
+            g, first = num(100), lab(200, 0)
+            rep.add(B, "Calendar: a league's week, grouped", "PASS" if cal and g >= 5 else "FAIL",
+                    "%d groups, first game %s" % (g, first), d.shot("calendar"))
+            d.builtin("SetFocus(302)"); time.sleep(1.5); d.key("Select")
+            changed = d.wait(lambda: lab(200, 0) and lab(200, 0) != first, 20)
+            rep.add(B, "Calendar: Next week", "PASS" if changed else "ISSUE", "first game %s -> %s" % (first, lab(200, 0)), d.shot("calendar-next"))
+            d.home()
+
+            # ---- WatchHub's long-press menu on a Rediscover poster: one order, groups
+            d.goto_row(9400, ALL_ROWS); d.goto_item(9400, 1)
+            req("plugin://plugin.video.sportshub/?action=ctx")
+            menu = d.wait(lambda: active("contextmenu"), 10)
+            n = num(996)
+            labels = [d.info("Container(996).ListItemAbsolute(%d).Label" % k).get("Container(996).ListItemAbsolute(%d).Label" % k, "") for k in range(n)]
+            pin = next((k for k, l in enumerate(labels) if l.startswith(("Pin", "Unpin"))), -1)
+            ok = menu and labels and labels[0].startswith(("Play", "Watch on")) and 0 < pin < len(labels) - 1 and labels[-1].startswith(("Hide", "Undo"))
+            rep.add(B, "Long-press menu: WatchHub's own, in order, grouped", "PASS" if ok else "FAIL", " / ".join(labels), d.shot("ctx-grouped"))
+            d.key("Back"); time.sleep(1)
+
+            # ---- Pin: the first Rediscover card gets PINNED, focus stays
+            picks = json.loads(d.sh("cat %srediscover.json" % prof) or "{}").get("picks") or []
+            if picks:
+                d.goto_row(9400, ALL_ROWS); d.goto_item(9400, 2)
+                before = lab(9400, 1)
+                d.builtin("RunPlugin(plugin://plugin.video.sportshub/?action=rediscover_pin&id=%s)" % picks[1])
+                pinned = d.wait(lambda: any(lab(9400, k) == before and prop(9400, k, "pinned") == "1" for k in range(4)), 20)
+                here = d.info("Container(9400).ListItem.Label").get("Container(9400).ListItem.Label")
+                rep.add(B, "Rediscover: Pin (badge, focus stays on the card)", "PASS" if pinned and here == before else "FAIL",
+                        "%s pinned=%s, focus on %s" % (before, bool(pinned), here), d.shot("rediscover-pinned"))
+                d.builtin("RunPlugin(plugin://plugin.video.sportshub/?action=rediscover_unpin&id=%s)" % picks[1])
+                d.wait(lambda: not any(lab(9400, k) == before and prop(9400, k, "pinned") == "1" for k in range(4)), 20)
+            # ---- Show me 20 different movies: the row changes in place
+            first = lab(9400, 0)
+            t = time.time()
+            d.builtin("RunPlugin(plugin://plugin.video.sportshub/?action=rediscover_new&id=x)")
+            new = d.wait(lambda: lab(9400, 0) and lab(9400, 0) != first, 60)
+            rep.add(B, "Rediscover: Show me 20 different movies", "PASS" if new else "FAIL",
+                    "%s -> %s in %.1fs" % (first, lab(9400, 0), time.time() - t), d.shot("rediscover-new"))
+
+            # ---- Up Next: Move to the end
+            d.home(); d.goto_row(9960, ALL_ROWS)
+            title, year = prop(9960, 0, "title"), prop(9960, 0, "year")
+            if title:
+                old = lab(9960, 0)
+                d.builtin("RunPlugin(plugin://plugin.video.sportshub/?action=upnext_back&title=%s&year=%s)" % (title, year))
+                moved = d.wait(lambda: lab(9960, 0) and lab(9960, 0) != old, 30)
+                n = num(9960)
+                tail = [lab(9960, k) for k in range(max(0, n - 2), n)]
+                rep.add(B, "Up Next: Move to the end", "PASS" if moved and old in tail else "FAIL",
+                        "%s moved; last cards now %s" % (old, tail), d.shot("upnext-moved"))
+
+            # ---- WatchHub settings: Home screen rows and About
+            d.home()
+            req("plugin://plugin.video.sportshub/?action=wh_settings")
+            d.wait(lambda: active("selectdialog"), 10); time.sleep(1)
+            sel = 3 if num(3) else 6   # plain / detailed select list
+            entries = [lab(sel, k) for k in range(num(sel))]
+            rep.add(B, "WatchHub settings: Home screen rows and About listed", "PASS" if "Home screen rows" in entries and "About WatchHub" in entries else "FAIL",
+                    ", ".join(entries))
+            if "About WatchHub" in entries:
+                d.builtin("SetFocus(%d,%d,absolute)" % (sel, entries.index("About WatchHub"))); time.sleep(1); d.key("Select")
+                about = d.wait(lambda: active("textviewer"), 10)
+                rep.add(B, "About WatchHub: version and What's new", "PASS" if about else "FAIL", "", d.shot("about"))
+                d.key("Back"); time.sleep(1)
+            d.key("Back"); time.sleep(1)
+
+            # ---- TV Guide: opens on All with the tab bar focused; Search shows under the Search tab
+            d.home()
+            req("plugin://plugin.video.sportshub/?action=guide")
+            d.wait(lambda: active("Guide.xml") and num(500) > 0, 30); time.sleep(1)
+            st = d.info("Window(13000).Property(tab)", "System.CurrentControlId")
+            rep.add(B, "Guide: opens on All, highlight on the tab bar", "PASS" if st.get("Window(13000).Property(tab)") == "All" and st.get("System.CurrentControlId") == "300" else "FAIL",
+                    json.dumps(st))
+            d.builtin("SetFocus(300)"); time.sleep(1)
+            for _ in range(12):
+                if d.info("Container(300).ListItem.Label").get("Container(300).ListItem.Label") == "Search":
+                    break
+                d.key("Right")
+            d.key("Select")
+            if d.wait(lambda: active("virtualkeyboard"), 10):
+                d.rpc("Input.SendText", {"text": "price", "done": True})
+            found = d.wait(lambda: "price" in (d.info("Window(13000).Property(tab)").get("Window(13000).Property(tab)") or "") and num(500) > 0, 20)
+            rep.add(B, "Guide: Search 'price' shows under the Search tab", "PASS" if found else "FAIL",
+                    "%s, %d channels" % (d.info("Window(13000).Property(tab)").get("Window(13000).Property(tab)"), num(500)), d.shot("guide-search"))
+            d.key("Back"); time.sleep(2)
+            back_all = d.info("Window(13000).Property(tab)").get("Window(13000).Property(tab)") == "All"
+            rep.add(B, "Guide: Back clears the search", "PASS" if back_all else "FAIL", "")
+            d.home()
+
+            # ---- Info page: series row on screen fast (TMDB key is on the Shield)
+            t = time.time()
+            req("plugin://plugin.video.sportshub/?action=info&title=The Dark Knight&year=2008&kind=Movie")
+            row = d.wait(lambda: num(300) >= 3, 15, 0.25)
+            sec = prop(300, 0, "section")
+            rep.add(B, "Info page: In the series + You may also like", "PASS" if row and "SERIES" in sec else "FAIL",
+                    "%d posters, '%s', on screen %.1fs after asking" % (num(300), sec, time.time() - t), d.shot("info-series"))
+            d.home()
+
+            # ---- Episode link: MobLand S2E05 from its Up Next page goes to that episode in Prime (stops at Prime's profile screen)
+            mark = d.log_lines()
+            req("plugin://plugin.video.sportshub/?action=info&title=MobLand&year=2025&kind=Show&season=2&episode=5")
+            if d.wait(lambda: active("TitleInfo.xml"), 15):
+                time.sleep(2)
+                d.key("Select")
+                ok = d.wait(lambda: any("from its own link" in l for l in d.log_since(mark)), 20)
+                rep.add(B, "Episode link: MobLand S2E05 opens the episode", "PASS" if ok else "FAIL",
+                        next((l.split("] ", 1)[-1] for l in d.log_since(mark) if "episode link" in l or "own link" in l), ""), d.shot("episode-link"))
+                time.sleep(4)
+                d.sh("am force-stop com.amazon.amazonvideo.livingroom")
+                d.kodi_front()
+
+            # ---- Xumo: a channel plays directly
+            d.home()
+            d.builtin("RunPlugin(plugin://plugin.video.sportshub/?action=play&src=xumo&id=99951247&name=Saved by the Bell)")
+            fg = d.wait(lambda: d.fg() == "com.xumo.xumo.tv", 25)
+            playing = d.wait(lambda: "state=3" in d.sh("dumpsys media_session | grep -m3 'state=PlaybackState'"), 30, 1)
+            rep.add(B, "Xumo: Saved by the Bell plays directly", "PASS" if fg and playing else ("ISSUE" if fg else "FAIL"),
+                    "Xumo in front=%s, playing=%s" % (bool(fg), bool(playing)), d.shot("xumo-channel"))
+            d.sh("am force-stop com.xumo.xumo.tv")
+            d.kodi_front()
+        finally:
+            for f in keep:
+                d.sh("if [ -f %s%s.wh-test-bak ]; then mv %s%s.wh-test-bak %s%s; fi" % (prof, f, prof, f, prof, f))
+            d.builtin("SetProperty(sh_refresh,%d,home)" % time.time())
+            d.home()
+
+    def _speed(self, B):
+        """Load times from this run's Kodi log (tools/perf_report.py): typical and worst per screen."""
+        p = subprocess.run([sys.executable, os.path.join(ROOT, "tools/perf_report.py"), "--ip", self.d.ip], capture_output=True, text=True, timeout=120)
+        lines = [l for l in p.stdout.splitlines() if l.strip()]
+        self.rep.add(B, "Load times (this session)", "INFO", " | ".join(lines[1:])[:2000])
+        slow = [l for l in lines if l.endswith("<- slow") and l.startswith(("list", "Info", "TV Guide", "Browse", "Calendar"))]
+        self.rep.add(B, "Load times: nothing you wait on is slow (typical < 3 s)", "ISSUE" if slow else "PASS", " | ".join(slow)[:1500])
+
     def _gaps(self, B):
         """Re-run of the row clicks a first run lost to Kodi being killed, then every service filter."""
         d, rep = self.d, self.rep
@@ -1188,6 +1440,7 @@ class OnDevice:
         tbs = full.count("Traceback")
         errs = [l for l in full.splitlines() if " error <general>" in l and "GL_" not in l]
         rep.add(B, "Kodi log: tracebacks / errors this session", "PASS" if not tbs else "FAIL", "%d tracebacks, %d error lines. %s" % (tbs, len(errs), " || ".join(e[-160:] for e in errs[:5])))
+        self._speed(B)
         slow = [l for l in full.splitlines() if "fetch failed" in l]
         if slow:
             rep.note("Observation", "%d failed fetches in the Kodi log this session (first: %s)" % (len(slow), slow[0][-160:]))
@@ -1218,6 +1471,7 @@ def main():
         off.suite()
         off.guide_data()
         off.favorites_check()
+        off.new_features()
     if args.only != "A":
         # app launches during a test run don't count toward WatchHub's usage counts (the lean app set)
         marker = KODI_HOME + "/userdata/addon_data/plugin.video.sportshub/testing"

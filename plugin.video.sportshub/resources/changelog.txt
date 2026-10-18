@@ -1,3 +1,6 @@
+0.7.29 - Oct 17
+Long-press menus put Play first, then Watch on…, on every row. The full test now checks every feature added since 0.6 (Sports page, calendar, Pin, Up Next moves, guide Search, Xumo, episode links, load times).
+
 0.7.28 - Oct 17
 Every screen logs how long it took to appear (tools/perf_report.py lists the slowest), so slow spots can be found and sped up.
 
